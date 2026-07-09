@@ -1,0 +1,1596 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tormia Ontology RPG Core Overview</title>
+  <style>
+    :root {
+      --bg: #10131a;
+      --panel: #171c26;
+      --panel-2: #202737;
+      --text: #eef2ff;
+      --muted: #b5bfd4;
+      --accent: #8bd3ff;
+      --accent-2: #b7f7a8;
+      --warn: #ffd166;
+      --line: #30394d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #1f3146 0, var(--bg) 42%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+      line-height: 1.6;
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    header {
+      padding: 32px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(139, 211, 255, 0.14), rgba(183, 247, 168, 0.08)), var(--panel);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    h1, h2, h3 { line-height: 1.25; }
+    h1 { margin: 0 0 12px; font-size: clamp(32px, 5vw, 54px); }
+    h2 { margin: 0 0 16px; font-size: 28px; color: var(--accent); }
+    h3 { margin: 22px 0 10px; font-size: 20px; color: var(--accent-2); }
+
+    section {
+      margin-top: 28px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(23, 28, 38, 0.92);
+    }
+
+    .subtitle { color: var(--muted); font-size: 18px; max-width: 880px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .card { padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel-2); }
+    .tag { display: inline-block; margin: 4px 6px 4px 0; padding: 4px 10px; border-radius: 999px; background: #293247; color: var(--accent); font-size: 13px; }
+    .ok { color: var(--accent-2); font-weight: 700; }
+    .warn { color: var(--warn); font-weight: 700; }
+    code, pre { font-family: "Cascadia Code", Consolas, monospace; }
+    pre { overflow-x: auto; padding: 16px; border-radius: 14px; background: #0b0e14; border: 1px solid var(--line); color: #dbe7ff; }
+    table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 14px; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { text-align: left; color: var(--accent); background: #20283a; }
+    tr:last-child td { border-bottom: 0; }
+    ul { padding-left: 22px; }
+    .flow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .step { padding: 10px 14px; border-radius: 12px; background: #243047; border: 1px solid var(--line); }
+    .arrow { color: var(--accent); font-weight: 800; }
+    .diagram { display: grid; gap: 14px; }
+    .diagram-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: stretch; }
+    .node { padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: #20283a; min-height: 96px; }
+    .node strong { display: block; margin-bottom: 6px; color: var(--accent); }
+    .node small { color: var(--muted); }
+    .node.design { border-color: rgba(255, 209, 102, 0.55); }
+    .node.runtime { border-color: rgba(139, 211, 255, 0.55); }
+    .node.output { border-color: rgba(183, 247, 168, 0.55); }
+    .connector { text-align: center; color: var(--accent); font-weight: 800; letter-spacing: 0.08em; }
+    footer { margin-top: 36px; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Tormia 온톨로지 RPG Core 현황</h1>
+    <p class="subtitle">
+      이 문서는 현재까지 구현된 텍스트 기반 온톨로지 RPG Core를 기획자가 이해하기 쉽게 정리한 개요입니다.
+      핵심은 “하드코딩 이벤트”가 아니라, 월드의 사실과 규칙이 조합되어 행동, 퀘스트, NPC 반응이 자연스럽게 생성되는 구조입니다.
+    </p>
+    <p>
+      <span class="tag">World Facts</span>
+      <span class="tag">Data Rules</span>
+      <span class="tag">Player Ontology</span>
+      <span class="tag">NPC Reaction</span>
+      <span class="tag">Quest Generation</span>
+      <span class="tag">Action Candidates</span>
+      <span class="tag">Crafting Rule</span>
+      <span class="tag">Animation Ontology</span>
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 한 줄 요약</h2>
+    <p>
+      현재 Tormia는 <strong>월드에 존재하는 사실</strong>을 기반으로, 플레이어가 할 수 있는 행동을 만들고,
+      행동 결과가 룰을 통해 새 사건, 퀘스트, NPC 감정/관계 변화, 아이템 제작으로 이어지는 텍스트 기반 RPG Core까지 구현되어 있습니다.
+    </p>
+    <div class="flow">
+      <div class="step">월드 사실</div><div class="arrow">→</div>
+      <div class="step">가능 행동 생성</div><div class="arrow">→</div>
+      <div class="step">플레이어 선택</div><div class="arrow">→</div>
+      <div class="step">룰 시뮬레이션</div><div class="arrow">→</div>
+      <div class="step">이벤트/퀘스트/NPC 반응</div><div class="arrow">→</div>
+      <div class="step">월드 상태 변화</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 현재 플레이 예시</h2>
+    <pre>초기 상태
+- Player는 FireSword를 장착하고 있음
+- Tree/Bush/Reed는 Dry Plant
+- Goblin은 Fire를 두려워하고 Village 근처에 있음
+- QuestBoard가 존재함
+
+가능 행동
+- Attack Tree with FireSword
+- Attack Bush with FireSword
+- Attack Reed with FireSword
+- Talk to Goblin
+
+플레이어가 Tree를 공격
+→ Tree state Burning
+→ Tree emits Fire
+→ Tree emits Smoke
+→ Goblin intent Flee
+→ Goblin mood Afraid
+→ Village state Disturbed
+→ QuestBoard offers InvestigateSmokeAndPanic
+
+퀘스트 생성
+→ Investigate Smoke and Panic
+→ Goal 1: Inspect Tree
+→ Goal 2: Help Village
+
+플레이어가 Inspect / Help 완료
+→ Player completed_quest InvestigateSmokeAndPanic
+→ Village state Recovering
+→ Goblin relation to Player becomes Respectful
+
+추가 조합 예시
+- Player combined Stone
+- Player combined Stick
+→ Player has_item StoneAxe
+→ combined Stone / combined Stick 제거
+→ EventHistory: CraftStoneAxeRule</pre>
+  </section>
+
+  <section>
+    <h2>3. 현재 온톨로지 오브젝트</h2>
+    <table>
+      <thead><tr><th>오브젝트</th><th>역할</th><th>주요 온톨로지</th></tr></thead>
+      <tbody>
+        <tr><td>Player</td><td>플레이어 주체</td><td>Agent, PlayerControlled, Humanoid, Creature / has_skill, equipped, has_item</td></tr>
+        <tr><td>Tree</td><td>상호작용 가능한 건조 식물</td><td>Plant, Dry</td></tr>
+        <tr><td>Bush</td><td>추가 건조 식물</td><td>Plant, Dry</td></tr>
+        <tr><td>Reed</td><td>추가 건조 식물</td><td>Plant, Dry</td></tr>
+        <tr><td>FireSword</td><td>플레이어가 장착한 Fire 도구</td><td>Fire</td></tr>
+        <tr><td>Torch</td><td>월드에 있지만 장착하지 않은 Fire 도구</td><td>Fire</td></tr>
+        <tr><td>Goblin</td><td>NPC / 반응형 생명체</td><td>Creature, NPC, Agent, Humanoid / fears Fire, near Village, mood, faction</td></tr>
+        <tr><td>Village</td><td>장소/공동체</td><td>Disturbed, Recovering 같은 상태가 룰로 추가됨</td></tr>
+        <tr><td>QuestBoard, QuestBoardEast</td><td>퀘스트 hook 노출 장치</td><td>QuestBoard</td></tr>
+        <tr><td>Relation_Goblin_Player</td><td>NPC와 Player 관계 entity</td><td>Relation / subject Goblin / target Player / state Wary, Distrustful, Respectful</td></tr>
+        <tr><td>Reputation_Player_Village</td><td>Player와 Village 평판 entity</td><td>Reputation / subject Player / target Village / state Neutral</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. Player 설계</h2>
+    <p>Player는 단순 이름이 아니라, 행동 가능성을 만드는 온톨로지 주체로 정의되어 있습니다.</p>
+    <pre>Player has_concept Agent
+Player has_concept PlayerControlled
+Player has_concept Humanoid
+Player has_concept Creature
+
+Player state Healthy
+Player location Village
+Player has_item FireSword
+Player equipped FireSword
+Player has_skill Attack
+Player has_skill Inspect
+Player has_skill Help
+Player has_skill Talk</pre>
+    <p>따라서 FireSword가 월드에 있어도 Player가 장착하지 않으면 공격 후보가 나오지 않습니다.</p>
+  </section>
+
+  <section>
+    <h2>5. NPC 설계</h2>
+    <p>Goblin은 단순 적이 아니라 mood와 relation을 가진 NPC entity로 반응합니다.</p>
+    <pre>Goblin has_concept NPC
+Goblin has_concept Agent
+Goblin has_concept Humanoid
+Goblin fears Fire
+Goblin near Village
+Goblin mood Calm
+
+Tree emits Fire
+→ Goblin intent Flee
+→ Goblin mood Afraid
+
+Player talks_to Goblin while Goblin mood Afraid
+→ Relation_Goblin_Player state Distrustful
+
+Player helps Village
+→ Relation_Goblin_Player state Respectful</pre>
+  </section>
+
+  <section>
+    <h2>6. 데이터베이스 구조</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>RuleDatabase</h3>
+        <p>월드 사실을 새 사실/이벤트로 바꾸는 규칙입니다.</p>
+        <ul>
+          <li>BurnEvent</li>
+          <li>SmokeEvent</li>
+          <li>FleeEvent</li>
+          <li>DisturbanceEvent</li>
+          <li>QuestHookEvent</li>
+          <li>NpcFearMoodEvent</li>
+          <li>NpcDistrustEvent</li>
+          <li>NpcRespectEvent</li>
+          <li>QuestConsequenceEvent</li>
+          <li>CraftStoneAxeRule</li>
+          <li>TileWaterStatusWetRule</li>
+          <li>TileFreezingColdExposureRule</li>
+          <li>TileSwampMovementSlowRule</li>
+          <li>ColdExposureVitalityTickRule</li>
+        </ul>
+        <p><span class="ok">현재 등록 rule 수: 14개</span></p>
+      </div>
+      <div class="card">
+        <h3>QuestDatabase</h3>
+        <p>퀘스트 생성 조건과 목표를 정의합니다.</p>
+        <ul>
+          <li>Investigate Smoke and Panic</li>
+          <li>Inspect smoke source</li>
+          <li>Help disturbed place</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>ActionCandidateDatabase</h3>
+        <p>플레이어에게 보여줄 행동 후보를 정의합니다.</p>
+        <ul>
+          <li>Attack</li>
+          <li>Inspect</li>
+          <li>Help</li>
+          <li>Talk</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>ActionEffectDatabase</h3>
+        <p>선택한 행동이 어떤 fact를 추가하는지 정의합니다.</p>
+        <ul>
+          <li>attack → attacks</li>
+          <li>attack with tool → attacks_with</li>
+          <li>inspect → inspects</li>
+          <li>help → helps</li>
+          <li>talk → talks_to</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>7. Validation 상태</h2>
+    <p>현재 데이터베이스는 실행 시 검증 결과를 디버그 리포트에 표시합니다.</p>
+    <pre>RuleValidation: ok
+QuestValidation: ok
+ActionCandidateValidation: ok
+ActionEffectValidation: ok
+
+CraftStoneAxe 검증:
+hasStoneAxe=True
+consumedStone=True
+consumedStick=True
+eventFound=True
+
+TerrainTile 검증:
+playerWet=True
+playerColdExposure=True
+playerSlowed=True
+tileEventsFound=True
+
+Cold Tick 검증:
+afterTwoColdTicksVitality8=True
+sameTickBlocked=True
+secondTickApplied=True
+warmTickBlocked=True</pre>
+    <p>검증 항목은 빈 id, 빈 action verb, 빈 predicate, goal 누락, condition 누락, 중복 rule id 등을 포함합니다.</p>
+  </section>
+
+  <section>
+    <h2>8. 현재 구조적으로 좋은 점</h2>
+    <ul>
+      <li>Core는 UnityEngine에 의존하지 않는 순수 C# 구조입니다.</li>
+      <li>Unity scene object는 OntologyObject adapter를 통해 WorldState로 변환됩니다.</li>
+      <li>UI는 OntologyDebugPanel로 분리되어 있습니다.</li>
+      <li>Rule, Quest, ActionCandidate, ActionEffect가 asset database 기반입니다.</li>
+      <li>Relation/Reputation은 문자열 합성이 아니라 별도 entity로 표현됩니다.</li>
+      <li>Action/Event history는 WorldState가 아니라 OntologySession에 분리되어 있습니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>9. 비주얼 전 보완 완료 항목</h2>
+    <p>비주얼 작업 전에 Core를 더 단단하게 만들기 위해 아래 보완을 완료했습니다.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>상태 교체 룰</h3>
+        <p>기존 fact를 계속 누적하는 방식만 쓰지 않고, 상태를 교체할 수 있게 되었습니다.</p>
+        <pre>Village state Disturbed
+→ Quest 완료
+→ Village state Recovering
+→ Disturbed 제거</pre>
+      </div>
+      <div class="card">
+        <h3>QuestState entity</h3>
+        <p>퀘스트 완료 상태가 Player fact뿐 아니라 별도 QuestState entity에도 기록됩니다.</p>
+        <pre>QuestState_Player_InvestigateSmokeAndPanic
+has_concept QuestState
+actor Player
+quest InvestigateSmokeAndPanic
+state Completed</pre>
+      </div>
+      <div class="card">
+        <h3>저장/로드 포맷</h3>
+        <p>World facts, action history, event history를 snapshot으로 저장할 수 있는 데이터 포맷을 정의했습니다.</p>
+        <pre>OntologySaveData
+- facts
+- actionHistory
+- eventHistory</pre>
+      </div>
+      <div class="card">
+        <h3>복수 NPC/장소 검증</h3>
+        <p>Goblin/Village 외에 Scout/VillageEast도 같은 규칙으로 반응하는 샘플 시나리오를 추가했습니다.</p>
+        <pre>Goblin near Village
+Scout near VillageEast
+Tree emits Fire
+→ 두 NPC/장소가 독립적으로 반응</pre>
+      </div>
+    </div>
+    <p class="ok">검증 완료: 상태 교체, QuestState, save snapshot, 복수 NPC/장소 시나리오 모두 통과.</p>
+  </section>
+
+  <section>
+    <h2>10. 첫 번째 씨앗 규칙: StoneAxe 제작</h2>
+    <p>
+      이번에 추가한 규칙은 앞으로 자연물, 장비, 신체 변화 규칙을 늘려가기 위한 첫 번째 “씨앗 규칙”입니다.
+      새 전용 제작 시스템을 만들지 않고, 기존 온톨로지 fact와 RuleDatabase만으로 제작 결과를 추론합니다.
+    </p>
+
+    <h3>기획 문장</h3>
+    <pre>Player가 Stone과 Stick을 조합했다면
+두 조합 입력 fact를 소비하고
+Player에게 StoneAxe 아이템을 부여한다.</pre>
+
+    <h3>온톨로지 조건과 효과</h3>
+    <table>
+      <thead><tr><th>구분</th><th>Fact</th><th>의미</th></tr></thead>
+      <tbody>
+        <tr><td>조건</td><td>Player combined Stone</td><td>Player가 Stone을 조합 입력으로 올림</td></tr>
+        <tr><td>조건</td><td>Player combined Stick</td><td>Player가 Stick을 조합 입력으로 올림</td></tr>
+        <tr><td>조건</td><td>not Player has_item StoneAxe</td><td>이미 가진 아이템을 중복 제작하지 않음</td></tr>
+        <tr><td>효과</td><td>Player has_item StoneAxe</td><td>새 장비 획득</td></tr>
+        <tr><td>효과</td><td>remove Player combined Stone</td><td>조합 입력 Stone 소비</td></tr>
+        <tr><td>효과</td><td>remove Player combined Stick</td><td>조합 입력 Stick 소비</td></tr>
+      </tbody>
+    </table>
+
+    <h3>실제 등록된 규칙</h3>
+    <pre>Rule id: CraftStoneAxeRule
+EventHistory reason: Player -- CRAFTED --> StoneAxe
+
+IF
+- Player combined Stone
+- Player combined Stick
+- Player does not have StoneAxe
+
+THEN
+- AddFact Player has_item StoneAxe
+- RemoveFact Player combined Stone
+- RemoveFact Player combined Stick</pre>
+
+    <h3>검증 결과</h3>
+    <pre>ruleCount=10
+hasStoneAxe=True
+consumedStone=True
+consumedStick=True
+eventFound=True
+
+[EventHistory] CraftStoneAxeRule: Player -- CRAFTED --> StoneAxe</pre>
+
+    <p>
+      이 패턴은 앞으로 <strong>Wood + Stone → Campfire</strong>, <strong>Herb + Water → Medicine</strong>,
+      <strong>Hide + Thread → WarmClothes</strong> 같은 조합 규칙으로 그대로 확장할 수 있습니다.
+    </p>
+  </section>
+
+  <section>
+    <h2>11. 두 번째 씨앗 규칙: Terrain Tile 온톨로지</h2>
+    <p>
+      바닥 타일도 고유한 OntologyId를 가진 entity로 취급합니다.
+      캐릭터가 어떤 타일 위에 서 있는지만 fact로 기록하면, 타일의 물성에서 캐릭터 상태가 규칙으로 전이됩니다.
+    </p>
+
+    <h3>기획 의도</h3>
+    <pre>if (onSwamp) speed-- 같은 하드코딩 대신
+Player standing_on Tile_01
+Tile_01 has_element Water
+Tile_01 surface Swamp
+Tile_01 temperature Freezing
+같은 fact 관계로 상태 변화를 추론한다.</pre>
+
+    <h3>대표 타일 fact</h3>
+    <table>
+      <thead><tr><th>Fact</th><th>의미</th></tr></thead>
+      <tbody>
+        <tr><td>Tile_01 has_concept TerrainTile</td><td>Tile_01은 바닥 타일 entity</td></tr>
+        <tr><td>Player standing_on Tile_01</td><td>Player가 Tile_01 위에 서 있음</td></tr>
+        <tr><td>Tile_01 has_element Water</td><td>타일에 물 속성이 있음</td></tr>
+        <tr><td>Tile_01 temperature Freezing</td><td>타일이 영하/빙결 환경임</td></tr>
+        <tr><td>Tile_01 surface Swamp</td><td>타일 표면이 늪지임</td></tr>
+      </tbody>
+    </table>
+
+    <h3>추가된 전이 규칙</h3>
+    <table>
+      <thead><tr><th>Rule</th><th>조건</th><th>결과</th></tr></thead>
+      <tbody>
+        <tr><td>TileWaterStatusWetRule</td><td>?actor standing_on ?tile, ?tile has_element Water</td><td>?actor status Wet</td></tr>
+        <tr><td>TileFreezingColdExposureRule</td><td>?actor standing_on ?tile, ?tile temperature Freezing</td><td>?actor exposed_to ColdEnvironment</td></tr>
+        <tr><td>TileSwampMovementSlowRule</td><td>?actor standing_on ?tile, ?tile surface Swamp</td><td>?actor movement_state Slowed</td></tr>
+      </tbody>
+    </table>
+
+    <h3>검증 목표</h3>
+    <pre>Player standing_on Tile_01
+Tile_01 has_concept TerrainTile
+Tile_01 has_element Water
+Tile_01 temperature Freezing
+Tile_01 surface Swamp
+
+        ↓ RuleEngine
+
+Player status Wet
+Player exposed_to ColdEnvironment
+Player movement_state Slowed</pre>
+
+    <p>
+      이 구조가 4단계 환경 피해 규칙의 징검다리입니다.
+      3단계에서 수치 연산과 tick 제어가 들어오면, <strong>ColdEnvironment 노출 → 매 tick 체력 감소</strong>로 이어집니다.
+    </p>
+  </section>
+
+  <section>
+    <h2>12. 세 번째 씨앗 규칙: Numeric Fact & Tick 생존 루프</h2>
+    <p>
+      수치형 fact를 직접 조정하는 <code>AdjustNumberFact</code> 효과와 tick당 1회 실행을 막는 tick marker 구조를 추가했습니다.
+      이로써 영하 환경 노출이 실제 체력 감소로 이어지는 생존 루프의 최소 코어가 준비되었습니다.
+    </p>
+
+    <h3>추가된 엔진 기능</h3>
+    <table>
+      <thead><tr><th>기능</th><th>역할</th><th>예시</th></tr></thead>
+      <tbody>
+        <tr><td>AdjustNumberFact</td><td>숫자 object를 가진 fact를 delta만큼 교체</td><td>Player core_vitality 10 → 9</td></tr>
+        <tr><td>ChangedFactCount</td><td>Add뿐 아니라 Remove, Set, Adjust도 simulation 변경으로 계산</td><td>수치만 바뀌어도 안정화 판단 가능</td></tr>
+        <tr><td>tick marker</td><td>같은 tick에서 반복 피해 방지</td><td>Player cold_damage_tick Tick_1</td></tr>
+      </tbody>
+    </table>
+
+    <h3>ColdExposureVitalityTickRule</h3>
+    <pre>IF
+- Simulation current_tick ?tick
+- ?actor exposed_to ColdEnvironment
+- ?actor core_vitality ?vitality
+- not ?actor status Warm
+- not ?actor cold_damage_tick ?tick
+
+THEN
+- AdjustNumberFact ?actor core_vitality -1
+- AddFact ?actor cold_damage_tick ?tick</pre>
+
+    <h3>검증 결과</h3>
+    <pre>Tile_Cold_01 temperature Freezing
+Player standing_on Tile_Cold_01
+Player core_vitality 10
+Simulation current_tick Tick_1
+
+        ↓ TileFreezingColdExposureRule
+        ↓ ColdExposureVitalityTickRule
+
+Player exposed_to ColdEnvironment
+Player core_vitality 9
+Player cold_damage_tick Tick_1
+
+같은 Tick_1 재실행 → 추가 피해 없음
+Tick_2 실행 → Player core_vitality 8
+Tick_3 + Player status Warm → 추가 피해 없음</pre>
+
+    <p>
+      이 구조는 <strong>환경 추론</strong>과 <strong>수치 피해</strong>를 분리합니다.
+      타일 규칙은 “춥다”를 추론하고, tick 규칙은 “이번 tick에 체력이 줄었는가”를 관리합니다.
+    </p>
+  </section>
+
+  <section>
+    <h2>13. 유저 입장에서의 게임 루프</h2>
+    <p>
+      유저가 체감하는 게임은 “온톨로지”라는 단어를 전면에 드러내지 않습니다.
+      유저는 월드 안에서 사물을 관찰하고, 가능한 행동을 선택하고, 그 결과로 NPC와 장소가 반응하는 RPG로 경험하게 됩니다.
+    </p>
+    <div class="flow">
+      <div class="step">월드 탐색</div><div class="arrow">→</div>
+      <div class="step">대상 발견</div><div class="arrow">→</div>
+      <div class="step">가능 행동 선택</div><div class="arrow">→</div>
+      <div class="step">월드 반응</div><div class="arrow">→</div>
+      <div class="step">퀘스트/관계 변화</div><div class="arrow">→</div>
+      <div class="step">새 행동 해금</div>
+    </div>
+
+    <h3>기본 플레이 흐름</h3>
+    <table>
+      <thead><tr><th>유저 행동</th><th>게임 안에서 일어나는 일</th><th>기획 의미</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>월드에서 나무, NPC, 퀘스트 보드 등을 본다</td>
+          <td>각 오브젝트의 성질이 내부적으로 판정된다</td>
+          <td>“모든 오브젝트는 태그 이상의 의미를 가진다”는 구조</td>
+        </tr>
+        <tr>
+          <td>나무를 선택한다</td>
+          <td>Player가 FireSword를 장착했고 Attack skill이 있으므로 공격 행동이 뜬다</td>
+          <td>행동 버튼은 고정 UI가 아니라 현재 상황에서 생성된다</td>
+        </tr>
+        <tr>
+          <td>Attack Tree with FireSword를 실행한다</td>
+          <td>나무가 불타고 연기를 내며, 근처 NPC가 겁먹고 마을이 혼란 상태가 된다</td>
+          <td>하나의 행동이 연쇄 반응을 만든다</td>
+        </tr>
+        <tr>
+          <td>퀘스트 보드 또는 상황 변화를 확인한다</td>
+          <td>Investigate Smoke and Panic 퀘스트가 생성된다</td>
+          <td>퀘스트는 사전에 강제로 띄우는 것이 아니라 월드 상태에서 발생한다</td>
+        </tr>
+        <tr>
+          <td>연기 나는 나무를 조사하고 마을을 돕는다</td>
+          <td>퀘스트 목표가 완료되고 Village가 Recovering 상태가 된다</td>
+          <td>퀘스트 목표가 실제 월드 상태와 연결된다</td>
+        </tr>
+        <tr>
+          <td>NPC와 다시 상호작용한다</td>
+          <td>Goblin과 Player의 관계가 Wary/Distrustful/Respectful 등으로 변화한다</td>
+          <td>NPC 반응은 단발 대사가 아니라 관계 상태로 누적된다</td>
+        </tr>
+        <tr>
+          <td>Stone과 Stick을 조합한다</td>
+          <td>조합 입력 fact가 소비되고 Player가 StoneAxe를 획득한다</td>
+          <td>제작도 별도 하드코딩 UI가 아니라 월드 fact와 rule로 처리된다</td>
+        </tr>
+        <tr>
+          <td>물/늪/빙결 타일 위로 이동한다</td>
+          <td>타일 속성이 Player 상태로 전이되어 Wet, Slowed, ColdEnvironment 노출이 생긴다</td>
+          <td>바닥도 독립 entity라서 위치 관계만으로 환경 반응이 발생한다</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>유저가 느끼게 될 핵심 재미</h3>
+    <ul>
+      <li>내 행동이 퀘스트, NPC 감정, 장소 상태에 영향을 준다는 느낌</li>
+      <li>같은 오브젝트라도 Player의 장비/스킬에 따라 가능한 행동이 달라지는 느낌</li>
+      <li>퀘스트가 단순 수락형이 아니라 상황에서 발생한다는 느낌</li>
+      <li>NPC가 단순 상점/대화 오브젝트가 아니라 관계를 가진 존재라는 느낌</li>
+      <li>자연물과 재료가 규칙을 통해 장비와 생존 수단으로 바뀐다는 느낌</li>
+      <li>내가 밟고 있는 지형 자체가 몸 상태와 생존 조건에 영향을 준다는 느낌</li>
+      <li>월드가 정해진 컷신이 아니라 규칙으로 반응한다는 느낌</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>14. 서비스화를 위해 기획자가 해야 할 일</h2>
+    <p>
+      현재는 Core 구조가 준비된 상태입니다. 실제 서비스 가능한 게임으로 만들려면 기획자는 아래 데이터를 채워야 합니다.
+      중요한 점은 “코드 요청”보다 “온톨로지 데이터와 규칙 설계”가 핵심 업무가 된다는 것입니다.
+    </p>
+
+    <h3>1. 오브젝트 온톨로지 정의</h3>
+    <table>
+      <thead><tr><th>해야 할 일</th><th>예시</th><th>결과</th></tr></thead>
+      <tbody>
+        <tr><td>월드 오브젝트 목록 작성</td><td>Tree, AncientTree, Well, Shrine, Wolf, Merchant, Tile_01</td><td>게임에 등장할 entity 후보가 정리됨</td></tr>
+        <tr><td>각 오브젝트의 concept 지정</td><td>Plant, Dry, Sacred, Creature, NPC, Vendor, TerrainTile</td><td>룰과 행동 후보가 자동으로 매칭됨</td></tr>
+        <tr><td>초기 fact 지정</td><td>Wolf fears Fire, Merchant near Village, Tile_01 surface Swamp</td><td>시작 시점의 월드 상태가 정해짐</td></tr>
+      </tbody>
+    </table>
+
+    <h3>2. Player 성장/능력 설계</h3>
+    <ul>
+      <li>초기 장비: 어떤 아이템을 들고 시작하는가</li>
+      <li>초기 스킬: Attack, Inspect, Help, Talk 외에 무엇이 있는가</li>
+      <li>해금 구조: 특정 퀘스트 완료 후 어떤 skill/concept/fact가 추가되는가</li>
+      <li>플레이 스타일: 전투형, 탐사형, 설득형 선택지가 분리되는가</li>
+    </ul>
+
+    <h3>3. Action 설계</h3>
+    <p>유저에게 뜨는 행동은 ActionCandidateDatabase로 정의됩니다.</p>
+    <table>
+      <thead><tr><th>행동</th><th>필요 조건</th><th>행동 결과</th></tr></thead>
+      <tbody>
+        <tr><td>Attack</td><td>Attack skill, 장착 무기, 대상의 성질</td><td>attacks / attacks_with fact 생성</td></tr>
+        <tr><td>Inspect</td><td>Inspect skill, 조사 가능한 현상</td><td>inspects fact 생성</td></tr>
+        <tr><td>Talk</td><td>Talk skill, 대상이 Creature/NPC</td><td>talks_to fact 생성</td></tr>
+        <tr><td>Help</td><td>Help skill, 대상이 Disturbed 상태</td><td>helps fact 생성</td></tr>
+      </tbody>
+    </table>
+    <p>기획자는 앞으로 “어떤 상황에서 어떤 행동이 보여야 하는가”를 조건 중심으로 정의해야 합니다.</p>
+
+    <h3>4. Rule 설계</h3>
+    <p>Rule은 월드가 어떻게 반응하는지를 정합니다.</p>
+    <pre>조건:
+- ?target has_concept Plant
+- ?target has_concept Dry
+- ?tool has_concept Fire
+
+결과:
+- ?target state Burning
+- ?target emits Fire</pre>
+    <p>기획자는 아래 유형의 규칙을 설계해야 합니다.</p>
+    <ul>
+      <li>환경 반응: 불, 물, 독, 빛, 소리, 날씨</li>
+      <li>지형 반응: 물 타일, 늪 타일, 빙결 타일, 독성 타일, 성역 타일</li>
+      <li>NPC 감정: 공포, 신뢰, 분노, 호기심</li>
+      <li>장소 상태: 안전, 혼란, 점령, 회복, 봉쇄</li>
+      <li>아이템 상호작용: 태움, 수리, 개방, 강화, 오염, 조합 제작</li>
+      <li>생존/신체 변화: 추위 피해, 온기, 독, 회복, 피로</li>
+      <li>퀘스트 hook: 어떤 상황이 퀘스트를 발생시키는가</li>
+    </ul>
+
+    <h3>5. Quest 설계</h3>
+    <p>Quest는 고정 대본이 아니라 월드 상태에서 발생합니다.</p>
+    <table>
+      <thead><tr><th>항목</th><th>기획자가 정할 내용</th></tr></thead>
+      <tbody>
+        <tr><td>발생 조건</td><td>어떤 fact가 생기면 퀘스트가 뜨는가</td></tr>
+        <tr><td>목표</td><td>어떤 행동/월드 상태가 목표 완료로 인정되는가</td></tr>
+        <tr><td>완료 결과</td><td>완료 후 장소, NPC, 아이템, 평판이 어떻게 변하는가</td></tr>
+        <tr><td>중복/분기</td><td>같은 퀘스트가 여러 장소에서 발생할 때 하나로 묶을지 분리할지</td></tr>
+      </tbody>
+    </table>
+
+    <h3>6. NPC 관계/감정 설계</h3>
+    <ul>
+      <li>NPC별 기본 성향: Cowardly, Brave, Greedy, Loyal 등</li>
+      <li>감정 상태: Calm, Afraid, Angry, Curious, Grateful</li>
+      <li>관계 상태: Wary, Distrustful, Neutral, Respectful, Friendly</li>
+      <li>관계 변화 조건: 대화, 도움, 공격, 배신, 선물, 퀘스트 완료</li>
+      <li>관계별 대사/행동 차이</li>
+    </ul>
+
+    <h3>7. 콘텐츠 스프레드시트 필요</h3>
+    <p>서비스 단계로 가려면 아래 표 형태의 데이터 관리가 필요합니다.</p>
+    <table>
+      <thead><tr><th>시트</th><th>내용</th></tr></thead>
+      <tbody>
+        <tr><td>Entity Sheet</td><td>모든 오브젝트 id, concept, 초기 fact</td></tr>
+        <tr><td>Rule Sheet</td><td>조건, 효과, 우선순위, 설명</td></tr>
+        <tr><td>Action Sheet</td><td>행동 조건, 라벨, 실행 효과</td></tr>
+        <tr><td>Quest Sheet</td><td>hook, 목표, 완료 조건, 보상/결과</td></tr>
+        <tr><td>NPC Sheet</td><td>성향, 감정, 관계, 대사 조건</td></tr>
+        <tr><td>Localization Sheet</td><td>UI 텍스트, 행동 라벨, 퀘스트 설명, NPC 대사</td></tr>
+      </tbody>
+    </table>
+
+    <h3>8. 밸런싱/QA 기준</h3>
+    <ul>
+      <li>행동 후보가 너무 많이 뜨지 않는가</li>
+      <li>퀘스트가 의도치 않게 중복 발생하지 않는가</li>
+      <li>NPC 관계가 모순 상태로 쌓이지 않는가</li>
+      <li>상태 교체가 자연스러운가: Disturbed → Recovering → Safe 등</li>
+      <li>유저가 원인과 결과를 이해할 수 있는가</li>
+      <li>한 행동이 너무 많은 연쇄 반응을 만들어 혼란스럽지 않은가</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>15. 시스템 구조 다이어그램</h2>
+    <p>
+      현재 시스템은 “기획 데이터 → Core 실행 → 결과 출력” 구조입니다.
+      기획자는 Database asset을 채우고, 개발자는 Core/Unity/UI 경계를 유지하면서 기능을 확장합니다.
+    </p>
+
+    <h3>전체 데이터 흐름</h3>
+    <div class="diagram">
+      <div class="diagram-row">
+        <div class="node design"><strong>기획 데이터</strong><small>RuleDatabase<br>QuestDatabase<br>ActionCandidateDatabase<br>ActionEffectDatabase</small></div>
+        <div class="node design"><strong>씬 온톨로지</strong><small>OntologyObject<br>Player, Tree, Goblin, Village, Tile<br>초기 concept/fact</small></div>
+        <div class="node runtime"><strong>WorldState 생성</strong><small>씬 오브젝트를 fact graph로 변환<br>현재 월드 사실 보관</small></div>
+      </div>
+      <div class="connector">↓</div>
+      <div class="diagram-row">
+        <div class="node runtime"><strong>ActionCandidateGenerator</strong><small>현재 world fact와 Player 능력을 보고 가능한 행동 생성</small></div>
+        <div class="node runtime"><strong>Player Action</strong><small>유저가 버튼/상호작용으로 행동 선택</small></div>
+        <div class="node runtime"><strong>ActionRunner</strong><small>선택한 행동을 fact로 기록<br>예: Player attacks Tree</small></div>
+      </div>
+      <div class="connector">↓</div>
+      <div class="diagram-row">
+        <div class="node runtime"><strong>RuleEngine</strong><small>RuleDatabase 조건 검사<br>새 fact/event 생성</small></div>
+        <div class="node runtime"><strong>QuestGenerator</strong><small>QuestDatabase 조건 검사<br>Quest와 Goal 생성</small></div>
+        <div class="node runtime"><strong>QuestCompletionSystem</strong><small>Goal 완료 확인<br>QuestState 생성</small></div>
+      </div>
+      <div class="connector">↓</div>
+      <div class="diagram-row">
+        <div class="node output"><strong>World 변화</strong><small>Burning, Smoke, Flee, Recovering<br>Relation state 변화<br>StoneAxe 제작<br>Wet/Cold/Slowed 상태 전이<br>CoreVitality 감소</small></div>
+        <div class="node output"><strong>Session History</strong><small>ActionHistory<br>EventHistory</small></div>
+        <div class="node output"><strong>Debug/Visual/UI</strong><small>현재는 텍스트 패널<br>다음 단계는 VFX/UI 바인딩</small></div>
+      </div>
+    </div>
+
+    <h3>개발자 관점 책임 분리</h3>
+    <table>
+      <thead><tr><th>영역</th><th>위치</th><th>책임</th><th>주의점</th></tr></thead>
+      <tbody>
+        <tr><td>Core</td><td>Assets/Scripts/Ontology/Core</td><td>WorldState, Rule, Quest, Action, SaveData, Validation</td><td>UnityEngine 의존 금지</td></tr>
+        <tr><td>Unity Adapter</td><td>Assets/Scripts/Ontology/Unity</td><td>Scene Object를 ontology fact로 변환, Database asset 연결, Runtime 실행</td><td>Core 로직을 여기 넣지 않기</td></tr>
+        <tr><td>UI</td><td>Assets/Scripts/Ontology/UI</td><td>DebugPanel, 버튼 생성, report 출력</td><td>게임 규칙 판단을 UI에 넣지 않기</td></tr>
+        <tr><td>Samples</td><td>Assets/Scripts/Ontology/Samples</td><td>텍스트 기반 샘플/검증 시나리오</td><td>서비스 콘텐츠와 혼동하지 않기</td></tr>
+        <tr><td>Data</td><td>Assets/Data/Ontology</td><td>Rule/Quest/Action database asset</td><td>기획 데이터의 원천</td></tr>
+      </tbody>
+    </table>
+
+    <h3>기획자 관점 콘텐츠 제작 흐름</h3>
+    <div class="flow">
+      <div class="step">Entity 정의</div><div class="arrow">→</div>
+      <div class="step">Concept/Fact 부여</div><div class="arrow">→</div>
+      <div class="step">Action 조건 작성</div><div class="arrow">→</div>
+      <div class="step">Rule 반응 작성</div><div class="arrow">→</div>
+      <div class="step">Quest 목표 작성</div><div class="arrow">→</div>
+      <div class="step">Validation 확인</div><div class="arrow">→</div>
+      <div class="step">플레이 테스트</div>
+    </div>
+
+    <h3>현재 구현된 핵심 루프를 다이어그램으로 보기</h3>
+    <pre>Player equipped FireSword
+Tree has_concept Plant + Dry
+Goblin fears Fire + near Village
+QuestBoard has_concept QuestBoard
+
+        ↓ Player chooses Attack Tree with FireSword
+
+Tree state Burning
+Tree emits Fire
+Tree emits Smoke
+
+        ↓ Rules react
+
+Goblin intent Flee
+Goblin mood Afraid
+Village state Disturbed
+QuestBoard offers InvestigateSmokeAndPanic
+
+        ↓ Quest goals
+
+Inspect Tree
+Help Village
+
+        ↓ Quest completed
+
+QuestState_Player_InvestigateSmokeAndPanic state Completed
+Village state Recovering
+Relation_Goblin_Player state Respectful</pre>
+
+    <h3>현재 구현된 제작 씨앗 루프</h3>
+    <pre>Player combined Stone
+Player combined Stick
+
+        ↓ CraftStoneAxeRule
+
+Player has_item StoneAxe
+Player combined Stone 제거
+Player combined Stick 제거
+
+        ↓ Session 기록
+
+EventHistory: CraftStoneAxeRule: Player -- CRAFTED --> StoneAxe</pre>
+
+    <h3>현재 구현된 타일 속성 전이 루프</h3>
+    <pre>Player standing_on Tile_01
+Tile_01 has_concept TerrainTile
+Tile_01 has_element Water
+Tile_01 temperature Freezing
+Tile_01 surface Swamp
+
+        ↓ Terrain Tile Rules
+
+Player status Wet
+Player exposed_to ColdEnvironment
+Player movement_state Slowed
+
+        ↓ Session 기록
+
+EventHistory: TileWaterStatusWetRule
+EventHistory: TileFreezingColdExposureRule
+EventHistory: TileSwampMovementSlowRule</pre>
+
+    <h3>현재 구현된 tick 기반 환경 피해 루프</h3>
+    <pre>Simulation current_tick Tick_1
+Player exposed_to ColdEnvironment
+Player core_vitality 10
+Player status Warm 없음
+
+        ↓ ColdExposureVitalityTickRule
+
+Player core_vitality 9
+Player cold_damage_tick Tick_1
+
+        ↓ 같은 Tick_1 재실행
+
+추가 피해 없음
+
+        ↓ Tick_2 실행
+
+Player core_vitality 8</pre>
+  </section>
+
+  <section>
+    <h2>16. Ontology Terrain Map Tool Production Step 1</h2>
+    <p>
+      타일 fact를 사람이 대량으로 배치할 수 있도록 Unity Editor용 맵툴을 제작용 1단계로 개선했습니다.
+      이제 전체 재생성뿐 아니라 기존 grid 유지 갱신, 좌표 하나 변경, 사각형 채우기, material/prefab 기반 디자인 적용을 지원합니다.
+    </p>
+
+    <h3>추가된 파일</h3>
+    <table>
+      <thead><tr><th>파일</th><th>역할</th></tr></thead>
+      <tbody>
+        <tr><td>OntologyTerrainTileDefinition.cs</td><td>타일 타입, ontology facts, preview material, tile prefab을 ScriptableObject로 정의</td></tr>
+        <tr><td>OntologyTerrainTileGridBuilder.cs</td><td>Rebuild, Update Existing, Apply Tile, Fill Rectangle로 grid 제작/수정</td></tr>
+        <tr><td>OntologyTerrainMapToolWindow.cs</td><td>Unity 메뉴에서 grid 관리와 좌표 기반 페인트를 실행하는 EditorWindow</td></tr>
+      </tbody>
+    </table>
+
+    <h3>생성된 기본 타일 asset/material</h3>
+    <pre>Assets/Data/Ontology/Tiles/GrassTile.asset
+Assets/Data/Ontology/TileMaterials/GrassTile_Mat.mat
+→ surface Grass
+
+Assets/Data/Ontology/Tiles/WaterTile.asset
+Assets/Data/Ontology/TileMaterials/WaterTile_Mat.mat
+→ surface ShallowWater
+→ has_element Water
+
+Assets/Data/Ontology/Tiles/SwampTile.asset
+Assets/Data/Ontology/TileMaterials/SwampTile_Mat.mat
+→ surface Swamp
+→ has_element Water
+
+Assets/Data/Ontology/Tiles/FrozenTile.asset
+Assets/Data/Ontology/TileMaterials/FrozenTile_Mat.mat
+→ surface Ice
+→ temperature Freezing</pre>
+
+    <h3>제작용 버튼 의미</h3>
+    <table>
+      <thead><tr><th>버튼</th><th>동작</th><th>사용 시점</th></tr></thead>
+      <tbody>
+        <tr><td>Rebuild Grid</td><td>기존 타일을 모두 삭제하고 현재 설정으로 다시 생성</td><td>초기 생성, 전체 크기 변경</td></tr>
+        <tr><td>Update Existing Grid</td><td>기존 타일은 유지하고 없는 타일만 생성하며 fact/material을 갱신</td><td>작업물 보존하면서 설정 반영</td></tr>
+        <tr><td>Apply Tile At Coordinate</td><td>선택한 좌표 하나만 선택 타일로 변경</td><td>개별 타일 편집</td></tr>
+        <tr><td>Fill Rectangle With Selected Tile</td><td>선택한 사각형 영역을 한 타일 타입으로 채움</td><td>물가, 늪, 빙판 구역 제작</td></tr>
+        <tr><td>Clear Grid</td><td>현재 grid child 타일 전체 삭제</td><td>씬 정리</td></tr>
+      </tbody>
+    </table>
+
+    <h3>현재 씬 적용 결과</h3>
+    <pre>Scene object: OntologyTerrainGrid
+Grid size: 현재 Grid Builder width/height 설정에 따름
+Current validation grid: 2 x 2
+Generated tile count: 4
+
+Tile_0_0 temperature Freezing
+Tile_0_1 has_element Water
+Tile_1_1 has_element Water
+Tile_1_0 surface Swamp
+
+검증:
+tile00Frozen=True
+tile01Water=True
+tile11Water=True
+tile10Swamp=True
+tile00MaterialLinked=True</pre>
+
+    <h3>사용 방법</h3>
+    <pre>Unity menu:
+Tormia / Ontology Terrain Map Tool
+
+1. Create/Update Default Tile Definitions 클릭
+2. Create Grid Builder In Scene 클릭
+3. Grid Builder에서 width, height, defaultDefinition 설정
+4. Rebuild Grid로 초기 grid 생성
+5. Selected Tile, X/Y를 지정하고 Apply Tile At Coordinate로 단일 타일 수정
+6. Min/Max X/Y를 지정하고 Fill Rectangle With Selected Tile로 영역 채우기
+7. 기존 작업물을 유지하고 설정만 반영하려면 Update Existing Grid 사용
+8. 생성된 Tile_* 오브젝트의 OntologyObject fact를 RuleEngine이 읽음</pre>
+  </section>
+
+  <section>
+    <h2>17. Ontology Map Editor: 기획 데이터 중심 맵 툴</h2>
+    <p>
+      기존 Terrain Map Tool이 씬 GameObject 생성기라면, 새 Ontology Map Editor는 기획자가 타일 템플릿과 맵 배치를 데이터 asset으로 설계하고 검증하는 전용 툴입니다.
+      런타임 OntologyFact를 직접 직렬화하지 않고, string 기반 predicate/object 템플릿을 저장한 뒤 검증 시 Tile_x_y subject로 결합합니다.
+    </p>
+
+    <h3>추가된 데이터 구조</h3>
+    <table>
+      <thead><tr><th>Asset/Data</th><th>역할</th></tr></thead>
+      <tbody>
+        <tr><td>OntologyTileTemplate</td><td>templateId, previewColor, material/prefab, baseFacts를 가진 타일 템플릿</td></tr>
+        <tr><td>OntologyMapData</td><td>mapWidth, mapHeight, TilePlacementData 목록을 저장하는 맵 데이터</td></tr>
+        <tr><td>TilePlacementData</td><td>좌표, templateId, uniqueFacts를 저장하는 한 칸 배치 정보</td></tr>
+        <tr><td>OntologyFactTemplateEntry</td><td>Unity 직렬화 안전성을 위한 predicate/object 편집 단위</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Editor Window 구조</h3>
+    <pre>Unity menu:
+Tormia / Ontology Map Editor
+
+Left: Template Palette
+- 프로젝트 내 OntologyTileTemplate asset 목록
+- 새 템플릿 생성
+- baseFacts 추가/삭제/수정
+
+Center: Grid Map View
+- OntologyMapData mapWidth x mapHeight grid 표시
+- 선택한 템플릿으로 cell 클릭 페인팅
+- 대형 맵 대응 scroll view
+
+Right: Fact Inspector
+- 선택 좌표와 Tile_x_y subject 표시
+- baseFacts + uniqueFacts 결합 결과 미리보기
+- 해당 칸 전용 uniqueFacts 편집
+
+Bottom: Dry Run & Validation
+- Validate Map Facts 버튼
+- 데이터 무결성 검사
+- RuleDatabase 기반 1틱 가상 시뮬레이션 리포트
+
+Top Toolbar:
+- Build This Map To Scene 버튼
+- 현재 MapData를 실제 씬 Tile_* GameObject로 자동 생성</pre>
+
+    <h3>처음 사용하는 순서</h3>
+    <pre>1. Unity 상단 메뉴에서 Tormia / Ontology Map Editor 실행
+2. 상단 왼쪽 MapData 슬롯에 SampleOntologyMapData.asset 지정
+   또는 Create Map Data 버튼으로 새 MapData 생성
+3. 좌측 Template Palette에서 GrassTile, WaterTile, SwampTile, FrozenTile 중 하나 선택
+4. 중앙 Grid Map View에서 원하는 칸 클릭
+5. 클릭한 칸에 선택한 템플릿이 배치됨
+6. 우측 Fact Inspector에서 최종 fact preview 확인
+7. 필요하면 Unique Facts에 그 칸만의 특수 fact 추가
+8. 하단 Validate Map Facts 버튼으로 룰 반응 검증
+9. 상단 Build This Map To Scene 버튼 클릭
+10. Hierarchy에 OntologyMapSceneBuilder가 자동 생성되고 Tile_* 오브젝트가 배치됨</pre>
+
+    <h3>타일 템플릿을 만드는 방법</h3>
+    <pre>좌측 Template Palette:
+1. New 입력칸에 새 템플릿 이름 입력
+   예: PoisonTile
+2. New 버튼 클릭
+3. Template Id 확인 또는 수정
+4. Preview Color 지정
+5. Base Facts에 기본 성질 추가
+
+예시: PoisonTile
+baseFacts:
+- surface ToxicMud
+- has_element Poison
+
+이 템플릿을 Tile_4_1에 칠하면 최종 fact는 이렇게 변환됨:
+Tile_4_1 has_concept TerrainTile
+Tile_4_1 tile_type PoisonTile
+Tile_4_1 surface ToxicMud
+Tile_4_1 has_element Poison</pre>
+
+    <h3>그리드에 칠하는 방법</h3>
+    <pre>중앙 Grid Map View:
+1. 좌측에서 칠하고 싶은 템플릿 선택
+2. 중앙 그리드에서 원하는 칸 클릭
+3. MapData.placements에 해당 좌표와 templateId가 저장됨
+
+예시:
+좌측에서 SwampTile 선택
+중앙에서 x=2, y=2 칸 클릭
+
+저장 데이터:
+coordinate: 2,2
+templateId: SwampTile
+
+최종 runtime fact:
+Tile_2_2 has_concept TerrainTile
+Tile_2_2 surface Swamp
+Tile_2_2 has_element Water</pre>
+
+    <h3>특정 칸에만 고유 팩트 추가하기</h3>
+    <pre>우측 Fact Inspector:
+1. 중앙 grid에서 특정 칸 클릭
+2. Unique Facts 섹션에서 Add Fact 클릭
+3. predicate / obj 입력
+
+예시:
+predicate: has_gimmick
+obj: BossRoom
+
+결과:
+Tile_3_2 has_gimmick BossRoom
+
+이 방식은 같은 FrozenTile이라도 특정 칸 하나만 보스방, 함정, 이벤트 장소로 만들 때 사용함.</pre>
+
+    <h3>검증 버튼 사용법</h3>
+    <pre>하단 Dry Run & Validation:
+Validate Map Facts 클릭
+
+검사 내용:
+- 비어 있는 predicate/object가 있는지
+- 중복 좌표가 있는지
+- 없는 templateId를 참조하는지
+- mapWidth/mapHeight 범위를 벗어난 placement가 있는지
+- RuleDatabase.asset 규칙이 유효한지
+- 각 타일 위에 Player가 섰을 때 어떤 룰 결과가 발생하는지
+
+예시 결과:
+Tile_2_2:
++ Player status Wet
++ Player movement_state Slowed
+
+Tile_3_2:
++ Player exposed_to ColdEnvironment
+~ Player core_vitality -1</pre>
+
+    <h3>Terrain Map Tool과 Map Editor 차이</h3>
+    <table>
+      <thead><tr><th>도구</th><th>용도</th><th>사용 시점</th></tr></thead>
+      <tbody>
+        <tr><td>Ontology Terrain Map Tool</td><td>씬에 실제 Tile_* GameObject를 생성</td><td>비주얼/씬 배치 확인</td></tr>
+        <tr><td>Ontology Map Editor</td><td>MapData와 TileTemplate을 설계하고 dry run 검증</td><td>기획 데이터 작성/룰 검증</td></tr>
+      </tbody>
+    </table>
+
+    <h3>생성된 샘플 데이터</h3>
+    <pre>Assets/Data/Ontology/MapTileTemplates/GrassTile.asset
+Assets/Data/Ontology/MapTileTemplates/WaterTile.asset
+Assets/Data/Ontology/MapTileTemplates/SwampTile.asset
+Assets/Data/Ontology/MapTileTemplates/FrozenTile.asset
+
+Assets/Data/Ontology/Maps/SampleOntologyMapData.asset
+
+Sample placements:
+Tile_0_0 = GrassTile
+Tile_1_2 = WaterTile
+Tile_2_2 = SwampTile
+Tile_3_2 = FrozenTile + has_gimmick BossRoom</pre>
+
+    <h3>Dry Run 검증 결과</h3>
+    <pre>templateCount=4
+mapPlacements=4
+swampWet=True
+swampSlowed=True
+frozenCold=True
+frozenVitality9=True
+bossGimmick=True</pre>
+  </section>
+
+  <section>
+    <h2>18. Player 위치 기반 standing_on 자동 갱신</h2>
+    <p>
+      인게임 플레이어 Transform 위치를 ontology tile 좌표로 변환해 <code>Player standing_on Tile_x_y</code> fact를 자동 갱신하는 런타임 tracker를 추가했습니다.
+      이 컴포넌트가 타일 이동을 감지하면 이전 standing_on fact를 제거하고 새 fact를 넣은 뒤, 선택적으로 RuleEngine을 즉시 실행합니다.
+    </p>
+
+    <h3>추가된 컴포넌트</h3>
+    <pre>Assets/Scripts/Ontology/Unity/OntologyPlayerPositionTracker.cs</pre>
+
+    <h3>Inspector 설정</h3>
+    <table>
+      <thead><tr><th>필드</th><th>설명</th></tr></thead>
+      <tbody>
+        <tr><td>Bootstrap</td><td>OntologyWorldBootstrap 직접 참조. 비어 있으면 scene에서 자동 탐색</td></tr>
+        <tr><td>Player</td><td>추적할 플레이어 Transform. 비어 있으면 자기 Transform 사용</td></tr>
+        <tr><td>Grid Origin</td><td>격자 원점 Transform. 비어 있으면 world zero 기준</td></tr>
+        <tr><td>Tile Size</td><td>한 타일의 월드 크기. 위치 좌표를 나눠 grid x/y 계산</td></tr>
+        <tr><td>Actor Id</td><td>기본값 Player. 생성되는 fact의 subject</td></tr>
+        <tr><td>Tile Id Prefix</td><td>기본값 Tile. 결과 subject는 Tile_x_y</td></tr>
+        <tr><td>Update Interval</td><td>위치 확인 주기</td></tr>
+        <tr><td>Run Simulation On Tile Changed</td><td>타일 이동 직후 RuleEngine 실행 여부</td></tr>
+      </tbody>
+    </table>
+
+    <h3>좌표 변환 방식</h3>
+    <pre>local = player.position - gridOrigin.position
+x = Floor(local.x / tileSize)
+y = Floor(local.z / tileSize)
+
+Unity 3D 공간에서는 world Z축을 ontology grid Y축으로 사용합니다.
+
+예:
+player position = (2.4, 0, 3.1)
+tileSize = 1
+→ x=2, y=3
+→ Tile_2_3</pre>
+
+    <h3>팩트 교체와 이벤트</h3>
+    <pre>이전 위치:
+Player standing_on Tile_2_2
+
+새 위치:
+Player standing_on Tile_2_3
+
+처리:
+- RemoveFact Player standing_on Tile_2_2
+- AddFact Player standing_on Tile_2_3
+- EventHistory 추가
+
+EventType:
+PlayerStandingOnChanged
+
+Reason:
+Player moved from Tile_2_2 to Tile_2_3</pre>
+
+    <h3>검증 결과</h3>
+    <pre>firstStanding=True
+firstWet=True
+firstSlowed=True
+removedOld=True
+secondStanding=True
+secondCold=True
+standingEvents=2</pre>
+  </section>
+
+  <section>
+    <h2>19. MapData를 실제 씬 타일로 생성하기</h2>
+    <p>
+      <code>OntologyMapDataSceneBuilder</code>를 추가해 기획자가 Ontology Map Editor에서 칠한 MapData를 실제 씬 GameObject로 생성하고,
+      각 타일에 <code>OntologyObject</code>를 자동 부착해 <code>OntologyWorldBootstrap</code>의 WorldState로 주입할 수 있게 했습니다.
+    </p>
+
+    <h3>추가된 컴포넌트</h3>
+    <pre>Assets/Scripts/Ontology/Unity/OntologyMapDataSceneBuilder.cs
+Assets/Scripts/Ontology/Editor/OntologyMapDataSceneBuilderEditor.cs</pre>
+
+    <h3>Inspector 버튼</h3>
+    <table>
+      <thead><tr><th>버튼</th><th>동작</th></tr></thead>
+      <tbody>
+        <tr><td>Build Scene Tiles From Map Data</td><td>MapData placements를 읽어 Tile_x_y GameObject를 생성하고 OntologyObject를 주입</td></tr>
+        <tr><td>Clear Generated Tiles</td><td>Grid Root 아래 생성된 타일 오브젝트를 모두 삭제</td></tr>
+        <tr><td>Reset World From Scene</td><td>현재 씬의 OntologyObject들을 다시 읽어 WorldState 갱신</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Inspector 설정</h3>
+    <table>
+      <thead><tr><th>필드</th><th>설명</th></tr></thead>
+      <tbody>
+        <tr><td>Map Data</td><td>읽어올 OntologyMapData asset</td></tr>
+        <tr><td>Grid Root</td><td>생성된 Tile_* 오브젝트가 들어갈 부모 Transform. 비어 있으면 자기 Transform 사용</td></tr>
+        <tr><td>Tile Templates</td><td>templateId 매칭용 OntologyTileTemplate 목록</td></tr>
+        <tr><td>Tile Size</td><td>좌표를 월드 위치로 변환할 때 사용하는 타일 크기</td></tr>
+        <tr><td>Build On Start</td><td>Start 시점에 자동으로 씬 타일 생성</td></tr>
+        <tr><td>Reset World After Build</td><td>생성 후 OntologyWorldBootstrap.ResetWorld(false) 호출</td></tr>
+      </tbody>
+    </table>
+
+    <h3>생성 흐름</h3>
+    <pre>OntologyMapData placements 순회
+→ placement.templateId로 OntologyTileTemplate 찾기
+→ tilePrefab이 있으면 prefab 생성, 없으면 기본 Cube 생성
+→ GameObject 이름을 Tile_x_y로 설정
+→ 위치를 (x * tileSize, 0, y * tileSize)로 배치
+→ OntologyObject 자동 부착
+→ concepts = TerrainTile
+→ facts = grid_x, grid_y, tile_type, baseFacts, uniqueFacts
+→ OntologyWorldBootstrap.ResetWorld(false)
+→ WorldState에 Tile_* facts 주입</pre>
+
+    <h3>가장 쉬운 사용 순서</h3>
+    <pre>1. Tormia / Ontology Map Editor 실행
+2. MapData 선택 또는 생성
+3. 그리드에 타일 페인팅
+4. Validate Map Facts로 룰 반응 확인
+5. Build This Map To Scene 클릭
+
+자동 처리:
+- OntologyMapSceneBuilder 오브젝트가 없으면 자동 생성
+- OntologyMapDataSceneBuilder 컴포넌트 자동 추가
+- 현재 MapData 자동 연결
+- TileTemplates 자동 로드
+- Tile_* GameObject 생성
+- OntologyObject 자동 부착
+- OntologyWorldBootstrap.ResetWorld(false) 실행</pre>
+
+    <h3>수동 고급 사용 순서</h3>
+    <pre>1. Hierarchy에서 빈 GameObject 생성
+   예: OntologyMapSceneBuilder
+
+2. Add Component로 OntologyMapDataSceneBuilder 추가
+
+3. Inspector 설정
+   Map Data = SampleOntologyMapData.asset 또는 직접 만든 MapData
+   Grid Root = 비워두면 자기 Transform 사용
+   Tile Templates = GrassTile, WaterTile, SwampTile, FrozenTile 등 templateId 매칭용 목록
+   Tile Size = PlayerPositionTracker와 같은 값
+   Reset World After Build = true 권장
+
+4. Inspector 하단 Map Build Actions에서
+   Build Scene Tiles From Map Data 버튼 클릭
+
+5. 생성 결과 확인
+   Tile_0_0, Tile_2_2 같은 GameObject가 Grid Root 아래 생성됨
+   각 타일에 OntologyObject가 자동 부착됨
+
+6. 수정 후 다시 생성하려면
+   Map Editor에서 MapData 수정
+   Build Scene Tiles From Map Data 다시 클릭</pre>
+
+    <h3>생성되는 OntologyObject 예시</h3>
+    <pre>GameObject: Tile_2_2
+OntologyObject:
+entityId = Tile_2_2
+concepts = TerrainTile
+facts:
+- grid_x 2
+- grid_y 2
+- tile_type SwampTile
+- surface Swamp
+- has_element Water</pre>
+
+    <h3>검증 결과</h3>
+    <pre>One-click Map Editor validation:
+templateCount=4
+generated=7
+anyGeneratedFact=True
+
+Inspector button validation:
+afterClear=0
+afterBuild=7
+anyGeneratedFact=True
+
+Scene/World validation:
+childCount=4
+tile22Exists=True
+tile32Exists=True
+tile22Ontology=True
+tile32Ontology=True
+worldTile22Swamp=True
+worldTile22Water=True
+worldTile32Boss=True
+
+Rule 연동:
+swampWet=True
+swampSlowed=True
+frozenCold=True
+frozenVitality9=True
+bossGimmick=True</pre>
+  </section>
+
+  <section>
+    <h2>20. 다음 권장 단계</h2>
+    <p>제작, 타일 전이, 수치형 tick 피해, 씬 생성용 맵툴, 기획 데이터 중심 맵 에디터, Player 위치 tracker, MapData scene builder까지 검증되었으므로, 다음은 tick runner와 화면 표현을 연결하는 단계가 적절합니다.</p>
+    <h3>1. Tick Runner와 플레이 루프 연결</h3>
+    <table>
+      <thead><tr><th>목표</th><th>필요한 Core 확장</th></tr></thead>
+      <tbody>
+        <tr><td>일정 시간마다 Simulation current_tick을 갱신</td><td>Unity adapter에서 Tick_1, Tick_2 같은 tick id 발급</td></tr>
+        <tr><td>플레이어 위치에 따라 standing_on 타일 fact 갱신</td><td>CharacterController/Grid 위치와 OntologyWorldState 연결</td></tr>
+        <tr><td>Warm, Wet, Slowed 같은 상태를 UI/이동/애니메이션에 반영</td><td>fact → visual/gameplay bridge</td></tr>
+      </tbody>
+    </table>
+
+    <h3>2. 비주얼 바인딩</h3>
+    <p>Core fact 변화가 실제 씬에서 보이도록 연결합니다.</p>
+    <table>
+      <thead><tr><th>Core fact</th><th>비주얼 표현</th></tr></thead>
+      <tbody>
+        <tr><td>Tree state Burning</td><td>나무에 불 VFX 표시</td></tr>
+        <tr><td>Tree emits Smoke</td><td>연기 VFX 표시</td></tr>
+        <tr><td>Goblin mood Afraid</td><td>고블린 위 느낌표 / 겁먹은 상태 표시</td></tr>
+        <tr><td>Goblin intent Flee</td><td>도망 이동 또는 도망 애니메이션</td></tr>
+        <tr><td>Village state Disturbed</td><td>마을 경고 마커</td></tr>
+        <tr><td>Village state Recovering</td><td>경고 해제 / 회복 표시</td></tr>
+        <tr><td>QuestBoard offers Quest</td><td>퀘스트 보드 느낌표</td></tr>
+        <tr><td>Player has_item StoneAxe</td><td>인벤토리 아이콘 / 장착 가능 표시 / 제작 toast</td></tr>
+        <tr><td>Player status Wet</td><td>젖은 상태 아이콘 / 물방울 VFX</td></tr>
+        <tr><td>Player exposed_to ColdEnvironment</td><td>추위 경고 UI / 입김 VFX</td></tr>
+        <tr><td>Player movement_state Slowed</td><td>이동 둔화 아이콘 / 발걸음 효과</td></tr>
+        <tr><td>Player core_vitality 8</td><td>체력 UI 감소 / 생존 경고 toast</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>21. 실제 애니메이션 데이터 온톨로지화</h2>
+    <p>
+      상상한 애니메이션 이름을 먼저 만들지 않고, 현재 프로젝트에 실제로 존재하는 <strong>ithappy 애니메이션 클립</strong>을 기준으로
+      온톨로지 데이터를 구성했습니다. 이 단계는 아직 Animator State를 새로 연결하는 재생 단계가 아니라,
+      “어떤 클립이 어떤 의미를 가진 표현인지”를 데이터로 등록하는 단계입니다.
+    </p>
+
+    <div class="flow">
+      <div class="step">실제 AnimationClip</div><div class="arrow">→</div>
+      <div class="step">Animation Ontology Definition</div><div class="arrow">→</div>
+      <div class="step">properties / intents / priority</div><div class="arrow">→</div>
+      <div class="step">다음 단계: Animation Adapter 재생 선택</div>
+    </div>
+
+    <h3>생성된 데이터 asset</h3>
+    <pre>Assets/Data/Ontology/AnimationDatabase.asset
+definitionCount=29
+missingClips=0</pre>
+
+    <h3>스크립트 구조</h3>
+    <table>
+      <thead><tr><th>파일</th><th>역할</th></tr></thead>
+      <tbody>
+        <tr><td><code>OntologyAnimationDatabase.cs</code></td><td>Animation definition 목록을 담는 ScriptableObject database</td></tr>
+        <tr><td><code>OntologyAnimationDefinition</code></td><td>animationId, clip, properties, intents, priority, canBlend 저장</td></tr>
+        <tr><td><code>OntologyAnimationAdapter.cs</code></td><td>현재는 Player fact를 읽어 Animator.speed와 선택적 bool parameter를 안전하게 제어</td></tr>
+      </tbody>
+    </table>
+
+    <h3>대표 정의 예시</h3>
+    <pre>Anim_Crouch_Walk_Forward
+clip = Crouch_Walk_Forward
+properties = Locomotion, Crouch, ImpairedMovement, Forward
+intents = ImpairedMovement, CautiousLocomotion
+priority = 55
+canBlend = True
+
+Anim_Hit_Reaction_Heavy
+clip = Hit_Reaction_Heavy
+properties = DamageReaction, HeavySeverity
+intents = SevereDamageReaction
+priority = 80
+canBlend = False
+
+Anim_Death_Backward
+clip = Death_Backward
+properties = DeathReaction, Backward
+intents = DeathReaction
+priority = 100
+canBlend = False</pre>
+
+    <h3>등록된 애니메이션 분류</h3>
+    <table>
+      <thead><tr><th>분류</th><th>등록된 클립</th><th>온톨로지 의도</th></tr></thead>
+      <tbody>
+        <tr><td>Idle</td><td>Idle_Breathing, Idle_Look_Around, Idle_Relaxed</td><td>Idle, Alert, Rest, Discomfort</td></tr>
+        <tr><td>Locomotion</td><td>Walk_*, Run_*, Strafe_*</td><td>Locomotion, FastLocomotion, Strafe</td></tr>
+        <tr><td>Impaired Movement</td><td>Crouch_Walk_Forward/Backward/Left/Right</td><td>ImpairedMovement, CautiousLocomotion</td></tr>
+        <tr><td>Jump</td><td>Jump_Start, Jump_Loop, Jump_End</td><td>Jump, Airborne, Landing</td></tr>
+        <tr><td>Damage</td><td>Hit_Reaction_Light, Hit_Reaction_Heavy, Fall</td><td>DamageReaction, SevereDamageReaction, CollapseReaction</td></tr>
+        <tr><td>Death</td><td>Death_Backward, Death_Forward</td><td>DeathReaction</td></tr>
+        <tr><td>Combat</td><td>Attack_Punch, Attack_Kick, Block_With_Hands</td><td>Attack, Defense</td></tr>
+        <tr><td>Evasion / Traversal</td><td>Dodge_Roll, Dodge_Sidestep, Climb_Ladder</td><td>Evasion, Traversal</td></tr>
+      </tbody>
+    </table>
+
+    <h3>현재 연동 상태</h3>
+    <p>
+      현재 <code>OntologyAnimationAdapter</code>는 안전한 1차 버전입니다. Animator Controller에 없는 파라미터는 조용히 건너뛰며,
+      <code>Player movement_state Slowed</code>가 존재할 때 <code>Animator.speed</code>를 낮춥니다.
+    </p>
+    <pre>Player movement_state Slowed
+→ Animator.speed = 0.75
+
+Player movement_state normal/none
+→ Animator.speed = 1.0</pre>
+
+    <h3>다음 확장 방향</h3>
+    <p>
+      다음 단계에서는 Core rule이 <code>Player animation_intent ImpairedMovement</code> 같은 fact를 만들고,
+      Animation Adapter가 <code>AnimationDatabase.asset</code>에서 priority가 가장 높은 클립을 찾아 Animator/Playable로 재생하게 만들 수 있습니다.
+    </p>
+  </section>
+
+  <section>
+    <h2>22. 캐릭터 파츠 온톨로지화</h2>
+    <p>
+      ithappy 캐릭터의 실제 SkinnedMeshRenderer 파츠를 온톨로지 entity로 등록했습니다.
+      파츠는 단순히 renderer on/off 상태가 아니라, <code>equipped_part</code>, <code>provides</code>, <code>has_slot</code> fact를 통해
+      생존 룰과 액션 후보에 참여합니다.
+    </p>
+
+    <h3>생성된 데이터 asset</h3>
+    <pre>Assets/Data/Ontology/CharacterPartDatabase.asset
+definitionCount=13
+
+기본 enabled 파츠:
+Body, Faces, Hairstyle, T_Shirt, Pants, Shoes</pre>
+
+    <h3>스크립트 구조</h3>
+    <table>
+      <thead><tr><th>파일</th><th>역할</th></tr></thead>
+      <tbody>
+        <tr><td><code>OntologyCharacterPartDatabase.cs</code></td><td>파츠 정의 ScriptableObject database</td></tr>
+        <tr><td><code>OntologyCharacterPartAdapter.cs</code></td><td>renderer 상태와 <code>equipped_part</code> facts를 양방향 동기화</td></tr>
+        <tr><td><code>OntologyCharacterPartAdapterEditor.cs</code></td><td>Inspector에서 equip, unequip, default preset, fact refresh, renderer sync 테스트</td></tr>
+      </tbody>
+    </table>
+
+    <h3>대표 fact 흐름</h3>
+    <pre>Player equipped_part Part_Shoes_Base
+Part_Shoes_Base has_concept CharacterPart
+Part_Shoes_Base has_slot Footwear
+Part_Shoes_Base provides FootProtection
+Part_Shoes_Base provides SwampResistance
+
+Player equipped_part Part_Outerwear_Base
+Part_Outerwear_Base provides Warmth
+Part_Outerwear_Base provides ColdProtection</pre>
+
+    <h3>생존 룰 연결</h3>
+    <table>
+      <thead><tr><th>룰</th><th>조건</th><th>결과</th></tr></thead>
+      <tbody>
+        <tr><td><code>ColdProtectionWarmthRule</code></td><td>추위 노출 + ColdProtection 파츠 장착</td><td><code>Player status Warm</code></td></tr>
+        <tr><td><code>SwampResistanceCapabilityRule</code></td><td>SwampResistance 파츠 장착</td><td><code>Player has_capability SwampResistance</code></td></tr>
+        <tr><td><code>TileSwampMovementSlowRule</code></td><td>늪 타일 위 + SwampResistance 없음</td><td><code>Player movement_state Slowed</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3>현재 검증 상태</h3>
+    <pre>RuleDatabase ruleCount=22
+Part_Shoes_Base provides SwampResistance=True
+protectedHasCapability=True
+protectedSlowed=False
+unprotectedSlowed=True
+console errors/warnings=0</pre>
+
+    <h3>UI/저장 연동</h3>
+    <p>
+      Runtime HUD는 <code>Equipped Parts</code>와 <code>Part Capabilities</code>를 표시합니다.
+      저장 snapshot에는 <code>equipped_part</code> facts가 포함되며,
+      복원 후에는 <code>SyncRenderersFromWorldFacts()</code>를 호출해 world facts 기준으로 renderer 상태를 재동기화할 수 있습니다.
+    </p>
+  </section>
+
+  <section>
+    <h2>23. Ontology 저장/불러오기</h2>
+    <p>
+      Core world/session snapshot을 JSON으로 저장하고 다시 복원하는 런타임 컨트롤러를 추가했습니다.
+      저장 데이터는 Unity scene object 상태가 아니라 <code>OntologyFact</code>, action history, event history 중심입니다.
+    </p>
+
+    <h3>스크립트 구조</h3>
+    <table>
+      <thead><tr><th>파일</th><th>역할</th></tr></thead>
+      <tbody>
+        <tr><td><code>OntologySaveData.cs</code></td><td>world/session을 직렬화 가능한 save snapshot으로 변환</td></tr>
+        <tr><td><code>OntologySaveController.cs</code></td><td><code>Application.persistentDataPath/ontology_save.json</code> 저장/로드</td></tr>
+        <tr><td><code>OntologyWorldBootstrap.RestoreSnapshot</code></td><td>로드된 snapshot으로 world/session 교체</td></tr>
+        <tr><td><code>OntologyDebugPanel</code></td><td><code>SaveSnapshot()</code>, <code>LoadSnapshot()</code> UI 버튼 메서드 제공</td></tr>
+      </tbody>
+    </table>
+
+    <h3>저장 흐름</h3>
+    <pre>SaveSnapshot()
+→ active character part renderers를 equipped_part facts로 주입
+→ OntologySaveDataConverter.Capture(world, session)
+→ JsonUtility.ToJson(...)
+→ Application.persistentDataPath/ontology_save.json</pre>
+
+    <h3>로드 흐름</h3>
+    <pre>LoadSnapshot()
+→ ontology_save.json 읽기
+→ OntologySaveDataConverter.RestoreWorld(saveData)
+→ OntologySaveDataConverter.RestoreSession(saveData)
+→ bootstrap.RestoreSnapshot(saveData)
+→ SyncRenderersFromWorldFacts()</pre>
+
+    <h3>현재 검증 상태</h3>
+    <pre>fileExists=True
+removedBeforeLoad=True
+restored=True
+saveContainsFacts=True
+loadContainsBootstrap=True
+console errors/warnings=0</pre>
+  </section>
+
+  <section>
+    <h2>24. Runtime UI 구조화</h2>
+    <p>
+      Debug/Character Parts/HUD UI는 <code>OntologyUITheme</code>와 <code>OntologyUILabels</code> ScriptableObject로 색상, 레이아웃, 문구를 분리합니다.
+      씬 구성은 <code>Tools/Ontology/Setup Runtime UI</code> 메뉴에서 자동 복구할 수 있습니다.
+    </p>
+
+    <h3>주요 asset</h3>
+    <table>
+      <thead><tr><th>Asset</th><th>역할</th></tr></thead>
+      <tbody>
+        <tr><td><code>Assets/Data/Ontology/UI/OntologyUITheme.asset</code></td><td>기본 runtime UI 색상, 폰트 크기, 레이아웃 값</td></tr>
+        <tr><td><code>Assets/Data/Ontology/UI/OntologyUITheme_HighContrast.asset</code></td><td>고대비 theme variant</td></tr>
+        <tr><td><code>Assets/Data/Ontology/UI/OntologyUILabels.asset</code></td><td>버튼, HUD, status, filter, summary, actor toast 문자열</td></tr>
+        <tr><td><code>Assets/Prefabs/Ontology/UI/OntologyDebugCanvas.prefab</code></td><td>자동 setup으로 저장되는 runtime debug UI prefab</td></tr>
+        <tr><td><code>Assets/Prefabs/Ontology/UI/OntologyActorToast.prefab</code></td><td>actor head anchor에 붙일 수 있는 floating toast prefab</td></tr>
+      </tbody>
+    </table>
+
+    <h3>현재 UI 기능</h3>
+    <pre>DebugPanel: fixed buttons, action filter, toast, graph/quest summary, scrollable action list
+CharacterPartPanel: slot grouping, search, slot/state filter, selected part detail, capability/conflict/diff preview, equip/unequip disabled state, hover color
+RuntimeStatusHUD: scene instance, theme color/font, labels-driven text
+ActorFloatingToast: Player fact diff -> priority/severity -> whitelist predicate -> world-space toast above actor</pre>
+
+    <h3>Actor floating toast</h3>
+    <p>
+      <code>OntologyActorFactToastEmitter</code>는 시작 직후 baseline delay 후 Player facts를 snapshot으로 잡고,
+      이후 새로 추가되거나 제거된 whitelisted fact를 priority 순서로 <code>OntologyActorToast</code>에 전달합니다.
+      출력 위치, 색상, 폰트, 표시 시간은 <code>OntologyUITheme</code>에서 조정하고,
+      predicate label과 메시지 format은 <code>OntologyUILabels</code>에서 조정합니다.
+      <code>equipped_part</code>는 <code>CharacterPartDatabase</code>를 통해 part id 대신 display name으로 표시합니다.
+    </p>
+    <pre>whitelist: standing_on, status, movement_state, exposed_to, has_capability, equipped_part, animation_intent
+example: Player equipped_part Part_Outerwear_Base -> "Equipped: Outerwear Base"
+example: removed Player equipped_part Part_Outerwear_Base -> "Lost Equipped: Outerwear Base"</pre>
+
+    <h3>Character part conflict UX</h3>
+    <p>
+      선택한 파츠를 장착하면 꺼질 equipped row는 <code>OntologyUITheme.rowConflict</code> 색상으로 highlight됩니다.
+      <code>FullBody</code>는 <code>UpperBody</code>, <code>LowerBody</code>, <code>Outerwear</code> slot과 conflict를 가지며,
+      preview에는 슬롯 충돌과 실제 해제될 파츠가 함께 표시됩니다.
+      capability preview는 readable label과 효과 설명을 함께 표시합니다.
+    </p>
+    <pre>FullBody preview:
+Conflicts: Upper Body, Lower Body, Outerwear
+On Equip: Will unequip: TShirt Base, Pants Base, Outerwear Base, Equip FullBody Base
+
+Shoes preview:
+Capabilities: Swamp Resistance (prevents Slowed on swamp)</pre>
+
+    <h3>Equip/unequip failure UI</h3>
+    <p>
+      <code>OntologyCharacterPartAdapter</code>는 장착/해제 전 <code>CanEquipPart</code>, <code>CanUnequipPart</code>로 실패 사유를 반환합니다.
+      <code>OntologyCharacterPartPanel</code>은 reason key를 <code>OntologyUILabels</code>의 사용자 문구로 변환해 status line에 표시합니다.
+    </p>
+    <pre>Equip failed: Shoes Base (already equipped)
+Unequip failed: Outerwear Base (already unequipped)
+Equip failed: Part_Not_Existing (part definition is missing)</pre>
+  </section>
+
+  <section>
+    <h2>25. Character Part Manager EditorWindow</h2>
+    <p>
+      <code>Tools/Ontology/Character Part Manager</code>는 파츠 DB 관리와 런타임 검증 기능을 통합하는 EditorWindow입니다.
+      Inspector 없이 <code>CharacterPartDatabase.asset</code>의 definition과 facts를 편집하고,
+      현재 씬의 <code>OntologyCharacterPartAdapter</code>, <code>OntologyWorldBootstrap</code>, floating toast를 함께 테스트할 수 있습니다.
+    </p>
+
+    <h3>탭 구성</h3>
+    <pre>Database: part list, search, slot filter, add/duplicate/delete, field editor, prefab preview, mesh/material info, facts editor, fact presets
+Validation: duplicate id, missing renderer/prefab/material, invalid conflict slot, duplicate facts, default slot warnings
+Runtime Test: Test Equip/Unequip, Apply Default, Inject Facts, Sync From World, FullBody Conflict Test, Save/Load/Reset/Run Simulation
+Facts &amp; Toast: Player facts view, manual fact add/remove, floating toast test, baseline reset
+Bulk Tools: selected prefab draft registration
+Settings: default paths, known predicates/objects</pre>
+
+    <h3>현재 smoke test</h3>
+    <pre>window=True
+selected=Part_Body_Base
+validationCount=0
+FullBody=True, TShirt=False, Pants=False, Outerwear=False
+preview prefab=Body_010, renderer=Body_011, mesh=Body_011, materials=1
+console errors/warnings=0</pre>
+  </section>
+
+  <footer>
+    <p>문서 기준: 현재 Unity 프로젝트의 Ontology Core 구현 상태</p>
+  </footer>
+</main>
+</body>
+</html>

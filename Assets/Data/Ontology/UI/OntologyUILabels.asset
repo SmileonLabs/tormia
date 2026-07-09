@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 375040e418cc85d409f51f99da2a7daf, type: 3}
+  m_Name: OntologyUILabels
+  m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyUILabels
+  characterPartsTitle: Character Parts
+  equip: Equip
+  unequip: Unequip
+  equippedState: ON
+  unequippedState: OFF
+  meshState: mesh
+  factState: fact
+  equippedCountFormat: 'Equipped parts: {0} / {1}'
+  equippedActionFormat: 'Equipped: {0}'
+  unequippedActionFormat: 'Unequipped: {0}'
+  equipFailedFormat: 'Equip failed: {0}'
+  unequipFailedFormat: 'Unequip failed: {0}'
+  missingReferences: Character part UI is missing references.
+  noPartAdapter: No character part adapter.
+  noBootstrap: '[OntologyDebugPanel]
+
+    No OntologyWorldBootstrap found.'
+  noSaveController: '[OntologyDebugPanel]
+
+    No OntologySaveController found.'
+  questActionPrefix: '[Quest] '
+  hudTitle: '[ONTOLOGY RUNTIME HUD]'
+  hudWorldNotReady: World is not ready.
+  hudDivider: --------------------------------
+  hudCurrentTick: Current Tick
+  hudStandingOn: Standing On
+  hudCoreVitality: Core Vitality
+  hudStatusWet: Status Wet
+  hudStateSlowed: State Slowed
+  hudExposedCold: Exposed Cold
+  hudEquippedParts: Equipped Parts
+  hudPartCapabilities: Part Capabilities
+  hudAnimationIntent: Animation Intent
+  hudSelectedIntent: Selected Intent
+  hudSelectedAnimation: Selected Animation
+  hudSelectedClip: Selected Clip
+  trueText: TRUE
+  falseText: FALSE
+  noneText: None

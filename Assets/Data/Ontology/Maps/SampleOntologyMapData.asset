@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1965ec961b86f944cb5b8c192a8aa76d, type: 3}
+  m_Name: SampleOntologyMapData
+  m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyMapData
+  mapWidth: 5
+  mapHeight: 5
+  placements:
+  - coordinate: {x: 0, y: 0}
+    templateId: GrassTile
+    uniqueFacts: []
+  - coordinate: {x: 1, y: 2}
+    templateId: FrozenTile
+    uniqueFacts: []
+  - coordinate: {x: 2, y: 2}
+    templateId: FrozenTile
+    uniqueFacts: []
+  - coordinate: {x: 1, y: 3}
+    templateId: FrozenTile
+    uniqueFacts: []
+  - coordinate: {x: 2, y: 3}
+    templateId: FrozenTile
+    uniqueFacts: []
+  - coordinate: {x: 2, y: 1}
+    templateId: FrozenTile
+    uniqueFacts: []
+  - coordinate: {x: 3, y: 1}
+    templateId: FrozenTile
+    uniqueFacts: []

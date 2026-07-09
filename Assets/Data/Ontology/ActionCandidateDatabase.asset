@@ -1,0 +1,123 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 22e6b24b452362642b230cf2583b0be6, type: 3}
+  m_Name: ActionCandidateDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyActionCandidateDatabase
+  definitions:
+  - actionVerb: attack
+    targetPattern: ?target
+    toolPattern: ?tool
+    labelFormat: Attack {target} with {tool}
+    reasonFormat: '{tool} has Fire and {target} is a Dry Plant'
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: has_skill
+      obj: Attack
+    - kind: 0
+      subject: ?actor
+      predicate: equipped
+      obj: ?tool
+    - kind: 2
+      subject: ?tool
+      predicate: 
+      obj: Fire
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Plant
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Dry
+    - kind: 1
+      subject: ?target
+      predicate: state
+      obj: Burning
+  - actionVerb: inspect
+    targetPattern: ?target
+    toolPattern: 
+    labelFormat: Inspect smoking {target}
+    reasonFormat: '{target} emits Smoke'
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: has_skill
+      obj: Inspect
+    - kind: 0
+      subject: ?target
+      predicate: emits
+      obj: Smoke
+    - kind: 1
+      subject: ?actor
+      predicate: inspects
+      obj: ?target
+  - actionVerb: talk
+    targetPattern: ?target
+    toolPattern: 
+    labelFormat: Talk to {target}
+    reasonFormat: '{target} is a Creature'
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: has_skill
+      obj: Talk
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Creature
+    - kind: 4
+      subject: ?target
+      predicate: 
+      obj: ?actor
+  - actionVerb: help
+    targetPattern: ?target
+    toolPattern: 
+    labelFormat: Help {target}
+    reasonFormat: '{target} is Disturbed'
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: has_skill
+      obj: Help
+    - kind: 0
+      subject: ?target
+      predicate: state
+      obj: Disturbed
+    - kind: 1
+      subject: ?actor
+      predicate: helps
+      obj: ?target
+  - actionVerb: equip_part
+    targetPattern: ?part
+    toolPattern: 
+    labelFormat: Equip {part}
+    reasonFormat: '{part} is an available character part'
+    conditions:
+    - kind: 2
+      subject: ?part
+      predicate: 
+      obj: CharacterPart
+    - kind: 1
+      subject: ?actor
+      predicate: equipped_part
+      obj: ?part
+  - actionVerb: unequip_part
+    targetPattern: ?part
+    toolPattern: 
+    labelFormat: Unequip {part}
+    reasonFormat: '{part} is currently equipped'
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: equipped_part
+      obj: ?part

@@ -1,0 +1,312 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31b8d013912ac8e42839bc529e7c7e48, type: 3}
+  m_Name: AnimationDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyAnimationDatabase
+  definitions:
+  - animationId: Anim_Idle_Breathing
+    clip: {fileID: 7400000, guid: 3ed56c1c8d524197b0c60b0b09bb8d84, type: 2}
+    properties:
+    - Idle
+    - Breathing
+    - LowEnergy
+    intents:
+    - Idle
+    - Discomfort
+    priority: 10
+    canBlend: 1
+  - animationId: Anim_Idle_Look_Around
+    clip: {fileID: 7400000, guid: c7ab98e30fdf4ecfb26a439b0cb318c5, type: 2}
+    properties:
+    - Idle
+    - AlertIdle
+    intents:
+    - Alert
+    - Idle
+    priority: 15
+    canBlend: 1
+  - animationId: Anim_Idle_Relaxed
+    clip: {fileID: 7400000, guid: c52272260b5340bbbc2512932157aac3, type: 2}
+    properties:
+    - Idle
+    - RelaxedIdle
+    intents:
+    - Idle
+    - Rest
+    priority: 5
+    canBlend: 1
+  - animationId: Anim_Walk_Forward
+    clip: {fileID: 7400000, guid: 98b6a2eb86734f97bdcfb9fcd236f27d, type: 2}
+    properties:
+    - Locomotion
+    - Forward
+    - Walk
+    intents:
+    - Locomotion
+    priority: 20
+    canBlend: 1
+  - animationId: Anim_Walk_Backward
+    clip: {fileID: 7400000, guid: 212ae36e2e204ce2844c1c4905285b65, type: 2}
+    properties:
+    - Locomotion
+    - Backward
+    - Walk
+    intents:
+    - Locomotion
+    priority: 20
+    canBlend: 1
+  - animationId: Anim_Run_Forward
+    clip: {fileID: 7400000, guid: f32e0a8fd4d44af18ae7f0562fe8cf75, type: 2}
+    properties:
+    - Locomotion
+    - Forward
+    - Run
+    - HighIntensity
+    intents:
+    - FastLocomotion
+    priority: 30
+    canBlend: 1
+  - animationId: Anim_Run_Backward
+    clip: {fileID: 7400000, guid: ddae1c8eb8e14567b4b6d8d41607d2db, type: 2}
+    properties:
+    - Locomotion
+    - Backward
+    - Run
+    - HighIntensity
+    intents:
+    - FastLocomotion
+    priority: 30
+    canBlend: 1
+  - animationId: Anim_Run_Left
+    clip: {fileID: 7400000, guid: 543b8c31fa1141d897f189b4765741d2, type: 2}
+    properties:
+    - Locomotion
+    - Left
+    - Run
+    - HighIntensity
+    intents:
+    - FastLocomotion
+    priority: 30
+    canBlend: 1
+  - animationId: Anim_Run_Right
+    clip: {fileID: 7400000, guid: 04e87bdc25744cfdab0e7838576047c3, type: 2}
+    properties:
+    - Locomotion
+    - Right
+    - Run
+    - HighIntensity
+    intents:
+    - FastLocomotion
+    priority: 30
+    canBlend: 1
+  - animationId: Anim_Strafe_Left
+    clip: {fileID: 7400000, guid: 5a3832995d7c4cd0affdb41cd20d0fc5, type: 2}
+    properties:
+    - Locomotion
+    - Left
+    - Strafe
+    intents:
+    - Strafe
+    priority: 25
+    canBlend: 1
+  - animationId: Anim_Strafe_Right
+    clip: {fileID: 7400000, guid: 50f3545cb7134cc7bbb47ed9d151c7d1, type: 2}
+    properties:
+    - Locomotion
+    - Right
+    - Strafe
+    intents:
+    - Strafe
+    priority: 25
+    canBlend: 1
+  - animationId: Anim_Jump_Start
+    clip: {fileID: 7400000, guid: 5a9a451b24024a41ab46c9aa555bc41d, type: 2}
+    properties:
+    - Jump
+    - Airborne
+    - Start
+    intents:
+    - Jump
+    priority: 40
+    canBlend: 0
+  - animationId: Anim_Jump_Loop
+    clip: {fileID: 7400000, guid: 7cc61edbc91e4638a961fc0228920a80, type: 2}
+    properties:
+    - Jump
+    - Airborne
+    - Loop
+    intents:
+    - Airborne
+    priority: 35
+    canBlend: 1
+  - animationId: Anim_Jump_End
+    clip: {fileID: 7400000, guid: e234e2a5d3e04f9a8fa6d6295555c345, type: 2}
+    properties:
+    - Jump
+    - Landing
+    - End
+    intents:
+    - Landing
+    priority: 35
+    canBlend: 0
+  - animationId: Anim_Crouch_Walk_Forward
+    clip: {fileID: 9198153334671162169, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - Locomotion
+    - Crouch
+    - ImpairedMovement
+    - Forward
+    intents:
+    - ImpairedMovement
+    - CautiousLocomotion
+    priority: 55
+    canBlend: 1
+  - animationId: Anim_Crouch_Walk_Backward
+    clip: {fileID: 439784503820603027, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - Locomotion
+    - Crouch
+    - ImpairedMovement
+    - Backward
+    intents:
+    - ImpairedMovement
+    - CautiousLocomotion
+    priority: 55
+    canBlend: 1
+  - animationId: Anim_Crouch_Walk_Left
+    clip: {fileID: -7504226609968954862, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - Locomotion
+    - Crouch
+    - ImpairedMovement
+    - Left
+    intents:
+    - ImpairedMovement
+    - CautiousLocomotion
+    priority: 55
+    canBlend: 1
+  - animationId: Anim_Crouch_Walk_Right
+    clip: {fileID: -7624677252082611786, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - Locomotion
+    - Crouch
+    - ImpairedMovement
+    - Right
+    intents:
+    - ImpairedMovement
+    - CautiousLocomotion
+    priority: 55
+    canBlend: 1
+  - animationId: Anim_Hit_Reaction_Light
+    clip: {fileID: 732519596084210561, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - DamageReaction
+    - LightSeverity
+    intents:
+    - DamageReaction
+    - Discomfort
+    priority: 60
+    canBlend: 0
+  - animationId: Anim_Hit_Reaction_Heavy
+    clip: {fileID: 4298968129520807213, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - DamageReaction
+    - HeavySeverity
+    intents:
+    - SevereDamageReaction
+    priority: 80
+    canBlend: 0
+  - animationId: Anim_Fall
+    clip: {fileID: 5917537482288442099, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - CollapseReaction
+    - Airborne
+    intents:
+    - CollapseReaction
+    priority: 85
+    canBlend: 0
+  - animationId: Anim_Death_Backward
+    clip: {fileID: -4950758156531648292, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - DeathReaction
+    - Backward
+    intents:
+    - DeathReaction
+    priority: 100
+    canBlend: 0
+  - animationId: Anim_Death_Forward
+    clip: {fileID: 6182763086745782283, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - DeathReaction
+    - Forward
+    intents:
+    - DeathReaction
+    priority: 100
+    canBlend: 0
+  - animationId: Anim_Attack_Punch
+    clip: {fileID: -7394484345467444417, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - Attack
+    - Unarmed
+    - UpperBody
+    intents:
+    - Attack
+    priority: 70
+    canBlend: 0
+  - animationId: Anim_Attack_Kick
+    clip: {fileID: 2771865946972476010, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - Attack
+    - Unarmed
+    - LowerBody
+    intents:
+    - Attack
+    priority: 70
+    canBlend: 0
+  - animationId: Anim_Block_With_Hands
+    clip: {fileID: -4478515264891265488, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - Defense
+    - Block
+    - UpperBody
+    intents:
+    - Defense
+    priority: 65
+    canBlend: 0
+  - animationId: Anim_Dodge_Roll
+    clip: {fileID: 1396319113448604862, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - Evasion
+    - Roll
+    - FullBody
+    intents:
+    - Evasion
+    priority: 75
+    canBlend: 0
+  - animationId: Anim_Dodge_Sidestep
+    clip: {fileID: 2737883252764492063, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - Evasion
+    - Sidestep
+    intents:
+    - Evasion
+    priority: 70
+    canBlend: 0
+  - animationId: Anim_Climb_Ladder
+    clip: {fileID: -6200094899576005654, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    properties:
+    - Traversal
+    - Climb
+    intents:
+    - Traversal
+    priority: 50
+    canBlend: 0

@@ -1,0 +1,93 @@
+using UnityEngine;
+
+namespace Tormia.Ontology.Core
+{
+    [CreateAssetMenu(menuName = "Tormia/Ontology/UI Labels", fileName = "OntologyUILabels")]
+    public sealed class OntologyUILabels : ScriptableObject
+    {
+        public string characterPartsTitle = "Character Parts";
+        public string debugTitle = "Ontology Debug";
+        public string actionButtonsTitle = "Action Buttons";
+        public string runSimulation = "Run Simulation";
+        public string attackTree = "Attack Tree";
+        public string resetWorld = "Reset World";
+        public string saveSnapshot = "Save";
+        public string loadSnapshot = "Load";
+        public string equip = "Equip";
+        public string unequip = "Unequip";
+        public string equippedState = "ON";
+        public string unequippedState = "OFF";
+        public string meshState = "mesh";
+        public string factState = "fact";
+        public string equippedCountFormat = "Equipped parts: {0} / {1}";
+        public string equippedActionFormat = "Equipped: {0}";
+        public string unequippedActionFormat = "Unequipped: {0}";
+        public string equipFailedFormat = "Equip failed: {0}";
+        public string unequipFailedFormat = "Unequip failed: {0}";
+        public string partFailureDefinitionMissing = "part definition is missing";
+        public string partFailureRendererMissing = "renderer is missing";
+        public string partFailureWorldMissing = "ontology world is not ready";
+        public string partFailureAlreadyEquipped = "already equipped";
+        public string partFailureAlreadyUnequipped = "already unequipped";
+        public string missingReferences = "Character part UI is missing references.";
+        public string noPartAdapter = "No character part adapter.";
+        public string noBootstrap = "[OntologyDebugPanel]\nNo OntologyWorldBootstrap found.";
+        public string noSaveController = "[OntologyDebugPanel]\nNo OntologySaveController found.";
+        public string questActionPrefix = "[Quest] ";
+        public string allActionsFilter = "All";
+        public string questActionsFilter = "Quest";
+        public string partActionsFilter = "Parts";
+        public string worldActionsFilter = "World";
+        public string filterStatusFormat = "Filter: {0} | Actions: {1}";
+        public string selectedPartFormat = "Selected: {0}\nSlot: {1}\nState: {2} | Fact: {3}";
+        public string selectedPartPreviewFormat = "{0}\nCapabilities: {1}\nConflicts: {2}\nOn Equip: {3}";
+        public string conflictWarningFormat = "Will unequip: {0}";
+        public string capabilitySwampResistance = "Swamp Resistance";
+        public string capabilityColdProtection = "Cold Protection";
+        public string capabilitySwampResistanceEffect = "prevents Slowed on swamp";
+        public string capabilityColdProtectionEffect = "grants Warm in cold";
+        public string noCapabilities = "none";
+        public string noConflicts = "none";
+        public string noDiff = "no change";
+        public string partSearchPlaceholder = "Search parts...";
+        public string partStateAll = "All";
+        public string partStateEquipped = "Equipped";
+        public string partStateAvailable = "Available";
+        public string partSlotAll = "All Slots";
+        public string partStateFilterFormat = "State: {0}";
+        public string partSlotFilterFormat = "Slot: {0}";
+        public string graphSummaryFormat = "Graph: {0} facts | {1} subjects | {2} predicates";
+        public string questSummaryFormat = "Quest actions: {0}";
+        public string toastSaved = "Snapshot saved.";
+        public string toastLoaded = "Snapshot loaded.";
+        public string toastReset = "World reset.";
+        public string toastRan = "Simulation ran.";
+        public string actorToastFactFormat = "{0}: {1}";
+        public string actorToastRemovedFactFormat = "Lost {0}: {1}";
+        public string actorToastStatus = "Status";
+        public string actorToastMovementState = "Movement";
+        public string actorToastExposure = "Exposure";
+        public string actorToastCapability = "Capability";
+        public string actorToastEquippedPart = "Equipped";
+        public string actorToastAnimationIntent = "Intent";
+        public string actorToastStandingOn = "Tile";
+        public string hudTitle = "[ONTOLOGY RUNTIME HUD]";
+        public string hudWorldNotReady = "World is not ready.";
+        public string hudDivider = "--------------------------------";
+        public string hudCurrentTick = "Current Tick";
+        public string hudStandingOn = "Standing On";
+        public string hudCoreVitality = "Core Vitality";
+        public string hudStatusWet = "Status Wet";
+        public string hudStateSlowed = "State Slowed";
+        public string hudExposedCold = "Exposed Cold";
+        public string hudEquippedParts = "Equipped Parts";
+        public string hudPartCapabilities = "Part Capabilities";
+        public string hudAnimationIntent = "Animation Intent";
+        public string hudSelectedIntent = "Selected Intent";
+        public string hudSelectedAnimation = "Selected Animation";
+        public string hudSelectedClip = "Selected Clip";
+        public string trueText = "TRUE";
+        public string falseText = "FALSE";
+        public string noneText = "None";
+    }
+}

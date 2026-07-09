@@ -1,0 +1,538 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 696c085a45bd39d46821655a7500dd56, type: 3}
+  m_Name: RuleDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyRuleDatabase
+  definitions:
+  - id: BurnEvent
+    description: A dry plant hit by a fire object starts burning.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: attacks
+      obj: ?target
+    - kind: 0
+      subject: ?actor
+      predicate: attacks_with
+      obj: ?tool
+    - kind: 2
+      subject: ?tool
+      predicate: 
+      obj: Fire
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Plant
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Dry
+    - kind: 1
+      subject: ?target
+      predicate: state
+      obj: Burning
+    effects:
+    - kind: 0
+      subject: ?target
+      predicate: state
+      obj: Burning
+    - kind: 0
+      subject: ?target
+      predicate: emits
+      obj: Fire
+  - id: SmokeEvent
+    description: A burning object emits smoke, creating a visible world signal.
+    conditions:
+    - kind: 0
+      subject: ?target
+      predicate: state
+      obj: Burning
+    - kind: 1
+      subject: ?target
+      predicate: emits
+      obj: Smoke
+    effects:
+    - kind: 0
+      subject: ?target
+      predicate: emits
+      obj: Smoke
+  - id: FleeEvent
+    description: A creature that fears fire flees when a nearby object emits fire.
+    conditions:
+    - kind: 2
+      subject: ?creature
+      predicate: 
+      obj: Creature
+    - kind: 0
+      subject: ?creature
+      predicate: fears
+      obj: Fire
+    - kind: 0
+      subject: ?emitter
+      predicate: emits
+      obj: Fire
+    - kind: 1
+      subject: ?creature
+      predicate: intent
+      obj: Flee
+    effects:
+    - kind: 0
+      subject: ?creature
+      predicate: intent
+      obj: Flee
+  - id: DisturbanceEvent
+    description: A fleeing creature near a village creates a local disturbance.
+    conditions:
+    - kind: 0
+      subject: ?creature
+      predicate: intent
+      obj: Flee
+    - kind: 0
+      subject: ?creature
+      predicate: near
+      obj: ?place
+    - kind: 1
+      subject: ?place
+      predicate: state
+      obj: Disturbed
+    - kind: 1
+      subject: ?place
+      predicate: state
+      obj: Recovering
+    effects:
+    - kind: 0
+      subject: ?place
+      predicate: state
+      obj: Disturbed
+  - id: QuestHookEvent
+    description: A disturbed place and visible smoke expose an investigation quest
+      hook.
+    conditions:
+    - kind: 0
+      subject: ?smokeSource
+      predicate: emits
+      obj: Smoke
+    - kind: 0
+      subject: ?place
+      predicate: state
+      obj: Disturbed
+    - kind: 2
+      subject: ?board
+      predicate: 
+      obj: QuestBoard
+    - kind: 1
+      subject: ?board
+      predicate: offers
+      obj: InvestigateSmokeAndPanic
+    effects:
+    - kind: 0
+      subject: ?board
+      predicate: offers
+      obj: InvestigateSmokeAndPanic
+  - id: NpcFearMoodEvent
+    description: A fleeing NPC becomes afraid.
+    conditions:
+    - kind: 2
+      subject: ?npc
+      predicate: 
+      obj: NPC
+    - kind: 0
+      subject: ?npc
+      predicate: intent
+      obj: Flee
+    - kind: 1
+      subject: ?npc
+      predicate: mood
+      obj: Afraid
+    effects:
+    - kind: 0
+      subject: ?npc
+      predicate: mood
+      obj: Afraid
+  - id: NpcDistrustEvent
+    description: Talking to an afraid NPC makes them distrust the player.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: talks_to
+      obj: ?npc
+    - kind: 2
+      subject: ?npc
+      predicate: 
+      obj: NPC
+    - kind: 0
+      subject: ?npc
+      predicate: mood
+      obj: Afraid
+    - kind: 1
+      subject: Relation_{npc}_{actor}
+      predicate: state
+      obj: Distrustful
+    effects:
+    - kind: 0
+      subject: Relation_{npc}_{actor}
+      predicate: has_concept
+      obj: Relation
+    - kind: 0
+      subject: Relation_{npc}_{actor}
+      predicate: subject
+      obj: ?npc
+    - kind: 0
+      subject: Relation_{npc}_{actor}
+      predicate: target
+      obj: ?actor
+    - kind: 0
+      subject: Relation_{npc}_{actor}
+      predicate: state
+      obj: Distrustful
+  - id: NpcRespectEvent
+    description: Helping the village earns respect from nearby NPCs.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: helps
+      obj: ?place
+    - kind: 2
+      subject: ?npc
+      predicate: 
+      obj: NPC
+    - kind: 0
+      subject: ?npc
+      predicate: near
+      obj: ?place
+    - kind: 1
+      subject: Relation_{npc}_{actor}
+      predicate: state
+      obj: Respectful
+    effects:
+    - kind: 0
+      subject: Relation_{npc}_{actor}
+      predicate: has_concept
+      obj: Relation
+    - kind: 0
+      subject: Relation_{npc}_{actor}
+      predicate: subject
+      obj: ?npc
+    - kind: 0
+      subject: Relation_{npc}_{actor}
+      predicate: target
+      obj: ?actor
+    - kind: 0
+      subject: Relation_{npc}_{actor}
+      predicate: state
+      obj: Respectful
+  - id: QuestConsequenceEvent
+    description: Completing the smoke investigation helps the disturbed village recover.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: completed_quest
+      obj: InvestigateSmokeAndPanic
+    - kind: 0
+      subject: ?place
+      predicate: state
+      obj: Disturbed
+    - kind: 0
+      subject: ?board
+      predicate: offers
+      obj: InvestigateSmokeAndPanic
+    - kind: 1
+      subject: ?place
+      predicate: state
+      obj: Recovering
+    effects:
+    - kind: 2
+      subject: ?place
+      predicate: state
+      obj: Recovering
+    - kind: 0
+      subject: ?board
+      predicate: records
+      obj: InvestigateSmokeAndPanicCompleted
+  - id: CraftStoneAxeRule
+    description: Player -- CRAFTED --> StoneAxe
+    conditions:
+    - kind: 0
+      subject: Player
+      predicate: combined
+      obj: Stone
+    - kind: 0
+      subject: Player
+      predicate: combined
+      obj: Stick
+    - kind: 1
+      subject: Player
+      predicate: has_item
+      obj: StoneAxe
+    effects:
+    - kind: 0
+      subject: Player
+      predicate: has_item
+      obj: StoneAxe
+    - kind: 1
+      subject: Player
+      predicate: combined
+      obj: Stone
+    - kind: 1
+      subject: Player
+      predicate: combined
+      obj: Stick
+  - id: TileWaterStatusWetRule
+    description: Actor standing on a water tile becomes Wet.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: standing_on
+      obj: ?tile
+    - kind: 2
+      subject: ?tile
+      predicate: 
+      obj: TerrainTile
+    - kind: 0
+      subject: ?tile
+      predicate: has_element
+      obj: Water
+    - kind: 1
+      subject: ?actor
+      predicate: status
+      obj: Wet
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: status
+      obj: Wet
+  - id: TileFreezingColdExposureRule
+    description: Actor standing on a freezing tile is exposed to ColdEnvironment.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: standing_on
+      obj: ?tile
+    - kind: 2
+      subject: ?tile
+      predicate: 
+      obj: TerrainTile
+    - kind: 0
+      subject: ?tile
+      predicate: temperature
+      obj: Freezing
+    - kind: 1
+      subject: ?actor
+      predicate: exposed_to
+      obj: ColdEnvironment
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: exposed_to
+      obj: ColdEnvironment
+  - id: SwampResistanceCapabilityRule
+    description: SwampResistance equipment gives the actor swamp movement protection.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: equipped_part
+      obj: ?part
+    - kind: 0
+      subject: ?part
+      predicate: provides
+      obj: SwampResistance
+    - kind: 1
+      subject: ?actor
+      predicate: has_capability
+      obj: SwampResistance
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: has_capability
+      obj: SwampResistance
+  - id: TileSwampMovementSlowRule
+    description: Actor standing on a swamp tile becomes Slowed unless protected by
+      SwampResistance.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: standing_on
+      obj: ?tile
+    - kind: 2
+      subject: ?tile
+      predicate: 
+      obj: TerrainTile
+    - kind: 0
+      subject: ?tile
+      predicate: surface
+      obj: Swamp
+    - kind: 1
+      subject: ?actor
+      predicate: has_capability
+      obj: SwampResistance
+    - kind: 1
+      subject: ?actor
+      predicate: movement_state
+      obj: Slowed
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: movement_state
+      obj: Slowed
+  - id: ColdProtectionWarmthRule
+    description: ColdProtection equipment keeps a cold-exposed actor Warm.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: exposed_to
+      obj: ColdEnvironment
+    - kind: 0
+      subject: ?actor
+      predicate: equipped_part
+      obj: ?part
+    - kind: 0
+      subject: ?part
+      predicate: provides
+      obj: ColdProtection
+    - kind: 1
+      subject: ?actor
+      predicate: status
+      obj: Warm
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: status
+      obj: Warm
+  - id: ColdExposureVitalityTickRule
+    description: Cold exposure lowers CoreVitality once per simulation tick unless
+      the actor is Warm.
+    conditions:
+    - kind: 0
+      subject: Simulation
+      predicate: current_tick
+      obj: ?tick
+    - kind: 0
+      subject: ?actor
+      predicate: exposed_to
+      obj: ColdEnvironment
+    - kind: 0
+      subject: ?actor
+      predicate: core_vitality
+      obj: ?vitality
+    - kind: 1
+      subject: ?actor
+      predicate: status
+      obj: Warm
+    - kind: 1
+      subject: ?actor
+      predicate: cold_damage_tick
+      obj: ?tick
+    effects:
+    - kind: 3
+      subject: ?actor
+      predicate: core_vitality
+      obj: -1
+    - kind: 0
+      subject: ?actor
+      predicate: cold_damage_tick
+      obj: ?tick
+  - id: SlowedAnimationIntentRule
+    description: Slowed actors prefer impaired movement animation intent.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: movement_state
+      obj: Slowed
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: ImpairedMovement
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: ImpairedMovement
+  - id: ColdAnimationIntentRule
+    description: Cold exposure prefers discomfort animation intent.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: exposed_to
+      obj: ColdEnvironment
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: Discomfort
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: Discomfort
+  - id: LowVitalityAnimationIntentRule3
+    description: Core vitality 3 creates animation intent SevereDamageReaction.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: core_vitality
+      obj: 3
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: SevereDamageReaction
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: SevereDamageReaction
+  - id: LowVitalityAnimationIntentRule2
+    description: Core vitality 2 creates animation intent SevereDamageReaction.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: core_vitality
+      obj: 2
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: SevereDamageReaction
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: SevereDamageReaction
+  - id: LowVitalityAnimationIntentRule1
+    description: Core vitality 1 creates animation intent SevereDamageReaction.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: core_vitality
+      obj: 1
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: SevereDamageReaction
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: SevereDamageReaction
+  - id: DeathAnimationIntentRule
+    description: Core vitality 0 creates animation intent DeathReaction.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: core_vitality
+      obj: 0
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: DeathReaction
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: DeathReaction

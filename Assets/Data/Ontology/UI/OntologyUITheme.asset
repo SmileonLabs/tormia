@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 523832dac9f44214fac0f0e12730bee2, type: 3}
+  m_Name: OntologyUITheme
+  m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyUITheme
+  panelBackground: {r: 0.035, g: 0.045, b: 0.065, a: 0.9}
+  titleText: {r: 0.86, g: 0.94, b: 1, a: 1}
+  statusText: {r: 0.7, g: 0.82, b: 0.92, a: 1}
+  rowEven: {r: 0.08, g: 0.1, b: 0.14, a: 0.75}
+  rowOdd: {r: 0.05, g: 0.07, b: 0.1, a: 0.75}
+  rowEquipped: {r: 0.1, g: 0.24, b: 0.16, a: 0.88}
+  rowText: {r: 0.92, g: 0.96, b: 1, a: 1}
+  rowEquippedText: {r: 0.7, g: 1, b: 0.78, a: 1}
+  equipButton: {r: 0.16, g: 0.56, b: 0.34, a: 0.95}
+  unequipButton: {r: 0.58, g: 0.22, b: 0.22, a: 0.95}
+  actionButton: {r: 0.16, g: 0.32, b: 0.62, a: 0.95}
+  buttonText: {r: 1, g: 1, b: 1, a: 1}
+  questActionText: {r: 1, g: 0.92, b: 0.35, a: 1}
+  titleFontSize: 22
+  statusFontSize: 14
+  rowFontSize: 14
+  buttonFontSize: 12
+  actionButtonFontSize: 15
+  panelSize: {x: 430, y: 640}
+  panelAnchoredPosition: {x: -32, y: -32}
+  titleAnchoredPosition: {x: 0, y: -16}
+  statusAnchoredPosition: {x: 0, y: -50}
+  rowsOffsetMin: {x: 16, y: 18}
+  rowsOffsetMax: {x: -16, y: -86}
+  rowHeight: 30
+  rowSpacing: 34
+  rowLabelOffsetMin: {x: 8, y: 0}
+  rowLabelOffsetMax: {x: -176, y: 0}
+  buttonSize: {x: 76, y: 24}
+  equipButtonPosition: {x: -122, y: 0}
+  unequipButtonPosition: {x: -40, y: 0}
+  actionButtonHeight: 36
+  actionButtonSpacing: 42
+  actionButtonTextPadding: {x: 10, y: 0}

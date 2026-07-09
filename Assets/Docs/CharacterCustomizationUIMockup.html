@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tormia Character Customization UI Mockup</title>
+  <style>
+    :root {
+      --bg: #0f1218;
+      --panel: #171d28;
+      --panel-2: #202838;
+      --panel-3: #111722;
+      --text: #edf3ff;
+      --muted: #aeb9cc;
+      --line: #30394d;
+      --accent: #8bd3ff;
+      --accent-2: #b7f7a8;
+      --warn: #ffd166;
+      --danger: #ff8c8c;
+      --equip: #7ee787;
+      --shadow: rgba(0, 0, 0, 0.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(139, 211, 255, 0.16), transparent 34%),
+        radial-gradient(circle at 84% 18%, rgba(183, 247, 168, 0.12), transparent 28%),
+        linear-gradient(135deg, #0d1016 0%, #151a23 100%);
+    }
+
+    main {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-end;
+      margin-bottom: 22px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(23, 29, 40, 0.78);
+      box-shadow: 0 24px 80px var(--shadow);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 8px; font-size: clamp(28px, 4vw, 48px); line-height: 1.08; }
+    h2 { margin-bottom: 14px; font-size: 20px; color: var(--accent); }
+    h3 { margin-bottom: 8px; font-size: 16px; color: var(--accent-2); }
+    p { color: var(--muted); line-height: 1.55; }
+
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill {
+      padding: 7px 11px;
+      border: 1px solid rgba(139, 211, 255, 0.35);
+      border-radius: 999px;
+      color: var(--accent);
+      background: rgba(139, 211, 255, 0.08);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .screen {
+      display: grid;
+      grid-template-columns: 300px minmax(420px, 1fr) 360px;
+      gap: 18px;
+      min-height: 760px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(23, 29, 40, 0.92);
+      box-shadow: 0 20px 60px var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(135deg, rgba(139, 211, 255, 0.08), rgba(183, 247, 168, 0.04));
+    }
+
+    .panel-body { padding: 18px; }
+
+    .category-list { display: grid; gap: 8px; }
+    .category {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-2);
+      color: var(--muted);
+    }
+
+    .category.active {
+      color: var(--text);
+      border-color: rgba(139, 211, 255, 0.75);
+      background: linear-gradient(135deg, rgba(139, 211, 255, 0.2), rgba(139, 211, 255, 0.06));
+    }
+
+    .count {
+      min-width: 28px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      text-align: center;
+      color: var(--accent);
+      background: rgba(139, 211, 255, 0.12);
+      font-size: 12px;
+    }
+
+    .avatar-stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 520px;
+      border-bottom: 1px solid var(--line);
+      background:
+        radial-gradient(circle at 50% 28%, rgba(139, 211, 255, 0.14), transparent 28%),
+        linear-gradient(180deg, #151c29, #0e131c);
+    }
+
+    .avatar-card {
+      position: relative;
+      width: min(280px, 72%);
+      aspect-ratio: 0.54;
+      border: 1px solid rgba(139, 211, 255, 0.18);
+      border-radius: 48% 48% 18% 18%;
+      background:
+        linear-gradient(180deg, rgba(237, 243, 255, 0.1), transparent 38%),
+        linear-gradient(90deg, rgba(255,255,255,0.08), transparent 18%, transparent 82%, rgba(0,0,0,0.16)),
+        #263449;
+      box-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
+    }
+
+    .avatar-card::before {
+      content: "3D Character Preview";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 160px;
+      text-align: center;
+      color: rgba(237, 243, 255, 0.66);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .equipped-strip {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .equip-chip {
+      padding: 7px 10px;
+      border: 1px solid rgba(183, 247, 168, 0.32);
+      border-radius: 999px;
+      background: rgba(183, 247, 168, 0.08);
+      color: var(--accent-2);
+      font-size: 12px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .search {
+      flex: 1;
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel-3);
+      color: var(--muted);
+    }
+
+    .toggle {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--accent);
+      background: rgba(139, 211, 255, 0.08);
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      padding: 18px;
+    }
+
+    .part-card {
+      position: relative;
+      min-height: 150px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel-2);
+    }
+
+    .part-card.active {
+      border-color: rgba(183, 247, 168, 0.75);
+      box-shadow: inset 0 0 0 1px rgba(183, 247, 168, 0.22);
+    }
+
+    .part-card.conflict { border-color: rgba(255, 209, 102, 0.58); }
+
+    .thumb {
+      display: grid;
+      place-items: center;
+      height: 86px;
+      margin-bottom: 10px;
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(139, 211, 255, 0.2), transparent 46%),
+        #121925;
+      color: rgba(237, 243, 255, 0.64);
+      font-weight: 700;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .part-name { font-weight: 700; font-size: 13px; }
+    .part-meta { margin-top: 3px; color: var(--muted); font-size: 12px; }
+
+    .badge {
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(126, 231, 135, 0.16);
+      color: var(--equip);
+    }
+
+    .badge.warn { background: rgba(255, 209, 102, 0.14); color: var(--warn); }
+
+    .detail-block {
+      margin-bottom: 16px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel-2);
+    }
+
+    .big-thumb {
+      display: grid;
+      place-items: center;
+      height: 210px;
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 50% 32%, rgba(183, 247, 168, 0.14), transparent 42%),
+        #121925;
+      color: rgba(237, 243, 255, 0.72);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .fact-list { display: grid; gap: 8px; }
+    .fact {
+      padding: 9px 10px;
+      border: 1px solid rgba(139, 211, 255, 0.22);
+      border-radius: 12px;
+      background: rgba(139, 211, 255, 0.06);
+      color: #d9eaff;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 13px 14px;
+      color: #07101a;
+      background: var(--accent-2);
+      font-weight: 800;
+      cursor: default;
+    }
+
+    button.secondary { color: var(--text); background: #2a3448; border: 1px solid var(--line); }
+
+    .toast {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(183, 247, 168, 0.4);
+      border-radius: 14px;
+      background: rgba(183, 247, 168, 0.08);
+      color: var(--accent-2);
+      font-weight: 700;
+    }
+
+    .plan {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .step {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(23, 29, 40, 0.9);
+    }
+
+    .step strong { display: block; margin-bottom: 7px; color: var(--accent); }
+    .step small { color: var(--muted); line-height: 1.5; }
+
+    @media (max-width: 1120px) {
+      .screen { grid-template-columns: 260px 1fr; }
+      .details { grid-column: 1 / -1; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .plan { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      main { padding: 16px; }
+      header { display: block; padding: 20px; }
+      .screen { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .plan { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Character Customization UI</h1>
+        <p>게임 화면에서 파츠를 선택하고, 장착 결과가 renderer와 ontology fact에 바로 반영되는 런타임 UI 시안입니다.</p>
+      </div>
+      <div class="pill-row">
+        <span class="pill">2D Thumbnail List</span>
+        <span class="pill">3D Character Preview</span>
+        <span class="pill">Ontology Facts</span>
+        <span class="pill">Toast Feedback</span>
+      </div>
+    </header>
+
+    <section class="screen">
+      <aside class="panel">
+        <div class="panel-header">
+          <h2>Category</h2>
+          <p>Database의 Category / Slot 기준으로 자동 구성됩니다.</p>
+        </div>
+        <div class="panel-body category-list">
+          <div class="category active"><span>UpperBody</span><span class="count">12</span></div>
+          <div class="category"><span>LowerBody</span><span class="count">8</span></div>
+          <div class="category"><span>Footwear</span><span class="count">9</span></div>
+          <div class="category"><span>Outerwear</span><span class="count">6</span></div>
+          <div class="category"><span>FullBody</span><span class="count">4</span></div>
+          <div class="category"><span>Headwear</span><span class="count">10</span></div>
+          <div class="category"><span>Eyewear</span><span class="count">7</span></div>
+          <div class="category"><span>Accessory</span><span class="count">14</span></div>
+        </div>
+      </aside>
+
+      <section class="panel">
+        <div class="avatar-stage">
+          <div class="avatar-card"></div>
+          <div class="equipped-strip">
+            <span class="equip-chip">TShirt Base</span>
+            <span class="equip-chip">Pants Base</span>
+            <span class="equip-chip">Shoes Base</span>
+            <span class="equip-chip">Hair Base</span>
+          </div>
+        </div>
+        <div class="toolbar">
+          <div class="search">Search parts...</div>
+          <div class="toggle">Equipped Only</div>
+        </div>
+        <div class="grid">
+          <div class="part-card active">
+            <span class="badge">ON</span>
+            <div class="thumb">Generated<br>Thumbnail</div>
+            <div class="part-name">TShirt Base</div>
+            <div class="part-meta">UpperBody · equipped</div>
+          </div>
+          <div class="part-card">
+            <div class="thumb">Prefab<br>Preview</div>
+            <div class="part-name">TShirt 012</div>
+            <div class="part-meta">UpperBody · available</div>
+          </div>
+          <div class="part-card conflict">
+            <span class="badge warn">CONFLICT</span>
+            <div class="thumb">Prefab<br>Preview</div>
+            <div class="part-name">FullBody Coat</div>
+            <div class="part-meta">Will unequip upper/lower</div>
+          </div>
+          <div class="part-card">
+            <div class="thumb">Manual<br>Icon</div>
+            <div class="part-name">TShirt 023</div>
+            <div class="part-meta">UpperBody · available</div>
+          </div>
+          <div class="part-card">
+            <div class="thumb">Prefab<br>Preview</div>
+            <div class="part-name">TShirt 031</div>
+            <div class="part-meta">UpperBody · available</div>
+          </div>
+          <div class="part-card">
+            <div class="thumb">Generated<br>PNG</div>
+            <div class="part-name">TShirt 044</div>
+            <div class="part-meta">UpperBody · available</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel details">
+        <div class="panel-header">
+          <h2>Selected Part</h2>
+          <p>선택 파츠의 아이콘, 충돌, capability, 적용될 fact를 보여줍니다.</p>
+        </div>
+        <div class="panel-body">
+          <div class="detail-block">
+            <div class="big-thumb">TShirt 012</div>
+          </div>
+          <div class="detail-block">
+            <h3>Apply Preview</h3>
+            <p>Equip TShirt 012. Same category item will be replaced.</p>
+            <div class="fact-list">
+              <div class="fact">Player equipped_part Part_TShirt_012</div>
+              <div class="fact">Part_TShirt_012 has_slot UpperBody</div>
+            </div>
+          </div>
+          <div class="detail-block">
+            <h3>Thumbnail Policy</h3>
+            <p>icon이 있으면 icon 사용, 없으면 generated thumbnail, 그것도 없으면 prefab preview/text fallback.</p>
+          </div>
+          <div class="button-row">
+            <button>Equip</button>
+            <button class="secondary">Unequip</button>
+          </div>
+          <div class="toast">Toast: Equipped: TShirt 012</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="plan">
+      <div class="step">
+        <strong>1. Data 확장</strong>
+        <small>Part definition에 icon/thumbnail 필드를 추가하고, 없을 때 prefab preview로 fallback합니다.</small>
+      </div>
+      <div class="step">
+        <strong>2. Thumbnail 생성</strong>
+        <small>EditorWindow에서 Generate Thumbnail 버튼으로 PNG를 만들고 part icon에 연결합니다.</small>
+      </div>
+      <div class="step">
+        <strong>3. Runtime UI</strong>
+        <small>Category tab, part grid, selected detail, equip/unequip 버튼을 플레이용 canvas에 구현합니다.</small>
+      </div>
+      <div class="step">
+        <strong>4. Ontology 적용</strong>
+        <small>EquipPart 호출 후 renderer, world facts, capability rules, toast, save/load를 연결 검증합니다.</small>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

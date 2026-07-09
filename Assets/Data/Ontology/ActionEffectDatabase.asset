@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 937d149c195c01d4ea65aab2e3c74847, type: 3}
+  m_Name: ActionEffectDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyActionEffectDatabase
+  definitions:
+  - actionVerb: attack
+    subjectPattern: ?actor
+    predicate: attacks
+    objectPattern: ?target
+    requiresTool: 0
+  - actionVerb: attack
+    subjectPattern: ?actor
+    predicate: attacks_with
+    objectPattern: ?tool
+    requiresTool: 1
+  - actionVerb: talk
+    subjectPattern: ?actor
+    predicate: talks_to
+    objectPattern: ?target
+    requiresTool: 0
+  - actionVerb: inspect
+    subjectPattern: ?actor
+    predicate: inspects
+    objectPattern: ?target
+    requiresTool: 0
+  - actionVerb: help
+    subjectPattern: ?actor
+    predicate: helps
+    objectPattern: ?target
+    requiresTool: 0
+  - actionVerb: equip_part
+    subjectPattern: ?actor
+    predicate: equipped_part
+    objectPattern: ?target
+    requiresTool: 0
+  - actionVerb: unequip_part
+    subjectPattern: ?actor
+    predicate: unequip_part
+    objectPattern: ?target
+    requiresTool: 0
