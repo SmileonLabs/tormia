@@ -11,6 +11,7 @@ namespace Tormia.Ontology.Core
     {
         [SerializeField] private OntologyWorldBootstrap bootstrap;
         [SerializeField] private OntologyAnimationDatabase animationDatabase;
+        [SerializeField] private OntologyActorProfile actorProfile;
         [SerializeField] private Animator targetAnimator;
         [SerializeField] private string actorId = "Player";
         [SerializeField] private bool useAnimatorSpeed = true;
@@ -57,6 +58,7 @@ namespace Tormia.Ontology.Core
         public string SelectedClipName => selectedClipName;
         public string SelectedIntent => selectedIntent;
         public bool SelectedCanBlend => selectedCanBlend;
+        public OntologyActorProfile ActorProfile => actorProfile;
 
         private AnimationClip selectedClip;
         private CharacterMover characterMover;
@@ -156,7 +158,7 @@ namespace Tormia.Ontology.Core
                 foundFactIntent = true;
                 foreach (var definition in animationDatabase.Definitions)
                 {
-                    if (definition == null || definition.clip == null || !HasIntent(definition, intent))
+                    if (!CanUse(definition) || !HasIntent(definition, intent))
                     {
                         continue;
                     }
@@ -174,7 +176,7 @@ namespace Tormia.Ontology.Core
                 var defaultIntent = IsMoving() ? defaultMoveIntent : defaultIdleIntent;
                 foreach (var definition in animationDatabase.Definitions)
                 {
-                    if (definition == null || definition.clip == null || !HasIntent(definition, defaultIntent))
+                    if (!CanUse(definition) || !HasIntent(definition, defaultIntent))
                     {
                         continue;
                     }
@@ -291,6 +293,58 @@ namespace Tormia.Ontology.Core
             foreach (var candidate in definition.intents)
             {
                 if (candidate == intent)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool CanUse(OntologyAnimationDefinition definition)
+        {
+            if (definition == null || definition.clip == null)
+            {
+                return false;
+            }
+
+            if (actorProfile == null)
+            {
+                return true;
+            }
+
+            if (!Matches(definition.actorTypes, actorProfile.actorType) ||
+                !Matches(definition.rigTypes, actorProfile.rigType))
+            {
+                return false;
+            }
+
+            if (definition.requiredCapabilities == null)
+            {
+                return true;
+            }
+
+            foreach (var capability in definition.requiredCapabilities)
+            {
+                if (!actorProfile.HasCapability(capability))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool Matches(string[] candidates, string value)
+        {
+            if (candidates == null || candidates.Length == 0)
+            {
+                return true;
+            }
+
+            foreach (var candidate in candidates)
+            {
+                if (string.Equals(candidate, value, StringComparison.Ordinal))
                 {
                     return true;
                 }

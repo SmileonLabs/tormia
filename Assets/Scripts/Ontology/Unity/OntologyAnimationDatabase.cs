@@ -17,9 +17,21 @@ namespace Tormia.Ontology.Core
     {
         public string animationId;
         public AnimationClip clip;
+        public string[] actorTypes = Array.Empty<string>();
+        public string[] rigTypes = Array.Empty<string>();
+        public string[] requiredCapabilities = Array.Empty<string>();
+        public OntologyAnimationLayer layer = OntologyAnimationLayer.FullBody;
+        public bool interruptible = true;
         public string[] properties = Array.Empty<string>();
         public string[] intents = Array.Empty<string>();
         public int priority;
         public bool canBlend;
+    }
+
+    public enum OntologyAnimationLayer
+    {
+        FullBody = 0,
+        UpperBody = 1,
+        Additive = 2
     }
 }
