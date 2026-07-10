@@ -20,9 +20,12 @@ namespace Tormia.Ontology.Core
         public string slot;
         public string rendererPath;
         public GameObject variantPrefab;
+        public bool useBaseRendererMesh;
         public Sprite icon;
         public Material material;
         public bool enabledByDefault;
+        public bool visibleInCustomization = true;
+        public string[] linkedPartIds = Array.Empty<string>();
         public OntologyFactEntry[] facts = Array.Empty<OntologyFactEntry>();
     }
 }

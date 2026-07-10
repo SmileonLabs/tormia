@@ -13,170 +13,584 @@ MonoBehaviour:
   m_Name: CharacterPartDatabase
   m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyCharacterPartDatabase
   definitions:
-  - partId: Part_Accessories_Base
-    displayName: Accessories Base
-    slot: Accessory
-    rendererPath: Accessories
-    variantPrefab: {fileID: 8885864406222687154, guid: 043c48fcf3764d5fa980a252ca6dec83, type: 3}
-    icon: {fileID: 21300000, guid: 72aa305a124c67f4a90564f6f9358d95, type: 3}
-    material: {fileID: 2100000, guid: 3cc348c43697e004785200a3803d085f, type: 2}
-    enabledByDefault: 0
-    facts:
-    - predicate: covers
-      obj: Torso
-    - predicate: provides
-      obj: SkinSurface
   - partId: Part_Body_Base
-    displayName: Body Base
+    displayName: Body 010
     slot: Body
     rendererPath: Body
     variantPrefab: {fileID: 146935546818660778, guid: ee138c85834c476081ca97e2acf74432, type: 3}
+    useBaseRendererMesh: 0
     icon: {fileID: 21300000, guid: a1112225c43b2c94080040d61bef24c4, type: 3}
-    material: {fileID: 2100000, guid: 86acc6d71149b294a8e9cc2406438ded, type: 2}
+    material: {fileID: 0}
     enabledByDefault: 1
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Body
+    - predicate: provides
+      obj: SkinSurface
+  - partId: Part_Face_Base
+    displayName: Usual Expression
+    slot: Face
+    rendererPath: Faces
+    variantPrefab: {fileID: 2106138052219469381, guid: 2894c235275e41baacedeea64ed10431, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: f7db6ffdbf5115f4d8d2b808dba0b8c0, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 1
+    visibleInCustomization: 1
+    linkedPartIds: []
     facts:
     - predicate: covers
       obj: Face
-    - predicate: provides
-      obj: Identity
-  - partId: Part_Glasses_Base
-    displayName: Glasses Base
-    slot: Eyewear
-    rendererPath: Glasses
-    variantPrefab: {fileID: 5160338263037534183, guid: afc78f49c95543999f8d5dd5d42ebc4c, type: 3}
-    icon: {fileID: 21300000, guid: e5de88309c81cb443accf0ca55b6450f, type: 3}
-    material: {fileID: 2100000, guid: 3cc348c43697e004785200a3803d085f, type: 2}
+    - predicate: style
+      obj: NeutralExpression
+  - partId: Part_Male_Emotion_Happy_002
+    displayName: Happy Expression
+    slot: Face
+    rendererPath: Faces
+    variantPrefab: {fileID: 1195756561241719265, guid: 140a0f6e055544acb38fefdd2682b088, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 40927ae01c2ab4949813deea9cb531e0, type: 3}
+    material: {fileID: 0}
     enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Face
+    - predicate: style
+      obj: HappyExpression
+  - partId: Part_Male_Emotion_Angry_003
+    displayName: Angry Expression
+    slot: Face
+    rendererPath: Faces
+    variantPrefab: {fileID: 8112774624926477602, guid: 8b105123f67342e090f9d3a5c41b2f1e, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 220d854d6b0e7ee4b93f80d0fbb16589, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Face
+    - predicate: style
+      obj: AngryExpression
+  - partId: Part_Hairstyle_Base
+    displayName: Hairstyle Male 001
+    slot: Hair
+    rendererPath: Hairstyle
+    variantPrefab: {fileID: 3024251227661365263, guid: 2df39788485d4bf6ab64fd88f315072a, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 072e5c93b6913fb40931d73dd3ca7e72, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 1
+    visibleInCustomization: 1
+    linkedPartIds: []
     facts:
     - predicate: covers
       obj: Head
     - predicate: style
-      obj: Casual
-  - partId: Part_Face_Base
-    displayName: Face Base
-    slot: Face
-    rendererPath: Faces
-    variantPrefab: {fileID: 2106138052219469381, guid: 2894c235275e41baacedeea64ed10431, type: 3}
-    icon: {fileID: 21300000, guid: f7db6ffdbf5115f4d8d2b808dba0b8c0, type: 3}
-    material: {fileID: 2100000, guid: c08a106de2ad97140991843857112337, type: 2}
+      obj: Hair
+  - partId: Part_Hairstyle_Male_005
+    displayName: Hairstyle Male 005
+    slot: Hair
+    rendererPath: Hairstyle
+    variantPrefab: {fileID: 936523516433880279, guid: 7ea6ed99483c48bfbb7530e8b04debc4, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 2c2dae749cd0592488b51ad882024cb1, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Head
+    - predicate: style
+      obj: Hair
+  - partId: Part_Hairstyle_Male_Single_006
+    displayName: Hairstyle Male Single 006
+    slot: Hair
+    rendererPath: Hairstyle
+    variantPrefab: {fileID: 5174471959385066266, guid: 51f9383f4e3c49a0878cb982f349585a, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: c45601218f0c77c4a96090b0f7c75907, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Head
+    - predicate: style
+      obj: Hair
+  - partId: Part_TShirt_Base
+    displayName: T-Shirt Base
+    slot: UpperBody
+    rendererPath: T_Shirt
+    variantPrefab: {fileID: 0}
+    useBaseRendererMesh: 1
+    icon: {fileID: 21300000, guid: f32701f2207102b43b13910449e24624, type: 3}
+    material: {fileID: 0}
     enabledByDefault: 1
+    visibleInCustomization: 1
+    linkedPartIds: []
     facts:
     - predicate: covers
       obj: Torso
     - predicate: provides
-      obj: LightCover
-  - partId: Part_Mustache_Base
-    displayName: Mustache Base
-    slot: FacialHair
-    rendererPath: Mustache
-    variantPrefab: {fileID: 7447399822274565913, guid: bf164ddf8dd1467ca33177c0fd82db40, type: 3}
-    icon: {fileID: 21300000, guid: 71d08a0107121584ba3591dd427f2af8, type: 3}
-    material: {fileID: 2100000, guid: a9e4200fe889f2f4c9890d9896ad5f55, type: 2}
-    enabledByDefault: 0
+      obj: Warmth
+  - partId: Part_Pants_Base
+    displayName: Pants 009
+    slot: LowerBody
+    rendererPath: Pants
+    variantPrefab: {fileID: 8891070893107650034, guid: f2f8e9db47a64fd5abf33d2ad2a65ee1, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: e068db6d89ab86548b3a09755864aa09, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 1
+    visibleInCustomization: 1
+    linkedPartIds: []
     facts:
     - predicate: covers
-      obj: Legs
-    - predicate: provides
-      obj: LightCover
+      obj: LowerBody
+  - partId: Part_Pants_010
+    displayName: Pants 010
+    slot: LowerBody
+    rendererPath: Pants
+    variantPrefab: {fileID: 3350248468845389839, guid: 3c115747719040efbff2e678fbc4fd8d, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 120eb7ddd3231754e9082ee972156756, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: LowerBody
+  - partId: Part_Shorts_003
+    displayName: Shorts 003
+    slot: LowerBody
+    rendererPath: Pants
+    variantPrefab: {fileID: 5052081845152989159, guid: a475d528b3eb4999a9669bf654cf4597, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 26b73a5a987a6d6469e914369468a207, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: LowerBody
+    - predicate: style
+      obj: Shorts
   - partId: Part_Shoes_Base
-    displayName: Shoes Base
+    displayName: Sneakers 009
     slot: Footwear
     rendererPath: Shoes
     variantPrefab: {fileID: 6264628373624376238, guid: a59dc4d5ddff4edca1415588b92a76d9, type: 3}
+    useBaseRendererMesh: 0
     icon: {fileID: 21300000, guid: 2a2c6002138710743bf9a5200a284316, type: 3}
-    material: {fileID: 2100000, guid: 964b912b00e36b546a3ec23f1f37ee69, type: 2}
+    material: {fileID: 0}
     enabledByDefault: 1
+    visibleInCustomization: 1
+    linkedPartIds: []
     facts:
+    - predicate: covers
+      obj: Feet
     - predicate: grants_capability
       obj: SwampResistance
-  - partId: Part_FullBody_Base
-    displayName: FullBody Base
-    slot: FullBody
-    rendererPath: Full_body
-    variantPrefab: {fileID: 766723520473918103, guid: 9a8349ef45cf4de6af96c17609af1cf7, type: 3}
-    icon: {fileID: 21300000, guid: caa93dd5807c6da4fafb84be6e643ffb, type: 3}
-    material: {fileID: 2100000, guid: d890299bcf3962642bd4a697d10a983a, type: 2}
+  - partId: Part_Shoe_Slippers_002
+    displayName: Slippers 002
+    slot: Footwear
+    rendererPath: Shoes
+    variantPrefab: {fileID: 2442062568381488477, guid: 02eb72ab046545f38e10837d43ef760c, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: da70b057c124b6741924e7ed7871cabd, type: 3}
+    material: {fileID: 0}
     enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
     facts:
+    - predicate: covers
+      obj: Feet
+    - predicate: style
+      obj: Slippers
+  - partId: Part_Shoe_Slippers_005
+    displayName: Slippers 005
+    slot: Footwear
+    rendererPath: Shoes
+    variantPrefab: {fileID: 5013971624063481026, guid: a5eb88a807bb46d4867606160bbd325d, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 87a6ec9ea491f1e4397bbe13adce3ff5, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Feet
+    - predicate: style
+      obj: Slippers
+  - partId: Part_Socks_008
+    displayName: Socks 008
+    slot: Footwear
+    rendererPath: Shoes
+    variantPrefab: {fileID: 658421345594549349, guid: 2a286d4e0ea4474ba1f6b1b3c9fbead9, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 0db26d48fb731294896f6dd2d4f58e38, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Feet
+    - predicate: style
+      obj: Socks
+  - partId: Part_Outerwear_Base
+    displayName: Outwear 004
+    slot: Outerwear
+    rendererPath: Outerwear
+    variantPrefab: {fileID: 3426716223700996053, guid: ea187f5d3ad046a386b26ce0e6914c7b, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 8d43039df7e165e4380b49809774559e, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Torso
+    - predicate: provides
+      obj: Warmth
+    - predicate: grants_capability
+      obj: ColdProtection
+  - partId: Part_Outwear_043
+    displayName: Outwear 043
+    slot: Outerwear
+    rendererPath: Outerwear
+    variantPrefab: {fileID: 2121212402215538468, guid: 7c4583bc24a44410bf6bc92f8172d23c, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 842b559fd3d55f9489da8ee446be13d7, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Torso
+    - predicate: provides
+      obj: Warmth
+    - predicate: grants_capability
+      obj: ColdProtection
+  - partId: Part_Outwear_050
+    displayName: Outwear 050
+    slot: Outerwear
+    rendererPath: Outerwear
+    variantPrefab: {fileID: 3935690340475707896, guid: 35e9ebbe31a14f259f6679d10c76c1ef, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: f561efad520002f428b385630d82124d, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Torso
+    - predicate: provides
+      obj: Warmth
+    - predicate: grants_capability
+      obj: ColdProtection
+  - partId: Part_Mascot_002
+    displayName: Mascot 002
+    slot: Outerwear
+    rendererPath: Outerwear
+    variantPrefab: {fileID: 8332078924796813837, guid: 9a339594990b478c8a45bbec83993d11, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: b844c33d126d60c43af1e45f8f17ee8a, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Torso
+    - predicate: style
+      obj: Mascot
+  - partId: Part_Outfit_010
+    displayName: Outfit 010
+    slot: FullBody
+    rendererPath: Outerwear
+    variantPrefab: {fileID: 7891812628822886358, guid: 1b532ce483664b4cb643729a6e427058, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 5e83acdaa6e9e88469a77e7d3c0e59bf, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Torso
+    - predicate: covers
+      obj: LowerBody
     - predicate: conflicts_with_slot
       obj: UpperBody
     - predicate: conflicts_with_slot
       obj: LowerBody
     - predicate: conflicts_with_slot
       obj: Outerwear
-  - partId: Part_Hairstyle_Base
-    displayName: Hairstyle Base
-    slot: Hair
-    rendererPath: Hairstyle
-    variantPrefab: {fileID: 3024251227661365263, guid: 2df39788485d4bf6ab64fd88f315072a, type: 3}
-    icon: {fileID: 21300000, guid: 072e5c93b6913fb40931d73dd3ca7e72, type: 3}
-    material: {fileID: 2100000, guid: a9e4200fe889f2f4c9890d9896ad5f55, type: 2}
-    enabledByDefault: 1
+    - predicate: style
+      obj: Outfit
+  - partId: Part_FullBody_Base
+    displayName: Costume 13
+    slot: FullBody
+    rendererPath: Outerwear
+    variantPrefab: {fileID: 766723520473918103, guid: 9a8349ef45cf4de6af96c17609af1cf7, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: caa93dd5807c6da4fafb84be6e643ffb, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds:
+    - Part_Costume_13_002
+    facts:
+    - predicate: covers
+      obj: Torso
+    - predicate: covers
+      obj: LowerBody
+    - predicate: conflicts_with_slot
+      obj: UpperBody
+    - predicate: conflicts_with_slot
+      obj: LowerBody
+    - predicate: conflicts_with_slot
+      obj: Outerwear
+    - predicate: conflicts_with_slot
+      obj: Headwear
+    - predicate: style
+      obj: Costume
+  - partId: Part_Hat_Base
+    displayName: Hat 010
+    slot: Headwear
+    rendererPath: Hat
+    variantPrefab: {fileID: 2984174553125389498, guid: 1b0b4dce24b04cf18d1e531272692b6a, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 050c7074772037b4aadba2bd1ac613d6, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
     facts:
     - predicate: covers
       obj: Head
     - predicate: style
-      obj: Hair
-  - partId: Part_Gloves_Base
-    displayName: Gloves Base
-    slot: Handwear
-    rendererPath: Gloves
-    variantPrefab: {fileID: 3641532560445071877, guid: 436099c7d86444ff94a8998d525435e4, type: 3}
-    icon: {fileID: 21300000, guid: 4bad0165d47ffa5468e5acbac7988d46, type: 3}
-    material: {fileID: 2100000, guid: 86acc6d71149b294a8e9cc2406438ded, type: 2}
+      obj: Headwear
+  - partId: Part_Hat_Single_008
+    displayName: Hat Single 008
+    slot: Headwear
+    rendererPath: Hat
+    variantPrefab: {fileID: 2977515194574276571, guid: 43dc97cd2ed04c169e40dc085036ce48, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: f410545e53f68eb4fbf4dc9f289c6233, type: 3}
+    material: {fileID: 0}
     enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Head
+    - predicate: style
+      obj: Headwear
+  - partId: Part_Hat_Single_013
+    displayName: Hat Single 013
+    slot: Headwear
+    rendererPath: Hat
+    variantPrefab: {fileID: 3605869103271255009, guid: aa90f0e8a59f422498258172f25bcca8, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: d80bba4de1b88484a9c78dde3d0d82e7, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Head
+    - predicate: style
+      obj: Headwear
+  - partId: Part_Hat_Single_016
+    displayName: Hat Single 016
+    slot: Headwear
+    rendererPath: Hat
+    variantPrefab: {fileID: 3605869103271255009, guid: 629c3b7e9a0d4396b2663a37adf6fbe4, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 0de11e65231605744a68043d6e4a5294, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Head
+    - predicate: style
+      obj: Headwear
+  - partId: Part_Costume_13_002
+    displayName: Costume 13 Hat
+    slot: Headwear
+    rendererPath: Hat
+    variantPrefab: {fileID: 4234659692364203389, guid: cded3974a5ee49649e734976259b99e6, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 352f8f6035c7a7d46ae2c131248f44d8, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 0
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Head
+    - predicate: style
+      obj: Costume
+  - partId: Part_Glasses_Base
+    displayName: Glasses 006
+    slot: Eyewear
+    rendererPath: Glasses
+    variantPrefab: {fileID: 5160338263037534183, guid: afc78f49c95543999f8d5dd5d42ebc4c, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: e5de88309c81cb443accf0ca55b6450f, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
     facts:
     - predicate: covers
       obj: Eyes
     - predicate: style
       obj: Eyewear
-  - partId: Part_Hat_Base
-    displayName: Hat Base
-    slot: Headwear
-    rendererPath: Hat
-    variantPrefab: {fileID: 2984174553125389498, guid: 1b0b4dce24b04cf18d1e531272692b6a, type: 3}
-    icon: {fileID: 21300000, guid: 050c7074772037b4aadba2bd1ac613d6, type: 3}
-    material: {fileID: 2100000, guid: 3cc348c43697e004785200a3803d085f, type: 2}
+  - partId: Part_Glasses_004
+    displayName: Glasses 004
+    slot: Eyewear
+    rendererPath: Glasses
+    variantPrefab: {fileID: 5796629793419342708, guid: d0ae2db1d82148c9bf5c2d7a569dba82, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: ab29661d13db4734b80554c48142ede6, type: 3}
+    material: {fileID: 0}
     enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Eyes
+    - predicate: style
+      obj: Eyewear
+  - partId: Part_Gloves_Base
+    displayName: Gloves 006
+    slot: Handwear
+    rendererPath: Gloves
+    variantPrefab: {fileID: 3641532560445071877, guid: 436099c7d86444ff94a8998d525435e4, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 4bad0165d47ffa5468e5acbac7988d46, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
     facts:
     - predicate: covers
       obj: Hands
     - predicate: provides
       obj: HandProtection
-  - partId: Part_Pants_Base
-    displayName: Pants Base
-    slot: LowerBody
-    rendererPath: Pants
-    variantPrefab: {fileID: 8891070893107650034, guid: f2f8e9db47a64fd5abf33d2ad2a65ee1, type: 3}
-    icon: {fileID: 21300000, guid: e068db6d89ab86548b3a09755864aa09, type: 3}
-    material: {fileID: 2100000, guid: 65e78c4001b955344a778a215f245572, type: 2}
-    enabledByDefault: 1
-    facts:
-    - predicate: covers
-      obj: LowerBody
-  - partId: Part_Outerwear_Base
-    displayName: Outerwear Base
-    slot: Outerwear
-    rendererPath: Outerwear
-    variantPrefab: {fileID: 3426716223700996053, guid: ea187f5d3ad046a386b26ce0e6914c7b, type: 3}
-    icon: {fileID: 21300000, guid: 8d43039df7e165e4380b49809774559e, type: 3}
-    material: {fileID: 2100000, guid: d890299bcf3962642bd4a697d10a983a, type: 2}
+  - partId: Part_Gloves_014
+    displayName: Gloves 014
+    slot: Handwear
+    rendererPath: Gloves
+    variantPrefab: {fileID: 5209372020472153478, guid: 454a2101d4534265ad71f23b30436bb0, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: ed6047c3445e91947be316c5644553fb, type: 3}
+    material: {fileID: 0}
     enabledByDefault: 0
-    facts:
-    - predicate: provides
-      obj: Warmth
-    - predicate: grants_capability
-      obj: ColdProtection
-  - partId: Part_TShirt_Base
-    displayName: TShirt Base
-    slot: UpperBody
-    rendererPath: T_Shirt
-    variantPrefab: {fileID: 7891812628822886358, guid: 1b532ce483664b4cb643729a6e427058, type: 3}
-    icon: {fileID: 21300000, guid: 5e83acdaa6e9e88469a77e7d3c0e59bf, type: 3}
-    material: {fileID: 2100000, guid: d890299bcf3962642bd4a697d10a983a, type: 2}
-    enabledByDefault: 1
+    visibleInCustomization: 1
+    linkedPartIds: []
     facts:
     - predicate: covers
-      obj: Torso
+      obj: Hands
     - predicate: provides
-      obj: Warmth
+      obj: HandProtection
+  - partId: Part_Mustache_Base
+    displayName: Mustache 011
+    slot: FacialHair
+    rendererPath: Mustache
+    variantPrefab: {fileID: 7447399822274565913, guid: bf164ddf8dd1467ca33177c0fd82db40, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 71d08a0107121584ba3591dd427f2af8, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Face
+    - predicate: style
+      obj: FacialHair
+  - partId: Part_Mustache_003
+    displayName: Mustache 003
+    slot: FacialHair
+    rendererPath: Mustache
+    variantPrefab: {fileID: 4472029755296537295, guid: d704e58e2bb3430bb6a5d7249d179c6a, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 2f05d7df1d160874b96c6e174df53fb5, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Face
+    - predicate: style
+      obj: FacialHair
+  - partId: Part_Accessories_Base
+    displayName: Headphones 002
+    slot: Accessory
+    rendererPath: Accessories
+    variantPrefab: {fileID: 8885864406222687154, guid: 043c48fcf3764d5fa980a252ca6dec83, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 72aa305a124c67f4a90564f6f9358d95, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Ears
+    - predicate: style
+      obj: AudioGear
+  - partId: Part_Clown_Nose_001
+    displayName: Clown Nose 001
+    slot: Accessory
+    rendererPath: Accessories
+    variantPrefab: {fileID: 3103565648387152083, guid: 460c36accc334af28b5af34fb1707300, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: c976a99d2ce374f46bbd05b0ae07c226, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Face
+    - predicate: style
+      obj: ClownNose
+  - partId: Part_Pacifier_001
+    displayName: Pacifier 001
+    slot: Accessory
+    rendererPath: Accessories
+    variantPrefab: {fileID: 7768168386555931634, guid: 7b3f30a22f994545b593d70dad0a4dfa, type: 3}
+    useBaseRendererMesh: 0
+    icon: {fileID: 21300000, guid: 1be52ba014bf77e4bb493f1c0e55ef70, type: 3}
+    material: {fileID: 0}
+    enabledByDefault: 0
+    visibleInCustomization: 1
+    linkedPartIds: []
+    facts:
+    - predicate: covers
+      obj: Face
+    - predicate: style
+      obj: Pacifier

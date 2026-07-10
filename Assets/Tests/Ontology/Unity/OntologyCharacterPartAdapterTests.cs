@@ -62,6 +62,7 @@ namespace Tormia.Ontology.Tests
                 Part("Part_Pants_Base", "LowerBody", "Pants", true));
 
             setup.Adapter.InjectActivePartFacts();
+            Assert.That(setup.Adapter.CanEquipPart("Part_Hairstyle_Base", out var hairReason), Is.True, hairReason);
             Assert.That(setup.Adapter.EquipPart("Part_Hairstyle_Base"), Is.True);
 
             Assert.That(setup.Renderers["Hair"].enabled, Is.True);
@@ -72,7 +73,7 @@ namespace Tormia.Ontology.Tests
         [Test]
         public void EquippingFullBodyDisablesExplicitlyConflictingSlots()
         {
-            var fullBody = Part("Part_FullBody_Base", "FullBody", "FullBody", false);
+            var fullBody = Part("Part_FullBody_Base", "FullBody", "Full_body", false);
             fullBody.facts = new[]
             {
                 new OntologyFactEntry { predicate = OntologyPredicates.ConflictsWithSlot, obj = "UpperBody" },
@@ -88,12 +89,72 @@ namespace Tormia.Ontology.Tests
                 Part("Part_Hairstyle_Base", "Hair", "Hair", true));
 
             setup.Adapter.InjectActivePartFacts();
+            Assert.That(setup.Adapter.CanEquipPart("Part_FullBody_Base", out var fullBodyReason), Is.True, fullBodyReason);
             Assert.That(setup.Adapter.EquipPart("Part_FullBody_Base"), Is.True);
 
             Assert.That(setup.Renderers["Shirt"].enabled, Is.False);
             Assert.That(setup.Renderers["Pants"].enabled, Is.False);
             Assert.That(setup.Renderers["Outerwear"].enabled, Is.False);
             Assert.That(setup.Renderers["Hair"].enabled, Is.True);
+        }
+
+        [Test]
+        public void EquippingAnotherVariantInSameSlotKeepsOnlyMatchingFact()
+        {
+            var first = Part("Part_Shoes_A", "Footwear", "Shoes", false);
+            var second = Part("Part_Shoes_B", "Footwear", "Shoes", false);
+            first.variantPrefab = CreateVariantPrefab("ShoesA");
+            second.variantPrefab = CreateVariantPrefab("ShoesB");
+            var setup = CreateSetup(first, second);
+
+            Assert.That(setup.Adapter.EquipPart(first.partId), Is.True);
+            Assert.That(setup.Adapter.EquipPart(second.partId), Is.True);
+
+            Assert.That(setup.Bootstrap.World.HasFact("Player", OntologyPredicates.EquippedPart, first.partId), Is.False);
+            Assert.That(setup.Bootstrap.World.HasFact("Player", OntologyPredicates.EquippedPart, second.partId), Is.True);
+            Assert.That(setup.Adapter.IsPartEquipped(first.partId), Is.False);
+            Assert.That(setup.Adapter.IsPartEquipped(second.partId), Is.True);
+        }
+
+        [Test]
+        public void LinkedCostumePartsEquipAndUnequipAtomically()
+        {
+            var costume = Part("Part_Costume", "FullBody", "Outerwear", false);
+            costume.linkedPartIds = new[] { "Part_Costume_Hat" };
+            costume.facts = new[]
+            {
+                new OntologyFactEntry { predicate = OntologyPredicates.ConflictsWithSlot, obj = "UpperBody" },
+                new OntologyFactEntry { predicate = OntologyPredicates.ConflictsWithSlot, obj = "LowerBody" },
+                new OntologyFactEntry { predicate = OntologyPredicates.ConflictsWithSlot, obj = "Headwear" }
+            };
+            var costumeHat = Part("Part_Costume_Hat", "Headwear", "Hat", false);
+            costumeHat.visibleInCustomization = false;
+            costumeHat.variantPrefab = CreateVariantPrefab("CostumeHat");
+            var regularHat = Part("Part_Hat", "Headwear", "Hat", true);
+            regularHat.variantPrefab = CreateVariantPrefab("RegularHat");
+
+            var setup = CreateSetup(
+                costume,
+                costumeHat,
+                Part("Part_Shirt", "UpperBody", "Shirt", true),
+                Part("Part_Pants", "LowerBody", "Pants", true),
+                regularHat);
+
+            setup.Adapter.ApplyDefaultPreset();
+            setup.Adapter.InjectActivePartFacts();
+            Assert.That(setup.Adapter.EquipPart(costume.partId), Is.True);
+
+            Assert.That(setup.Renderers["Outerwear"].enabled, Is.True);
+            Assert.That(setup.Renderers["Hat"].enabled, Is.True);
+            Assert.That(setup.Renderers["Shirt"].enabled, Is.False);
+            Assert.That(setup.Renderers["Pants"].enabled, Is.False);
+            Assert.That(setup.Bootstrap.World.HasFact("Player", OntologyPredicates.EquippedPart, costume.partId), Is.True);
+            Assert.That(setup.Bootstrap.World.HasFact("Player", OntologyPredicates.EquippedPart, costumeHat.partId), Is.True);
+
+            Assert.That(setup.Adapter.UnequipPart(costume.partId), Is.True);
+            Assert.That(setup.Renderers["Outerwear"].enabled, Is.False);
+            Assert.That(setup.Renderers["Hat"].enabled, Is.False);
+            Assert.That(setup.Bootstrap.World.HasFact("Player", OntologyPredicates.EquippedPart, costumeHat.partId), Is.False);
         }
 
         private Setup CreateSetup(params OntologyCharacterPartDefinition[] definitions)
@@ -107,11 +168,16 @@ namespace Tormia.Ontology.Tests
             var renderers = new Dictionary<string, Renderer>();
             foreach (var definition in definitions)
             {
-                var partObject = Track(new GameObject(definition.rendererPath));
-                partObject.transform.SetParent(visualRoot.transform);
-                var renderer = partObject.AddComponent<MeshRenderer>();
-                renderer.enabled = definition.enabledByDefault;
-                renderers.Add(definition.rendererPath, renderer);
+                if (!renderers.TryGetValue(definition.rendererPath, out var renderer))
+                {
+                    var partObject = Track(new GameObject(definition.rendererPath));
+                    partObject.transform.SetParent(visualRoot.transform);
+                    renderer = partObject.AddComponent<SkinnedMeshRenderer>();
+                    renderer.enabled = false;
+                    renderers.Add(definition.rendererPath, renderer);
+                }
+
+                renderer.enabled |= definition.enabledByDefault;
             }
 
             var database = Track(ScriptableObject.CreateInstance<OntologyCharacterPartDatabase>());
@@ -134,6 +200,14 @@ namespace Tormia.Ontology.Tests
                 rendererPath = path,
                 enabledByDefault = enabled
             };
+        }
+
+        private GameObject CreateVariantPrefab(string name)
+        {
+            var prefab = Track(new GameObject(name));
+            var renderer = prefab.AddComponent<SkinnedMeshRenderer>();
+            renderer.sharedMesh = Track(new Mesh { name = name + "Mesh" });
+            return prefab;
         }
 
         private T Track<T>(T target) where T : Object

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace Tormia.Ontology.Core
 {
@@ -69,6 +70,7 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
+            var clearedRendererPaths = new HashSet<string>();
             foreach (var definition in partDatabase.Definitions)
             {
                 if (definition == null || string.IsNullOrWhiteSpace(definition.rendererPath))
@@ -76,13 +78,22 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                var renderer = FindRenderer(definition.rendererPath);
-                if (renderer == null)
+                if (clearedRendererPaths.Add(definition.rendererPath))
                 {
-                    continue;
+                    var renderer = FindRenderer(definition.rendererPath);
+                    if (renderer != null)
+                    {
+                        renderer.enabled = false;
+                    }
                 }
+            }
 
-                SetPartEnabled(definition, definition.enabledByDefault);
+            foreach (var definition in partDatabase.Definitions)
+            {
+                if (definition != null && definition.enabledByDefault)
+                {
+                    SetPartEnabled(definition, true);
+                }
             }
         }
 
@@ -98,11 +109,7 @@ namespace Tormia.Ontology.Core
                 bootstrap.World,
                 actorId,
                 partDatabase.Definitions,
-                definition =>
-                {
-                    var renderer = FindRenderer(definition.rendererPath);
-                    return renderer != null && renderer.enabled;
-                });
+                IsDefinitionActive);
         }
 
         private void InjectPartDefinitionFacts(OntologyCharacterPartDefinition definition)
@@ -133,16 +140,20 @@ namespace Tormia.Ontology.Core
 
                 if (bootstrap.World.HasFact(actorId, OntologyPredicates.UnequipPart, definition.partId))
                 {
-                    SetPartEnabled(definition, false);
-                    factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
-                    factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
+                    factsChanged |= SetDefinitionEquipped(definition, false);
                     continue;
                 }
 
                 if (bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, definition.partId))
                 {
+                    if (!definition.visibleInCustomization && IsLinkedByEquippedDefinition(definition.partId))
+                    {
+                        SetPartEnabled(definition, true);
+                        continue;
+                    }
+
                     factsChanged |= DisableConflictingParts(definition);
-                    SetPartEnabled(definition, true);
+                    factsChanged |= SetDefinitionEquipped(definition, true);
                 }
             }
 
@@ -165,6 +176,19 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
+            var clearedRendererPaths = new HashSet<string>();
+            foreach (var definition in partDatabase.Definitions)
+            {
+                if (definition != null && clearedRendererPaths.Add(definition.rendererPath))
+                {
+                    var renderer = FindRenderer(definition.rendererPath);
+                    if (renderer != null)
+                    {
+                        renderer.enabled = false;
+                    }
+                }
+            }
+
             foreach (var definition in partDatabase.Definitions)
             {
                 if (definition == null || string.IsNullOrWhiteSpace(definition.partId))
@@ -172,13 +196,17 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                var shouldEnable = bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
-                if (shouldEnable)
+                if (!bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, definition.partId))
+                {
+                    continue;
+                }
+
+                if (definition.visibleInCustomization || !IsLinkedByEquippedDefinition(definition.partId))
                 {
                     DisableConflictingParts(definition);
                 }
 
-                SetPartEnabled(definition, shouldEnable);
+                SetPartEnabled(definition, true);
             }
         }
 
@@ -191,13 +219,8 @@ namespace Tormia.Ontology.Core
             }
 
             DisableConflictingParts(definition);
-            SetPartEnabled(definition, true);
             EnsureWorldReady();
-            if (bootstrap != null && bootstrap.World != null)
-            {
-                InjectPartDefinitionFacts(definition);
-                bootstrap.World.AddFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
-            }
+            SetDefinitionEquipped(definition, true);
             InjectActivePartFacts();
             return true;
         }
@@ -210,13 +233,8 @@ namespace Tormia.Ontology.Core
                 return false;
             }
 
-            SetPartEnabled(definition, false);
             EnsureWorldReady();
-            if (bootstrap != null && bootstrap.World != null)
-            {
-                bootstrap.World.RemoveFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
-                bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
-            }
+            SetDefinitionEquipped(definition, false);
             InjectActivePartFacts();
             return true;
         }
@@ -293,8 +311,10 @@ namespace Tormia.Ontology.Core
                 return false;
             }
 
-            var renderer = FindRenderer(definition.rendererPath);
-            return renderer != null && renderer.enabled;
+            EnsureWorldReady();
+            return bootstrap != null && bootstrap.World != null
+                ? bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, definition.partId)
+                : IsDefinitionActive(definition);
         }
 
         public bool HasEquippedPartFact(string partId)
@@ -346,6 +366,93 @@ namespace Tormia.Ontology.Core
 
         }
 
+        private bool IsDefinitionActive(OntologyCharacterPartDefinition definition)
+        {
+            var renderer = FindRenderer(definition.rendererPath);
+            if (renderer == null || !renderer.enabled)
+            {
+                return false;
+            }
+
+            if (definition.variantPrefab == null)
+            {
+                return true;
+            }
+
+            var sourceRenderer = definition.variantPrefab.GetComponentInChildren<SkinnedMeshRenderer>(true);
+            var targetRenderer = renderer as SkinnedMeshRenderer;
+            return sourceRenderer != null
+                && targetRenderer != null
+                && sourceRenderer.sharedMesh == targetRenderer.sharedMesh;
+        }
+
+        private bool SetDefinitionEquipped(OntologyCharacterPartDefinition definition, bool equipped)
+        {
+            return SetDefinitionEquipped(definition, equipped, new HashSet<string>());
+        }
+
+        private bool SetDefinitionEquipped(
+            OntologyCharacterPartDefinition definition,
+            bool equipped,
+            HashSet<string> visited)
+        {
+            if (definition == null || string.IsNullOrWhiteSpace(definition.partId) || !visited.Add(definition.partId))
+            {
+                return false;
+            }
+
+            SetPartEnabled(definition, equipped);
+            var factsChanged = false;
+            if (bootstrap != null && bootstrap.World != null)
+            {
+                if (equipped)
+                {
+                    InjectPartDefinitionFacts(definition);
+                    factsChanged |= bootstrap.World.AddFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
+                    factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
+                }
+                else
+                {
+                    factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
+                    factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
+                }
+            }
+
+            foreach (var linkedPartId in definition.linkedPartIds ?? System.Array.Empty<string>())
+            {
+                factsChanged |= SetDefinitionEquipped(FindDefinition(linkedPartId), equipped, visited);
+            }
+
+            return factsChanged;
+        }
+
+        private bool IsLinkedByEquippedDefinition(string partId)
+        {
+            if (bootstrap == null || bootstrap.World == null || partDatabase == null)
+            {
+                return false;
+            }
+
+            foreach (var definition in partDatabase.Definitions)
+            {
+                if (definition == null
+                    || !bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, definition.partId))
+                {
+                    continue;
+                }
+
+                foreach (var linkedPartId in definition.linkedPartIds ?? System.Array.Empty<string>())
+                {
+                    if (linkedPartId == partId)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         private static bool ApplyVariantMeshAndMaterials(OntologyCharacterPartDefinition definition, Renderer targetRenderer)
         {
             if (definition.variantPrefab == null || targetRenderer == null)
@@ -386,16 +493,29 @@ namespace Tormia.Ontology.Core
                 if (definition.slot == equippedDefinition.slot
                     || OntologyCharacterPartFactSynchronizer.SlotsConflict(equippedDefinition, definition))
                 {
-                    SetPartEnabled(definition, false);
-                    if (bootstrap != null && bootstrap.World != null)
+                    if (IsLinkedPart(equippedDefinition, definition.partId))
                     {
-                        factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
-                        factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
+                        continue;
                     }
+
+                    factsChanged |= SetDefinitionEquipped(definition, false);
                 }
             }
 
             return factsChanged;
+        }
+
+        private static bool IsLinkedPart(OntologyCharacterPartDefinition definition, string partId)
+        {
+            foreach (var linkedPartId in definition.linkedPartIds ?? System.Array.Empty<string>())
+            {
+                if (linkedPartId == partId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
 

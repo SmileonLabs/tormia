@@ -125,7 +125,10 @@ namespace Tormia.Ontology.Core
 
             foreach (var definition in partDatabase.Definitions)
             {
-                if (definition == null || string.IsNullOrWhiteSpace(definition.partId) || definition.slot != selectedCategory)
+                if (definition == null
+                    || !definition.visibleInCustomization
+                    || string.IsNullOrWhiteSpace(definition.partId)
+                    || definition.slot != selectedCategory)
                 {
                     continue;
                 }
@@ -335,7 +338,10 @@ namespace Tormia.Ontology.Core
 
             foreach (var definition in partDatabase.Definitions)
             {
-                if (definition == null || string.IsNullOrWhiteSpace(definition.slot) || categories.Contains(definition.slot))
+                if (definition == null
+                    || !definition.visibleInCustomization
+                    || string.IsNullOrWhiteSpace(definition.slot)
+                    || categories.Contains(definition.slot))
                 {
                     continue;
                 }

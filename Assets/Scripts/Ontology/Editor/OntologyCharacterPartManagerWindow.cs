@@ -246,9 +246,12 @@ namespace Tormia.Ontology.Core.Editor
                 DrawCategoryProperty(element);
                 DrawRendererPathProperty(element);
                 DrawVariantPrefabProperty(element);
+                DrawRelativeProperty(element, "useBaseRendererMesh");
                 DrawRelativeProperty(element, "icon");
                 DrawRelativeProperty(element, "material");
                 DrawRelativeProperty(element, "enabledByDefault");
+                DrawRelativeProperty(element, "visibleInCustomization");
+                DrawRelativeProperty(element, "linkedPartIds", true);
 
                 EditorGUILayout.Space(8f);
                 DrawPrefabPreview(element);
@@ -769,9 +772,9 @@ namespace Tormia.Ontology.Core.Editor
             definitionsProperty = databaseObject != null ? databaseObject.FindProperty("definitions") : null;
         }
 
-        private void DrawRelativeProperty(SerializedProperty parent, string propertyName)
+        private void DrawRelativeProperty(SerializedProperty parent, string propertyName, bool includeChildren = false)
         {
-            EditorGUILayout.PropertyField(parent.FindPropertyRelative(propertyName));
+            EditorGUILayout.PropertyField(parent.FindPropertyRelative(propertyName), includeChildren);
         }
 
         private void DrawCategoryProperty(SerializedProperty element)
@@ -958,9 +961,12 @@ namespace Tormia.Ontology.Core.Editor
             element.FindPropertyRelative("slot").stringValue = OntologyCharacterCustomizationUiConfig.SlotAccessory;
             element.FindPropertyRelative("rendererPath").stringValue = GuessRendererPath(OntologyCharacterCustomizationUiConfig.SlotAccessory);
             element.FindPropertyRelative("variantPrefab").objectReferenceValue = null;
+            element.FindPropertyRelative("useBaseRendererMesh").boolValue = false;
             element.FindPropertyRelative("icon").objectReferenceValue = null;
             element.FindPropertyRelative("material").objectReferenceValue = null;
             element.FindPropertyRelative("enabledByDefault").boolValue = false;
+            element.FindPropertyRelative("visibleInCustomization").boolValue = true;
+            element.FindPropertyRelative("linkedPartIds").arraySize = 0;
             element.FindPropertyRelative("facts").arraySize = 0;
         }
 
@@ -978,6 +984,7 @@ namespace Tormia.Ontology.Core.Editor
             element.FindPropertyRelative("partId").stringValue += "_Copy";
             element.FindPropertyRelative("displayName").stringValue += " Copy";
             element.FindPropertyRelative("variantPrefab").objectReferenceValue = null;
+            element.FindPropertyRelative("useBaseRendererMesh").boolValue = false;
             element.FindPropertyRelative("icon").objectReferenceValue = null;
             prefabSelectionWarning = "Duplicated part created without a prefab. Assign a different prefab before saving it as a real part.";
         }
@@ -1021,9 +1028,27 @@ namespace Tormia.Ontology.Core.Editor
             element.FindPropertyRelative("slot").stringValue = definition.slot;
             element.FindPropertyRelative("rendererPath").stringValue = definition.rendererPath;
             element.FindPropertyRelative("variantPrefab").objectReferenceValue = definition.variantPrefab;
+            element.FindPropertyRelative("useBaseRendererMesh").boolValue = definition.useBaseRendererMesh;
             element.FindPropertyRelative("icon").objectReferenceValue = definition.icon;
             element.FindPropertyRelative("material").objectReferenceValue = definition.material;
             element.FindPropertyRelative("enabledByDefault").boolValue = definition.enabledByDefault;
+            element.FindPropertyRelative("visibleInCustomization").boolValue = definition.visibleInCustomization;
+
+            var linkedPartIds = element.FindPropertyRelative("linkedPartIds");
+            linkedPartIds.arraySize = definition.linkedPartIds?.Length ?? 0;
+            for (var i = 0; i < linkedPartIds.arraySize; i++)
+            {
+                linkedPartIds.GetArrayElementAtIndex(i).stringValue = definition.linkedPartIds[i];
+            }
+
+            var facts = element.FindPropertyRelative("facts");
+            facts.arraySize = definition.facts?.Length ?? 0;
+            for (var i = 0; i < facts.arraySize; i++)
+            {
+                var fact = facts.GetArrayElementAtIndex(i);
+                fact.FindPropertyRelative("predicate").stringValue = definition.facts[i]?.predicate ?? string.Empty;
+                fact.FindPropertyRelative("obj").stringValue = definition.facts[i]?.obj ?? string.Empty;
+            }
         }
 
         private void AddFact(SerializedProperty facts, string predicate, string obj)
@@ -1042,12 +1067,23 @@ namespace Tormia.Ontology.Core.Editor
             var slots = new HashSet<string>();
             var defaultSlots = new Dictionary<string, string>();
             var prefabOwners = new Dictionary<GameObject, string>();
+            var knownPartIds = new HashSet<string>();
 
             foreach (var definition in database.Definitions)
             {
-                if (definition != null && !string.IsNullOrWhiteSpace(definition.slot))
+                if (definition == null)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(definition.slot))
                 {
                     slots.Add(definition.slot);
+                }
+
+                if (!string.IsNullOrWhiteSpace(definition.partId))
+                {
+                    knownPartIds.Add(definition.partId);
                 }
             }
 
@@ -1065,7 +1101,10 @@ namespace Tormia.Ontology.Core.Editor
                 if (string.IsNullOrWhiteSpace(definition.displayName)) messages.Add(new ValidationMessage(i, "Warning: empty displayName for " + definition.partId));
                 if (string.IsNullOrWhiteSpace(definition.slot)) messages.Add(new ValidationMessage(i, "Warning: empty slot for " + definition.partId));
                 if (string.IsNullOrWhiteSpace(definition.rendererPath)) messages.Add(new ValidationMessage(i, "Error: empty rendererPath for " + definition.partId));
-                if (definition.variantPrefab == null) messages.Add(new ValidationMessage(i, "Warning: missing variantPrefab for " + definition.partId));
+                if (definition.variantPrefab == null)
+                {
+                    if (!definition.useBaseRendererMesh) messages.Add(new ValidationMessage(i, "Warning: missing variantPrefab for " + definition.partId));
+                }
                 else if (definition.variantPrefab.GetComponentInChildren<SkinnedMeshRenderer>(true) == null) messages.Add(new ValidationMessage(i, "Error: variantPrefab has no SkinnedMeshRenderer for " + definition.partId));
                 if (definition.variantPrefab != null)
                 {
@@ -1095,6 +1134,12 @@ namespace Tormia.Ontology.Core.Editor
                     {
                         defaultSlots.Add(definition.slot, definition.partId);
                     }
+                }
+
+                foreach (var linkedPartId in definition.linkedPartIds ?? System.Array.Empty<string>())
+                {
+                    if (linkedPartId == definition.partId) messages.Add(new ValidationMessage(i, "Error: linkedPartIds contains itself on " + definition.partId));
+                    else if (!knownPartIds.Contains(linkedPartId)) messages.Add(new ValidationMessage(i, "Error: linkedPartIds references unknown part " + linkedPartId));
                 }
 
                 if (definition.facts == null)
@@ -1192,10 +1237,13 @@ namespace Tormia.Ontology.Core.Editor
                 element.FindPropertyRelative("partId").stringValue = "Part_" + prefab.name.Replace(" ", "_");
                 element.FindPropertyRelative("displayName").stringValue = ObjectNames.NicifyVariableName(prefab.name.Replace('_', ' '));
                 element.FindPropertyRelative("slot").stringValue = slot;
-                element.FindPropertyRelative("rendererPath").stringValue = GuessRendererPath(slot);
+                element.FindPropertyRelative("rendererPath").stringValue = GuessRendererPathForPrefab(prefab.name, slot);
                 element.FindPropertyRelative("variantPrefab").objectReferenceValue = prefab;
+                element.FindPropertyRelative("useBaseRendererMesh").boolValue = false;
                 element.FindPropertyRelative("icon").objectReferenceValue = null;
                 element.FindPropertyRelative("enabledByDefault").boolValue = false;
+                element.FindPropertyRelative("visibleInCustomization").boolValue = true;
+                element.FindPropertyRelative("linkedPartIds").arraySize = 0;
                 element.FindPropertyRelative("facts").arraySize = 0;
                 registered++;
             }
@@ -1253,18 +1301,28 @@ namespace Tormia.Ontology.Core.Editor
         {
             var lower = name.ToLowerInvariant();
             if (lower.Contains("full")) return OntologyCharacterCustomizationUiConfig.SlotFullBody;
+            if (lower.Contains("costume") || lower.Contains("outfit")) return OntologyCharacterCustomizationUiConfig.SlotFullBody;
+            if (lower.Contains("mascot") || lower.Contains("outwear") || lower.Contains("outerwear")) return OntologyCharacterCustomizationUiConfig.SlotOuterwear;
             if (lower.Contains("body")) return OntologyCharacterCustomizationUiConfig.SlotBody;
-            if (lower.Contains("face")) return OntologyCharacterCustomizationUiConfig.SlotFace;
+            if (lower.Contains("emotion")) return OntologyCharacterCustomizationUiConfig.SlotFace;
             if (lower.Contains("hair")) return OntologyCharacterCustomizationUiConfig.SlotHair;
             if (lower.Contains("shoe") || lower.Contains("sneaker")) return OntologyCharacterCustomizationUiConfig.SlotFootwear;
-            if (lower.Contains("pants")) return OntologyCharacterCustomizationUiConfig.SlotLowerBody;
+            if (lower.Contains("sock")) return OntologyCharacterCustomizationUiConfig.SlotFootwear;
+            if (lower.Contains("pants") || lower.Contains("shorts")) return OntologyCharacterCustomizationUiConfig.SlotLowerBody;
             if (lower.Contains("shirt") || lower.Contains("t_shirt")) return OntologyCharacterCustomizationUiConfig.SlotUpperBody;
-            if (lower.Contains("outwear") || lower.Contains("outerwear")) return OntologyCharacterCustomizationUiConfig.SlotOuterwear;
             if (lower.Contains("hat")) return OntologyCharacterCustomizationUiConfig.SlotHeadwear;
             if (lower.Contains("glass")) return OntologyCharacterCustomizationUiConfig.SlotEyewear;
             if (lower.Contains("glove")) return OntologyCharacterCustomizationUiConfig.SlotHandwear;
             if (lower.Contains("mustache")) return OntologyCharacterCustomizationUiConfig.SlotFacialHair;
             return OntologyCharacterCustomizationUiConfig.SlotAccessory;
+        }
+
+        private static string GuessRendererPathForPrefab(string prefabName, string slot)
+        {
+            var lower = prefabName.ToLowerInvariant();
+            if (lower.Contains("costume_13_001") || lower.Contains("outfit") || lower.Contains("mascot")) return "Outerwear";
+            if (lower.Contains("costume_13_002")) return "Hat";
+            return GuessRendererPath(slot);
         }
 
         private static string GuessRendererPath(string slot)
