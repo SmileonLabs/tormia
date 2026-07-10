@@ -33,7 +33,7 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             if (visualRoot == null)
@@ -94,74 +94,20 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            bootstrap.World.RemoveFacts(actorId, OntologyPredicates.EquippedPart);
-            bootstrap.World.RemoveFacts(actorId, OntologyPredicates.HasCapability);
-
-            foreach (var definition in partDatabase.Definitions)
-            {
-                if (definition == null || string.IsNullOrWhiteSpace(definition.partId))
+            OntologyCharacterPartFactSynchronizer.RebuildActorFacts(
+                bootstrap.World,
+                actorId,
+                partDatabase.Definitions,
+                definition =>
                 {
-                    continue;
-                }
-
-                InjectPartDefinitionFacts(definition);
-
-                var renderer = FindRenderer(definition.rendererPath);
-                if (renderer == null || !renderer.enabled)
-                {
-                    continue;
-                }
-
-                bootstrap.World.AddFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
-                bootstrap.World.AddFact(definition.partId, OntologyPredicates.HasConcept, OntologyConcepts.CharacterPart);
-                if (!string.IsNullOrWhiteSpace(definition.slot))
-                {
-                    bootstrap.World.AddFact(definition.partId, OntologyPredicates.HasSlot, definition.slot);
-                }
-
-                if (definition.facts == null)
-                {
-                    continue;
-                }
-
-                foreach (var fact in definition.facts)
-                {
-                    if (fact == null || string.IsNullOrWhiteSpace(fact.predicate) || string.IsNullOrWhiteSpace(fact.obj))
-                    {
-                        continue;
-                    }
-
-                    bootstrap.World.AddFact(definition.partId, fact.predicate, fact.obj);
-                    if (fact.predicate == OntologyPredicates.GrantsCapability)
-                    {
-                        bootstrap.World.AddFact(actorId, OntologyPredicates.HasCapability, fact.obj);
-                    }
-                }
-            }
+                    var renderer = FindRenderer(definition.rendererPath);
+                    return renderer != null && renderer.enabled;
+                });
         }
 
         private void InjectPartDefinitionFacts(OntologyCharacterPartDefinition definition)
         {
-            bootstrap.World.AddFact(definition.partId, OntologyPredicates.HasConcept, OntologyConcepts.CharacterPart);
-            if (!string.IsNullOrWhiteSpace(definition.slot))
-            {
-                bootstrap.World.AddFact(definition.partId, OntologyPredicates.HasSlot, definition.slot);
-            }
-
-            if (definition.facts == null)
-            {
-                return;
-            }
-
-            foreach (var fact in definition.facts)
-            {
-                if (fact == null || string.IsNullOrWhiteSpace(fact.predicate) || string.IsNullOrWhiteSpace(fact.obj))
-                {
-                    continue;
-                }
-
-                bootstrap.World.AddFact(definition.partId, fact.predicate, fact.obj);
-            }
+            OntologyCharacterPartFactSynchronizer.AddDefinitionFacts(bootstrap.World, definition);
         }
 
         public void SyncFromWorldFacts()
@@ -177,6 +123,7 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
+            var factsChanged = false;
             foreach (var definition in partDatabase.Definitions)
             {
                 if (definition == null || string.IsNullOrWhiteSpace(definition.partId))
@@ -187,16 +134,21 @@ namespace Tormia.Ontology.Core
                 if (bootstrap.World.HasFact(actorId, OntologyPredicates.UnequipPart, definition.partId))
                 {
                     SetPartEnabled(definition, false);
-                    bootstrap.World.RemoveFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
-                    bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
+                    factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
+                    factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
                     continue;
                 }
 
                 if (bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, definition.partId))
                 {
-                    DisableConflictingParts(definition);
+                    factsChanged |= DisableConflictingParts(definition);
                     SetPartEnabled(definition, true);
                 }
+            }
+
+            if (factsChanged)
+            {
+                InjectActivePartFacts();
             }
         }
 
@@ -414,14 +366,15 @@ namespace Tormia.Ontology.Core
             return true;
         }
 
-        private void DisableConflictingParts(OntologyCharacterPartDefinition equippedDefinition)
+        private bool DisableConflictingParts(OntologyCharacterPartDefinition equippedDefinition)
         {
             if (partDatabase == null || partDatabase.Definitions == null || string.IsNullOrWhiteSpace(equippedDefinition.slot))
             {
-                return;
+                return false;
             }
 
             EnsureWorldReady();
+            var factsChanged = false;
 
             foreach (var definition in partDatabase.Definitions)
             {
@@ -430,46 +383,21 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                if (definition.slot == equippedDefinition.slot || SlotsConflict(equippedDefinition, definition))
+                if (definition.slot == equippedDefinition.slot
+                    || OntologyCharacterPartFactSynchronizer.SlotsConflict(equippedDefinition, definition))
                 {
                     SetPartEnabled(definition, false);
                     if (bootstrap != null && bootstrap.World != null)
                     {
-                        bootstrap.World.RemoveFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
-                        bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
+                        factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
+                        factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
                     }
                 }
             }
+
+            return factsChanged;
         }
 
-        private static bool SlotsConflict(OntologyCharacterPartDefinition equippedDefinition, OntologyCharacterPartDefinition existingDefinition)
-        {
-            if (equippedDefinition == null || existingDefinition == null)
-            {
-                return false;
-            }
-
-            return HasFact(equippedDefinition, OntologyPredicates.ConflictsWithSlot, existingDefinition.slot)
-                || HasFact(existingDefinition, OntologyPredicates.ConflictsWithSlot, equippedDefinition.slot);
-        }
-
-        private static bool HasFact(OntologyCharacterPartDefinition definition, string predicate, string obj)
-        {
-            if (definition.facts == null || string.IsNullOrWhiteSpace(predicate) || string.IsNullOrWhiteSpace(obj))
-            {
-                return false;
-            }
-
-            foreach (var fact in definition.facts)
-            {
-                if (fact != null && fact.predicate == predicate && fact.obj == obj)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
 
         private Renderer FindRenderer(string rendererPath)
         {
@@ -492,7 +420,7 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             if (bootstrap != null && (bootstrap.World == null || bootstrap.Session == null))

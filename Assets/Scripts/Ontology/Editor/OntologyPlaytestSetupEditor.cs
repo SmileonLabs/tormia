@@ -99,7 +99,7 @@ namespace Tormia.Ontology.Core.Editor
 
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             Undo.RegisterFullObjectHierarchyUndo(playerObject, "Setup Ontology Player");
@@ -212,7 +212,7 @@ namespace Tormia.Ontology.Core.Editor
             var player = GameObject.Find("OntologyPlayer");
             if (player != null)
             {
-                ConfigureActorToast(player, FindFirstObjectByType<OntologyWorldBootstrap>(), theme, labels);
+                ConfigureActorToast(player, FindAnyObjectByType<OntologyWorldBootstrap>(), theme, labels);
             }
             SetupUiThemeReferences();
             SaveUiPrefab(canvas);
@@ -325,10 +325,10 @@ namespace Tormia.Ontology.Core.Editor
             var selectedTitle = GetOrCreateText(detail, OntologyCharacterCustomizationUiConfig.SelectedTitleName, OntologyCharacterCustomizationUiConfig.SelectPartTitle, 18f, Color.white, TextAlignmentOptions.MidlineLeft);
             SetAnchored(selectedTitle.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -152f), new Vector2(198f, 30f));
             var selectedDescription = GetOrCreateText(detail, OntologyCharacterCustomizationUiConfig.SelectedDescriptionName, OntologyCharacterCustomizationUiConfig.SelectPartDescription, 13f, OntologyCharacterCustomizationUiConfig.MutedTextColor, TextAlignmentOptions.TopLeft);
-            selectedDescription.enableWordWrapping = true;
+            selectedDescription.textWrappingMode = TextWrappingModes.Normal;
             SetAnchored(selectedDescription.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -190f), new Vector2(198f, 56f));
             var factPreview = GetOrCreateText(detail, OntologyCharacterCustomizationUiConfig.FactPreviewName, string.Empty, 12f, OntologyCharacterCustomizationUiConfig.FactTextColor, TextAlignmentOptions.TopLeft);
-            factPreview.enableWordWrapping = true;
+            factPreview.textWrappingMode = TextWrappingModes.Normal;
             SetAnchored(factPreview.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -252f), new Vector2(198f, 70f));
             var equip = GetOrCreateButton(detail, OntologyCharacterCustomizationUiConfig.EquipButtonName, OntologyCharacterCustomizationUiConfig.EquipLabel, OntologyCharacterCustomizationUiConfig.EquipButtonColor, Color.black, 13f);
             SetAnchored((RectTransform)equip.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -332f), new Vector2(94f, 32f));
@@ -363,7 +363,7 @@ namespace Tormia.Ontology.Core.Editor
             SetStretch(state.rectTransform, new Vector2(6f, 4f), new Vector2(-6f, -126f));
 
             var player = GameObject.Find("OntologyPlayer");
-            var adapter = player != null ? player.GetComponent<OntologyCharacterPartAdapter>() : FindFirstObjectByType<OntologyCharacterPartAdapter>();
+            var adapter = player != null ? player.GetComponent<OntologyCharacterPartAdapter>() : FindAnyObjectByType<OntologyCharacterPartAdapter>();
             var serialized = new SerializedObject(panel.GetComponent<OntologyCharacterCustomizationPanel>());
             serialized.FindProperty("partAdapter").objectReferenceValue = adapter;
             serialized.FindProperty("partDatabase").objectReferenceValue = adapter != null ? adapter.PartDatabase : AssetDatabase.LoadAssetAtPath<OntologyCharacterPartDatabase>("Assets/Data/Ontology/CharacterPartDatabase.asset");
@@ -446,7 +446,7 @@ namespace Tormia.Ontology.Core.Editor
 
         private static GameObject FindGameObjectIncludingInactive(string objectName)
         {
-            foreach (var transform in Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var transform in Object.FindObjectsByType<Transform>(FindObjectsInactive.Include))
             {
                 if (transform.name == objectName)
                 {
@@ -461,7 +461,7 @@ namespace Tormia.Ontology.Core.Editor
         {
             var theme = GetOrCreateAsset<OntologyUITheme>(ThemePath);
             var labels = GetOrCreateAsset<OntologyUILabels>(LabelsPath);
-            foreach (var panel in Object.FindObjectsByType<OntologyUIPanelBase>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var panel in Object.FindObjectsByType<OntologyUIPanelBase>(FindObjectsInactive.Include))
             {
                 var serialized = new SerializedObject(panel);
                 serialized.FindProperty("theme").objectReferenceValue = theme;
@@ -498,7 +498,7 @@ namespace Tormia.Ontology.Core.Editor
 
         private static void EnsureEventSystem()
         {
-            var eventSystem = FindFirstObjectByType<EventSystem>();
+            var eventSystem = FindAnyObjectByType<EventSystem>();
             if (eventSystem == null)
             {
                 var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem));
@@ -564,7 +564,7 @@ namespace Tormia.Ontology.Core.Editor
             SetStretch(title.rectTransform, new Vector2(16f, -42f), new Vector2(-16f, -8f));
 
             var output = GetOrCreateText(panel, "OutputText", string.Empty, theme.outputFontSize, theme.outputText, TextAlignmentOptions.TopLeft);
-            output.enableWordWrapping = true;
+            output.textWrappingMode = TextWrappingModes.Normal;
             SetStretch(output.rectTransform, new Vector2(16f, 18f), new Vector2(-284f, -190f));
 
             var toast = GetOrCreateText(panel, "ToastText", string.Empty, theme.statusFontSize, theme.statusText, TextAlignmentOptions.MidlineLeft);
@@ -628,11 +628,11 @@ namespace Tormia.Ontology.Core.Editor
             }
 
             var detail = GetOrCreateText(panel, "DetailText", string.Empty, theme.statusFontSize, theme.statusText, TextAlignmentOptions.TopLeft);
-            detail.enableWordWrapping = true;
+            detail.textWrappingMode = TextWrappingModes.Normal;
             SetStretch(detail.rectTransform, new Vector2(16f, 86f), new Vector2(-16f, 154f));
 
             var preview = GetOrCreateText(panel, "PreviewText", string.Empty, theme.outputFontSize, theme.outputText, TextAlignmentOptions.TopLeft);
-            preview.enableWordWrapping = true;
+            preview.textWrappingMode = TextWrappingModes.Normal;
             SetStretch(preview.rectTransform, new Vector2(16f, 18f), new Vector2(-16f, 82f));
 
             var search = GetOrCreateInputField(panel, "SearchInput", labels.partSearchPlaceholder, theme);
@@ -666,14 +666,14 @@ namespace Tormia.Ontology.Core.Editor
             SetAnchored(hud, Vector2.zero, Vector2.zero, Vector2.zero, theme.hudPanelAnchoredPosition, theme.hudPanelSize);
             hud.GetComponent<Image>().color = theme.hudBackground;
             var text = GetOrCreateText(hud, "Text", labels.hudTitle, theme.hudFontSize, theme.hudText, TextAlignmentOptions.TopLeft);
-            text.enableWordWrapping = true;
+            text.textWrappingMode = TextWrappingModes.Normal;
             SetStretch(text.rectTransform, new Vector2(12f, 10f), new Vector2(-12f, -10f));
 
             var component = hud.GetComponent<OntologyRuntimeStatusHUD>();
             var serialized = new SerializedObject(component);
             serialized.FindProperty("textMeshProText").objectReferenceValue = text;
-            serialized.FindProperty("bootstrap").objectReferenceValue = FindFirstObjectByType<OntologyWorldBootstrap>();
-            serialized.FindProperty("animationAdapter").objectReferenceValue = FindFirstObjectByType<OntologyAnimationAdapter>();
+            serialized.FindProperty("bootstrap").objectReferenceValue = FindAnyObjectByType<OntologyWorldBootstrap>();
+            serialized.FindProperty("animationAdapter").objectReferenceValue = FindAnyObjectByType<OntologyAnimationAdapter>();
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(component);
         }
@@ -728,7 +728,7 @@ namespace Tormia.Ontology.Core.Editor
         {
             var scroll = GetOrCreateRect(parent, scrollName, typeof(Image), typeof(Mask), typeof(ScrollRect));
             SetStretch(scroll, theme.rowsOffsetMin, theme.rowsOffsetMax);
-            scroll.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.18f);
+            scroll.GetComponent<Image>().color = OntologyCharacterCustomizationUiConfig.ScrollBackgroundColor;
             scroll.GetComponent<Mask>().showMaskGraphic = false;
 
             var viewport = GetOrCreateRect(scroll, "Viewport", typeof(Image), typeof(Mask));
@@ -804,7 +804,7 @@ namespace Tormia.Ontology.Core.Editor
             text.fontSize = fontSize;
             text.color = color;
             text.alignment = alignment;
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             text.overflowMode = TextOverflowModes.Ellipsis;
             text.raycastTarget = false;
             return text;
@@ -825,11 +825,11 @@ namespace Tormia.Ontology.Core.Editor
             rect.GetComponent<Image>().color = theme.rowOdd;
 
             var text = GetOrCreateText(rect, "Text", string.Empty, theme.buttonFontSize, theme.rowText, TextAlignmentOptions.MidlineLeft);
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             SetStretch(text.rectTransform, new Vector2(8f, 0f), new Vector2(-8f, 0f));
 
             var placeholderText = GetOrCreateText(rect, "Placeholder", placeholder, theme.buttonFontSize, theme.statusText, TextAlignmentOptions.MidlineLeft);
-            placeholderText.enableWordWrapping = false;
+            placeholderText.textWrappingMode = TextWrappingModes.NoWrap;
             SetStretch(placeholderText.rectTransform, new Vector2(8f, 0f), new Vector2(-8f, 0f));
 
             var input = rect.GetComponent<TMP_InputField>();

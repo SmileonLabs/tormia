@@ -16,7 +16,7 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             if (isRunning)
@@ -47,7 +47,7 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             if (bootstrap == null)

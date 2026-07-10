@@ -171,6 +171,50 @@ namespace Tormia.Ontology.Core
                             }
                         }
                     }
+                },
+                new OntologyQuestDefinition
+                {
+                    id = "ColdProtectionPreparation",
+                    title = "Prepare for the Cold",
+                    reasonFormat = "{0} recommends protective clothing",
+                    hookPredicate = "offers",
+                    hookObject = "ColdProtectionPreparation",
+                    goals =
+                    {
+                        new OntologyQuestGoalDefinition
+                        {
+                            actionVerb = "equip_part",
+                            completionPredicate = OntologyPredicates.EquippedPart,
+                            descriptionFormat = "Equip {target} to gain cold protection",
+                            targetPattern = "?target",
+                            conditions =
+                            {
+                                OntologyCondition.Fact("?target", OntologyPredicates.GrantsCapability, OntologyObjects.ColdProtection)
+                            }
+                        }
+                    }
+                },
+                new OntologyQuestDefinition
+                {
+                    id = "SwampProtectionPreparation",
+                    title = "Prepare for the Swamp",
+                    reasonFormat = "{0} recommends swamp-resistant equipment",
+                    hookPredicate = "offers",
+                    hookObject = "SwampProtectionPreparation",
+                    goals =
+                    {
+                        new OntologyQuestGoalDefinition
+                        {
+                            actionVerb = "equip_part",
+                            completionPredicate = OntologyPredicates.EquippedPart,
+                            descriptionFormat = "Equip {target} to gain swamp resistance",
+                            targetPattern = "?target",
+                            conditions =
+                            {
+                                OntologyCondition.Fact("?target", OntologyPredicates.GrantsCapability, OntologyObjects.SwampResistance)
+                            }
+                        }
+                    }
                 }
             };
         }

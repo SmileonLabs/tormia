@@ -31,7 +31,6 @@ namespace Tormia.Ontology.Core
         [SerializeField] private string pointerPositionBinding = "<Pointer>/position";
 
         [Header("Movement")]
-        [SerializeField] private Key runKey = Key.LeftShift;
         [SerializeField] private bool directCharacterControllerFallback = true;
         [SerializeField] private float fallbackWalkSpeed = 1.5f;
         [SerializeField] private float fallbackRunSpeed = 4.0f;
@@ -74,7 +73,7 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             characterController = GetComponent<CharacterController>();
@@ -347,7 +346,7 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             if (bootstrap == null || bootstrap.World == null)

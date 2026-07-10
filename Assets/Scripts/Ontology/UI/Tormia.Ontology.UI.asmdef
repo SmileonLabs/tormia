@@ -1,0 +1,20 @@
+{
+    "name": "Tormia.Ontology.UI",
+    "rootNamespace": "Tormia.Ontology.Core",
+    "references": [
+        "Tormia.Ontology.Core",
+        "Tormia.Ontology.Unity",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "Unity.ugui"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

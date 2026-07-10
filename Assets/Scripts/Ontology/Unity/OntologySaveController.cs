@@ -14,7 +14,7 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
         }
 
@@ -62,7 +62,7 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             if (bootstrap == null)
@@ -80,7 +80,7 @@ namespace Tormia.Ontology.Core
 
         private static void InjectCharacterPartFacts()
         {
-            foreach (var adapter in FindObjectsByType<OntologyCharacterPartAdapter>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var adapter in FindObjectsByType<OntologyCharacterPartAdapter>(FindObjectsInactive.Include))
             {
                 adapter.InjectActivePartFacts();
             }
@@ -88,7 +88,7 @@ namespace Tormia.Ontology.Core
 
         private static void SyncCharacterPartRenderersFromFacts()
         {
-            foreach (var adapter in FindObjectsByType<OntologyCharacterPartAdapter>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var adapter in FindObjectsByType<OntologyCharacterPartAdapter>(FindObjectsInactive.Include))
             {
                 adapter.SyncRenderersFromWorldFacts();
             }

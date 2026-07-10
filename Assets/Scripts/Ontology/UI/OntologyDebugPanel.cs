@@ -36,7 +36,7 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             EnsureUiReferences();
@@ -157,7 +157,7 @@ namespace Tormia.Ontology.Core
 
         private void ApplyDefaultCharacterParts()
         {
-            foreach (var adapter in FindObjectsByType<OntologyCharacterPartAdapter>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var adapter in FindObjectsByType<OntologyCharacterPartAdapter>(FindObjectsInactive.Include))
             {
                 adapter.ApplyDefaultPreset();
             }
@@ -165,7 +165,7 @@ namespace Tormia.Ontology.Core
 
         private void InjectCharacterPartFacts()
         {
-            foreach (var adapter in FindObjectsByType<OntologyCharacterPartAdapter>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var adapter in FindObjectsByType<OntologyCharacterPartAdapter>(FindObjectsInactive.Include))
             {
                 adapter.InjectActivePartFacts();
             }
@@ -173,7 +173,7 @@ namespace Tormia.Ontology.Core
 
         private void SyncCharacterPartsFromWorld()
         {
-            foreach (var adapter in FindObjectsByType<OntologyCharacterPartAdapter>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var adapter in FindObjectsByType<OntologyCharacterPartAdapter>(FindObjectsInactive.Include))
             {
                 adapter.SyncFromWorldFacts();
             }
@@ -181,7 +181,7 @@ namespace Tormia.Ontology.Core
 
         private void ResetActorToastBaselines()
         {
-            foreach (var emitter in FindObjectsByType<OntologyActorFactToastEmitter>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var emitter in FindObjectsByType<OntologyActorFactToastEmitter>(FindObjectsInactive.Include))
             {
                 emitter.ResetBaseline();
             }
@@ -191,7 +191,7 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             return bootstrap;
@@ -201,7 +201,7 @@ namespace Tormia.Ontology.Core
         {
             if (saveController == null)
             {
-                saveController = FindFirstObjectByType<OntologySaveController>();
+                saveController = FindAnyObjectByType<OntologySaveController>();
             }
 
             return saveController;
@@ -426,7 +426,7 @@ namespace Tormia.Ontology.Core
             label.fontStyle = FontStyles.Bold;
             label.color = candidate.IsQuestGoal ? Theme.questActionText : Theme.buttonText;
             label.alignment = TextAlignmentOptions.MidlineLeft;
-            label.enableWordWrapping = false;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Ellipsis;
 
             buttonObject.GetComponent<Button>().onClick.AddListener(() => ExecuteCandidate(candidate));

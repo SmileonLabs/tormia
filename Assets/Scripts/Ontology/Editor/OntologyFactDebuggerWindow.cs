@@ -221,7 +221,7 @@ namespace Tormia.Ontology.Core.Editor
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             if (bootstrap != null && (bootstrap.World == null || bootstrap.Session == null))
@@ -233,9 +233,9 @@ namespace Tormia.Ontology.Core.Editor
         private void FindRuntimeTargets()
         {
             previewTarget = GameObject.Find("OntologyPlayer");
-            bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
-            actorToast = previewTarget != null ? previewTarget.GetComponent<OntologyActorToast>() : FindFirstObjectByType<OntologyActorToast>();
-            toastEmitter = previewTarget != null ? previewTarget.GetComponent<OntologyActorFactToastEmitter>() : FindFirstObjectByType<OntologyActorFactToastEmitter>();
+            bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
+            actorToast = previewTarget != null ? previewTarget.GetComponent<OntologyActorToast>() : FindAnyObjectByType<OntologyActorToast>();
+            toastEmitter = previewTarget != null ? previewTarget.GetComponent<OntologyActorFactToastEmitter>() : FindAnyObjectByType<OntologyActorFactToastEmitter>();
         }
     }
 }

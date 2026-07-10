@@ -71,7 +71,7 @@ namespace Tormia.Ontology.Core
         [ContextMenu("Reset Ontology World From Scene")]
         public void ResetWorldFromScene()
         {
-            var bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+            var bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             if (bootstrap != null)
             {
                 bootstrap.ResetWorld(logReport: false);

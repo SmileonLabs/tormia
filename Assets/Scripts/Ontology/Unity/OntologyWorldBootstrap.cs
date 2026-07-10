@@ -107,8 +107,33 @@ namespace Tormia.Ontology.Core
 
         public string ExecuteAction(OntologyAction action)
         {
+            if (!IsActionCurrentlyAvailable(action))
+            {
+                var report = BuildUnavailableActionReport(action);
+                Debug.LogWarning(report);
+                return report;
+            }
+
             ApplyAction(action);
             return RunSimulation();
+        }
+
+        public bool IsActionCurrentlyAvailable(OntologyAction action)
+        {
+            if (!action.IsValid)
+            {
+                return false;
+            }
+
+            foreach (var candidate in GetActionCandidates())
+            {
+                if (candidate.Action.Equals(action))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public List<OntologyActionCandidate> GetActionCandidates()
@@ -151,7 +176,7 @@ namespace Tormia.Ontology.Core
         private OntologyWorldState BuildWorldFromScene()
         {
             var state = new OntologyWorldState();
-            var objects = FindObjectsByType<OntologyObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var objects = FindObjectsByType<OntologyObject>(FindObjectsInactive.Include);
             foreach (var ontologyObject in objects)
             {
                 ontologyObject.ApplyTo(state);
@@ -191,20 +216,7 @@ namespace Tormia.Ontology.Core
 
         private static void AppendSimulationResult(OntologySimulationResult target, OntologySimulationResult followUp)
         {
-            if (target == null || followUp == null)
-            {
-                return;
-            }
-
-            var offset = target.Iterations;
-            target.TotalAddedFacts += followUp.TotalAddedFacts;
-            target.TotalChangedFacts += followUp.TotalChangedFacts;
-            target.Iterations += followUp.Iterations;
-            target.ReachedStableState = followUp.ReachedStableState;
-            foreach (var step in followUp.Steps)
-            {
-                target.Steps.Add(new OntologySimulationStep(offset + step.Iteration, step.Events, step.AddedFactCount, step.ChangedFactCount));
-            }
+            target?.Append(followUp);
         }
 
         private string BuildReport(OntologyWorldState state, OntologySession session, OntologySimulationResult result, string actorId)
@@ -217,6 +229,17 @@ namespace Tormia.Ontology.Core
             builder.AppendLine(session != null ? session.DumpHistory() : "[History]\n- none");
             builder.AppendLine(DumpQuests(state, actorId));
             builder.AppendLine(DumpCandidates(state, actorId));
+            return builder.ToString().TrimEnd();
+        }
+
+        private string BuildUnavailableActionReport(OntologyAction action)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("[OntologyWorldBootstrap]");
+            builder.Append("Action is not currently available: ");
+            builder.AppendLine(action.ToString());
+            builder.AppendLine();
+            builder.Append(BuildReport(world, session, lastResult, actorId));
             return builder.ToString().TrimEnd();
         }
 

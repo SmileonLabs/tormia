@@ -1,0 +1,25 @@
+{
+    "name": "Tormia.Ontology.Editor",
+    "rootNamespace": "Tormia.Ontology.Editor",
+    "references": [
+        "Tormia.Ontology.Core",
+        "Tormia.Ontology.Unity",
+        "Tormia.Ontology.UI",
+        "ithappy.Creative_Characters_FREE",
+        "Unity.InputSystem",
+        "UnityEditor.TestRunner",
+        "Unity.TextMeshPro",
+        "Unity.ugui"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

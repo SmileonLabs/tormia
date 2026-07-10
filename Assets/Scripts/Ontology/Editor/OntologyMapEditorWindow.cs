@@ -831,7 +831,7 @@ namespace Tormia.Ontology.Editor
 
         private OntologyMapDataSceneBuilder FindOrCreateSceneBuilder()
         {
-            var builder = FindFirstObjectByType<OntologyMapDataSceneBuilder>();
+            var builder = FindAnyObjectByType<OntologyMapDataSceneBuilder>();
             if (builder != null)
             {
                 builder.gameObject.name = GetSceneBuilderName();

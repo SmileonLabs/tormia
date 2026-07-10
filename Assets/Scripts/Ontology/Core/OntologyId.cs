@@ -16,7 +16,7 @@ namespace Tormia.Ontology.Core
 
         public bool Equals(OntologyId other)
         {
-            return string.Equals(Value, other.Value, StringComparison.Ordinal);
+            return string.Equals(Value ?? string.Empty, other.Value ?? string.Empty, StringComparison.Ordinal);
         }
 
         public override bool Equals(object obj)
@@ -26,7 +26,7 @@ namespace Tormia.Ontology.Core
 
         public override int GetHashCode()
         {
-            return Value != null ? Value.GetHashCode() : 0;
+            return (Value ?? string.Empty).GetHashCode();
         }
 
         public override string ToString()

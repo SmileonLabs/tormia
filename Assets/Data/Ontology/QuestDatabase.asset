@@ -41,3 +41,37 @@ MonoBehaviour:
         subject: ?target
         predicate: state
         obj: Disturbed
+  - id: ColdProtectionPreparation
+    title: Prepare for the Cold
+    reasonFormat: '{0} recommends protective clothing'
+    hookPredicate: offers
+    hookObject: ColdProtectionPreparation
+    goals:
+    - sourcePredicate:
+      sourceObject:
+      actionVerb: equip_part
+      completionPredicate: equipped_part
+      descriptionFormat: Equip {target} to gain cold protection
+      targetPattern: ?target
+      conditions:
+      - kind: 0
+        subject: ?target
+        predicate: grants_capability
+        obj: ColdProtection
+  - id: SwampProtectionPreparation
+    title: Prepare for the Swamp
+    reasonFormat: '{0} recommends swamp-resistant equipment'
+    hookPredicate: offers
+    hookObject: SwampProtectionPreparation
+    goals:
+    - sourcePredicate:
+      sourceObject:
+      actionVerb: equip_part
+      completionPredicate: equipped_part
+      descriptionFormat: Equip {target} to gain swamp resistance
+      targetPattern: ?target
+      conditions:
+      - kind: 0
+        subject: ?target
+        predicate: grants_capability
+        obj: SwampResistance

@@ -80,7 +80,7 @@ namespace Tormia.Ontology.Core
             characterMover = GetComponent<CharacterMover>();
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             RebuildParameterCache();

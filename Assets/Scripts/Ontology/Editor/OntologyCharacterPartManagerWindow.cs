@@ -1126,9 +1126,9 @@ namespace Tormia.Ontology.Core.Editor
         private void FindRuntimeTargets()
         {
             previewTarget = GameObject.Find("OntologyPlayer");
-            adapter = previewTarget != null ? previewTarget.GetComponent<OntologyCharacterPartAdapter>() : FindFirstObjectByType<OntologyCharacterPartAdapter>();
-            bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
-            saveController = FindFirstObjectByType<OntologySaveController>();
+            adapter = previewTarget != null ? previewTarget.GetComponent<OntologyCharacterPartAdapter>() : FindAnyObjectByType<OntologyCharacterPartAdapter>();
+            bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
+            saveController = FindAnyObjectByType<OntologySaveController>();
         }
 
         private void RunAdapterAction(System.Func<bool> action, string label)

@@ -22,7 +22,7 @@ namespace Tormia.Ontology.Core
             label.fontSize = fontSize;
             label.color = color;
             label.alignment = alignment;
-            label.enableWordWrapping = false;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Ellipsis;
             label.raycastTarget = false;
             return label;
@@ -73,7 +73,7 @@ namespace Tormia.Ontology.Core
                 label.fontSize = fontSize;
                 label.color = button.interactable ? textColor : Theme.disabledButtonText;
                 label.alignment = TextAlignmentOptions.Center;
-                label.enableWordWrapping = false;
+                label.textWrappingMode = TextWrappingModes.NoWrap;
                 label.overflowMode = TextOverflowModes.Ellipsis;
             }
         }

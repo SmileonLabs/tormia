@@ -583,7 +583,7 @@ namespace Tormia.Ontology.Core
         {
             if (partAdapter == null)
             {
-                partAdapter = FindFirstObjectByType<OntologyCharacterPartAdapter>();
+                partAdapter = FindAnyObjectByType<OntologyCharacterPartAdapter>();
             }
 
             if (partDatabase == null && partAdapter != null)
@@ -634,11 +634,11 @@ namespace Tormia.Ontology.Core
 
             selectedDescription = detail.Find(OntologyCharacterCustomizationUiConfig.SelectedDescriptionName)?.GetComponent<TextMeshProUGUI>()
                 ?? CreateText(detail, OntologyCharacterCustomizationUiConfig.SelectedDescriptionName, string.Empty, 13f, OntologyCharacterCustomizationUiConfig.MutedTextColor, TextAlignmentOptions.TopLeft);
-            selectedDescription.enableWordWrapping = true;
+            selectedDescription.textWrappingMode = TextWrappingModes.Normal;
 
             factPreview = detail.Find(OntologyCharacterCustomizationUiConfig.FactPreviewName)?.GetComponent<TextMeshProUGUI>()
                 ?? CreateText(detail, OntologyCharacterCustomizationUiConfig.FactPreviewName, string.Empty, 12f, OntologyCharacterCustomizationUiConfig.FactTextColor, TextAlignmentOptions.TopLeft);
-            factPreview.enableWordWrapping = true;
+            factPreview.textWrappingMode = TextWrappingModes.Normal;
 
             equipButton = detail.Find(OntologyCharacterCustomizationUiConfig.EquipButtonName)?.GetComponent<Button>() ?? CreateButton(detail, OntologyCharacterCustomizationUiConfig.EquipButtonName, OntologyCharacterCustomizationUiConfig.EquipLabel, OntologyCharacterCustomizationUiConfig.EquipButtonColor);
             unequipButton = detail.Find(OntologyCharacterCustomizationUiConfig.UnequipButtonName)?.GetComponent<Button>() ?? CreateButton(detail, OntologyCharacterCustomizationUiConfig.UnequipButtonName, OntologyCharacterCustomizationUiConfig.UnequipLabel, OntologyCharacterCustomizationUiConfig.SecondaryButtonColor);
@@ -790,7 +790,7 @@ namespace Tormia.Ontology.Core
             label.fontSize = fontSize;
             label.color = color;
             label.alignment = alignment;
-            label.enableWordWrapping = false;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Ellipsis;
             label.raycastTarget = false;
             return label;

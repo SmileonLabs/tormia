@@ -22,6 +22,11 @@ namespace Tormia.Ontology.Core
             return !concept.IsEmpty && concepts.Add(concept);
         }
 
+        public bool RemoveConcept(OntologyId concept)
+        {
+            return concepts.Remove(concept);
+        }
+
         public bool HasConcept(OntologyId concept)
         {
             return concepts.Contains(concept);

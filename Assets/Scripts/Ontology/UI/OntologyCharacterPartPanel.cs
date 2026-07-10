@@ -181,7 +181,7 @@ namespace Tormia.Ontology.Core
         {
             if (partAdapter == null)
             {
-                partAdapter = FindFirstObjectByType<OntologyCharacterPartAdapter>();
+                partAdapter = FindAnyObjectByType<OntologyCharacterPartAdapter>();
             }
 
             if (partDatabase == null && partAdapter != null)

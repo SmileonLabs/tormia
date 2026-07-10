@@ -11,6 +11,28 @@ namespace Tormia.Ontology.Core
         public int TotalChangedFacts { get; internal set; }
         public List<OntologySimulationStep> Steps { get; } = new();
 
+        public void Append(OntologySimulationResult followUp)
+        {
+            if (followUp == null)
+            {
+                return;
+            }
+
+            var offset = Iterations;
+            TotalAddedFacts += followUp.TotalAddedFacts;
+            TotalChangedFacts += followUp.TotalChangedFacts;
+            Iterations += followUp.Iterations;
+            ReachedStableState = followUp.ReachedStableState;
+            foreach (var step in followUp.Steps)
+            {
+                Steps.Add(new OntologySimulationStep(
+                    offset + step.Iteration,
+                    step.Events,
+                    step.AddedFactCount,
+                    step.ChangedFactCount));
+            }
+        }
+
         public string DumpEvents()
         {
             var builder = new StringBuilder();

@@ -42,12 +42,68 @@ namespace Tormia.Ontology.Core
         public bool AddFact(OntologyId subject, OntologyId predicate, OntologyId obj)
         {
             var fact = new OntologyFact(subject, predicate, obj);
-            return fact.IsValid && facts.Add(fact);
+            if (!fact.IsValid)
+            {
+                return false;
+            }
+
+            var added = facts.Add(fact);
+            if (fact.Predicate.Equals(OntologyPredicates.HasConcept))
+            {
+                GetOrCreateEntity(fact.Subject).AddConcept(fact.Object);
+            }
+
+            return added;
         }
 
         public bool RemoveFact(OntologyId subject, OntologyId predicate, OntologyId obj)
         {
-            return facts.Remove(new OntologyFact(subject, predicate, obj));
+            var fact = new OntologyFact(subject, predicate, obj);
+            var removed = facts.Remove(fact);
+            if (removed && fact.Predicate.Equals(OntologyPredicates.HasConcept) && entities.TryGetValue(fact.Subject, out var entity))
+            {
+                entity.RemoveConcept(fact.Object);
+            }
+
+            return removed;
+        }
+
+        public bool SetFact(OntologyId subject, OntologyId predicate, OntologyId obj, out bool added)
+        {
+            added = false;
+            var expectedFact = new OntologyFact(subject, predicate, obj);
+            if (!expectedFact.IsValid)
+            {
+                return false;
+            }
+
+            var hasExpectedFact = false;
+            var hasDifferentFact = false;
+            foreach (var fact in facts)
+            {
+                if (!fact.Subject.Equals(subject) || !fact.Predicate.Equals(predicate))
+                {
+                    continue;
+                }
+
+                if (fact.Object.Equals(obj))
+                {
+                    hasExpectedFact = true;
+                }
+                else
+                {
+                    hasDifferentFact = true;
+                }
+            }
+
+            if (hasExpectedFact && !hasDifferentFact)
+            {
+                return false;
+            }
+
+            RemoveFacts(subject, predicate);
+            added = AddFact(subject, predicate, obj);
+            return added || hasExpectedFact || hasDifferentFact;
         }
 
         public int RemoveFacts(OntologyId subject, OntologyId predicate)
@@ -66,6 +122,11 @@ namespace Tormia.Ontology.Core
             {
                 if (facts.Remove(fact))
                 {
+                    if (fact.Predicate.Equals(OntologyPredicates.HasConcept) && entities.TryGetValue(fact.Subject, out var entity))
+                    {
+                        entity.RemoveConcept(fact.Object);
+                    }
+
                     removed++;
                 }
             }

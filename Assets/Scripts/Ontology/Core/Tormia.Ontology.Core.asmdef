@@ -1,0 +1,14 @@
+{
+    "name": "Tormia.Ontology.Core",
+    "rootNamespace": "Tormia.Ontology.Core",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

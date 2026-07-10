@@ -343,7 +343,7 @@ MonoBehaviour:
       obj: ?part
     - kind: 0
       subject: ?part
-      predicate: provides
+      predicate: grants_capability
       obj: SwampResistance
     - kind: 1
       subject: ?actor
@@ -396,7 +396,7 @@ MonoBehaviour:
       obj: ?part
     - kind: 0
       subject: ?part
-      predicate: provides
+      predicate: grants_capability
       obj: ColdProtection
     - kind: 1
       subject: ?actor
@@ -536,3 +536,55 @@ MonoBehaviour:
       subject: ?actor
       predicate: animation_intent
       obj: DeathReaction
+  - id: ColdProtectionQuestHook
+    description: Cold exposure offers a quest to equip protective clothing.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: exposed_to
+      obj: ColdEnvironment
+    - kind: 1
+      subject: ?actor
+      predicate: status
+      obj: Warm
+    - kind: 2
+      subject: ?board
+      predicate:
+      obj: QuestBoard
+    - kind: 1
+      subject: ?board
+      predicate: offers
+      obj: ColdProtectionPreparation
+    effects:
+    - kind: 0
+      subject: ?board
+      predicate: offers
+      obj: ColdProtectionPreparation
+  - id: SwampProtectionQuestHook
+    description: Entering a swamp without resistance offers a protective equipment quest.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: standing_on
+      obj: ?tile
+    - kind: 0
+      subject: ?tile
+      predicate: surface
+      obj: Swamp
+    - kind: 1
+      subject: ?actor
+      predicate: has_capability
+      obj: SwampResistance
+    - kind: 2
+      subject: ?board
+      predicate:
+      obj: QuestBoard
+    - kind: 1
+      subject: ?board
+      predicate: offers
+      obj: SwampProtectionPreparation
+    effects:
+    - kind: 0
+      subject: ?board
+      predicate: offers
+      obj: SwampProtectionPreparation

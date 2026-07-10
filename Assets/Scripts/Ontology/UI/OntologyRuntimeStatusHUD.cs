@@ -20,12 +20,12 @@ namespace Tormia.Ontology.Core
         {
             if (bootstrap == null)
             {
-                bootstrap = FindFirstObjectByType<OntologyWorldBootstrap>();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             }
 
             if (animationAdapter == null)
             {
-                animationAdapter = FindFirstObjectByType<OntologyAnimationAdapter>();
+                animationAdapter = FindAnyObjectByType<OntologyAnimationAdapter>();
             }
 
             ApplyTheme();

@@ -54,12 +54,13 @@ namespace Tormia.Ontology.Core
 
                     foreach (var fact in ontologyEvent.SetFacts)
                     {
-                        var removed = world.RemoveFacts(fact.Subject, fact.Predicate);
-                        changedFactCount += removed;
-                        if (world.AddFact(fact.Subject, fact.Predicate, fact.Object))
+                        if (world.SetFact(fact.Subject, fact.Predicate, fact.Object, out var added))
                         {
-                            addedFactCount++;
                             changedFactCount++;
+                            if (added)
+                            {
+                                addedFactCount++;
+                            }
                         }
                     }
 

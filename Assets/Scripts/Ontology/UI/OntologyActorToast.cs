@@ -195,7 +195,7 @@ namespace Tormia.Ontology.Core
                 label.fontSize = Theme.actorToastFontSize;
                 label.color = Theme.actorToastText;
                 label.alignment = TextAlignmentOptions.Center;
-                label.enableWordWrapping = false;
+                label.textWrappingMode = TextWrappingModes.NoWrap;
                 label.overflowMode = TextOverflowModes.Ellipsis;
                 label.raycastTarget = false;
                 var labelRect = label.GetComponent<RectTransform>();

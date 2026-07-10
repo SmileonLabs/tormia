@@ -79,6 +79,29 @@ namespace Tormia.Ontology.Core
             questHookDefinition.conditions.Add(OntologyCondition.NotFact("?board", "offers", "InvestigateSmokeAndPanic"));
             questHookDefinition.effects.Add(OntologyEffect.AddFact("?board", "offers", "InvestigateSmokeAndPanic"));
 
+            var coldProtectionQuestHookDefinition = new OntologyRuleDefinition
+            {
+                id = "ColdProtectionQuestHook",
+                description = "Cold exposure offers a quest to equip protective clothing."
+            };
+            coldProtectionQuestHookDefinition.conditions.Add(OntologyCondition.Fact("?actor", "exposed_to", "ColdEnvironment"));
+            coldProtectionQuestHookDefinition.conditions.Add(OntologyCondition.NotFact("?actor", "status", "Warm"));
+            coldProtectionQuestHookDefinition.conditions.Add(OntologyCondition.HasConcept("?board", "QuestBoard"));
+            coldProtectionQuestHookDefinition.conditions.Add(OntologyCondition.NotFact("?board", "offers", "ColdProtectionPreparation"));
+            coldProtectionQuestHookDefinition.effects.Add(OntologyEffect.AddFact("?board", "offers", "ColdProtectionPreparation"));
+
+            var swampProtectionQuestHookDefinition = new OntologyRuleDefinition
+            {
+                id = "SwampProtectionQuestHook",
+                description = "Entering a swamp without resistance offers a protective equipment quest."
+            };
+            swampProtectionQuestHookDefinition.conditions.Add(OntologyCondition.Fact("?actor", "standing_on", "?tile"));
+            swampProtectionQuestHookDefinition.conditions.Add(OntologyCondition.Fact("?tile", "surface", "Swamp"));
+            swampProtectionQuestHookDefinition.conditions.Add(OntologyCondition.NotFact("?actor", OntologyPredicates.HasCapability, OntologyObjects.SwampResistance));
+            swampProtectionQuestHookDefinition.conditions.Add(OntologyCondition.HasConcept("?board", "QuestBoard"));
+            swampProtectionQuestHookDefinition.conditions.Add(OntologyCondition.NotFact("?board", "offers", "SwampProtectionPreparation"));
+            swampProtectionQuestHookDefinition.effects.Add(OntologyEffect.AddFact("?board", "offers", "SwampProtectionPreparation"));
+
             var fleeingNpcMoodDefinition = new OntologyRuleDefinition
             {
                 id = "NpcFearMoodEvent",
@@ -169,7 +192,7 @@ namespace Tormia.Ontology.Core
                 description = "SwampResistance equipment gives the actor swamp movement protection."
             };
             swampResistanceCapabilityDefinition.conditions.Add(OntologyCondition.Fact("?actor", OntologyPredicates.EquippedPart, "?part"));
-            swampResistanceCapabilityDefinition.conditions.Add(OntologyCondition.Fact("?part", OntologyPredicates.Provides, OntologyObjects.SwampResistance));
+            swampResistanceCapabilityDefinition.conditions.Add(OntologyCondition.Fact("?part", OntologyPredicates.GrantsCapability, OntologyObjects.SwampResistance));
             swampResistanceCapabilityDefinition.conditions.Add(OntologyCondition.NotFact("?actor", OntologyPredicates.HasCapability, OntologyObjects.SwampResistance));
             swampResistanceCapabilityDefinition.effects.Add(OntologyEffect.AddFact("?actor", OntologyPredicates.HasCapability, OntologyObjects.SwampResistance));
 
@@ -205,7 +228,7 @@ namespace Tormia.Ontology.Core
             };
             coldProtectionWarmthDefinition.conditions.Add(OntologyCondition.Fact("?actor", "exposed_to", "ColdEnvironment"));
             coldProtectionWarmthDefinition.conditions.Add(OntologyCondition.Fact("?actor", OntologyPredicates.EquippedPart, "?part"));
-            coldProtectionWarmthDefinition.conditions.Add(OntologyCondition.Fact("?part", OntologyPredicates.Provides, OntologyObjects.ColdProtection));
+            coldProtectionWarmthDefinition.conditions.Add(OntologyCondition.Fact("?part", OntologyPredicates.GrantsCapability, OntologyObjects.ColdProtection));
             coldProtectionWarmthDefinition.conditions.Add(OntologyCondition.NotFact("?actor", "status", "Warm"));
             coldProtectionWarmthDefinition.effects.Add(OntologyEffect.AddFact("?actor", "status", "Warm"));
 
@@ -239,6 +262,8 @@ namespace Tormia.Ontology.Core
                 fleeDefinition,
                 disturbanceDefinition,
                 questHookDefinition,
+                coldProtectionQuestHookDefinition,
+                swampProtectionQuestHookDefinition,
                 fleeingNpcMoodDefinition,
                 afraidNpcTalkDefinition,
                 villageHelpRespectDefinition,
