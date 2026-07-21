@@ -43,15 +43,42 @@ namespace Tormia.Ontology.Core
             baselineReadyTime = Time.time + Mathf.Max(0f, initialBaselineDelay);
         }
 
+        private void OnEnable()
+        {
+            EnsureReferences();
+            if (bootstrap != null)
+            {
+                bootstrap.WorldChanged += HandleWorldChanged;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (bootstrap != null)
+            {
+                bootstrap.WorldChanged -= HandleWorldChanged;
+            }
+        }
+
         private void Update()
         {
-            if (Time.time < nextPollTime)
+            // The initial baseline needs one short delay. Afterwards world changes notify
+            // this emitter directly, avoiding repeated full fact scans while idle.
+            if (initialized || Time.time < nextPollTime)
             {
                 return;
             }
 
             nextPollTime = Time.time + Mathf.Max(0.01f, pollInterval);
             PollFacts();
+        }
+
+        private void HandleWorldChanged()
+        {
+            if (initialized)
+            {
+                PollFacts();
+            }
         }
 
         public void Configure(OntologyWorldBootstrap targetBootstrap, OntologyActorToast targetToast, OntologyUILabels targetLabels, string targetActorId)
@@ -257,7 +284,7 @@ namespace Tormia.Ontology.Core
                 case "animation_intent":
                     return Labels.actorToastAnimationIntent;
                 default:
-                    return predicate;
+                    return OntologyLanguagePackService.Term(predicate);
             }
         }
 
@@ -265,7 +292,7 @@ namespace Tormia.Ontology.Core
         {
             if (predicate != "equipped_part" || partDatabase == null || partDatabase.Definitions == null)
             {
-                return obj;
+                return OntologyLanguagePackService.DisplaySemanticObject(obj);
             }
 
             foreach (var definition in partDatabase.Definitions)
@@ -275,10 +302,14 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                return string.IsNullOrWhiteSpace(definition.displayName) ? definition.partId : definition.displayName;
+                return OntologyLanguagePackService.CharacterPartName(
+                    definition.partId,
+                    string.IsNullOrWhiteSpace(definition.displayName)
+                        ? definition.partId
+                        : definition.displayName);
             }
 
-            return obj;
+            return OntologyLanguagePackService.DisplaySemanticObject(obj);
         }
 
         private bool IsWhitelisted(string predicate)
@@ -341,6 +372,17 @@ namespace Tormia.Ontology.Core
             return fact.Subject + "|" + fact.Predicate + "|" + fact.Object;
         }
 
-        private OntologyUILabels Labels => labels != null ? labels : ScriptableObject.CreateInstance<OntologyUILabels>();
+        private OntologyUILabels runtimeLabels;
+        private OntologyUILabels Labels
+        {
+            get
+            {
+                var value = labels != null
+                    ? labels
+                    : runtimeLabels ??= ScriptableObject.CreateInstance<OntologyUILabels>();
+                value.ApplyLanguagePack();
+                return value;
+            }
+        }
     }
 }

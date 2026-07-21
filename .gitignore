@@ -40,3 +40,6 @@ sysinfo.txt
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Local platform-service secrets
+/infrastructure/.env

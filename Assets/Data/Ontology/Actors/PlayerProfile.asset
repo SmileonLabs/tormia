@@ -14,8 +14,49 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyActorProfile
   actorType: Player
   rigType: Humanoid
+  defaultConcepts:
+  - Actor
+  - Agent
+  - PlayerControlled
+  - Humanoid
+  defaultFacts: []
+  ontologyCapabilities:
+  - Locomotion
+  - Interaction
   capabilities:
   - Locomotion
   - Jump
   - Combat
   - Dodge
+  animationIds:
+  - Anim_Attack_Kick
+  - Anim_Attack_Punch
+  - Anim_Block_With_Hands
+  - Anim_Climb_Ladder
+  - Anim_Crouch_Walk_Backward
+  - Anim_Crouch_Walk_Forward
+  - Anim_Crouch_Walk_Left
+  - Anim_Crouch_Walk_Right
+  - Anim_Death_Backward
+  - Anim_Death_Forward
+  - Anim_Dodge_Roll
+  - Anim_Dodge_Sidestep
+  - Anim_Fall
+  - Anim_Hit_Reaction_Heavy
+  - Anim_Hit_Reaction_Light
+  - Anim_Idle_Breathing
+  - Anim_Idle_Look_Around
+  - Anim_Idle_Relaxed
+  - Anim_Jump_End
+  - Anim_Jump_Loop
+  - Anim_Jump_Start
+  - Anim_Run_Backward
+  - Anim_Run_Forward
+  - Anim_Run_Left
+  - Anim_Run_Right
+  - Anim_Strafe_Left
+  - Anim_Strafe_Right
+  - Anim_Swimming
+  - Anim_Treading_Water
+  - Anim_Walk_Backward
+  - Anim_Walk_Forward

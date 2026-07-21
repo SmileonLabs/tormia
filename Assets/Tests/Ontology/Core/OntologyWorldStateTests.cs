@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Tormia.Ontology.Core;
+using System.Collections.Generic;
 
 namespace Tormia.Ontology.Tests
 {
@@ -32,6 +33,78 @@ namespace Tormia.Ontology.Tests
 
             Assert.That(world.SetFact("Player", "status", "Warm", out added), Is.False);
             Assert.That(added, Is.False);
+        }
+
+        [Test]
+        public void RuntimeObservationRetractsOnlyFactsPublishedByThatSensor()
+        {
+            var world = new OntologyWorldState();
+            var observed = new HashSet<string> { "WaterA", "WaterB" };
+            var published = new HashSet<string>();
+            var removalBuffer = new List<string>();
+
+            // WaterA is a durable/authored relationship. A runtime sensor must
+            // not claim ownership of it just because it observes the same fact.
+            world.AddFact("Raft", OntologyPredicates.Occupies, "WaterA");
+
+            Assert.That(
+                OntologyRuntimeObservationFacts.SynchronizeSet(
+                    world,
+                    "Raft",
+                    OntologyPredicates.Occupies,
+                    observed,
+                    published,
+                    removalBuffer),
+                Is.True);
+            Assert.That(published, Is.EquivalentTo(new[] { "WaterB" }));
+
+            observed.Clear();
+            Assert.That(
+                OntologyRuntimeObservationFacts.SynchronizeSet(
+                    world,
+                    "Raft",
+                    OntologyPredicates.Occupies,
+                    observed,
+                    published,
+                    removalBuffer),
+                Is.True);
+            Assert.That(
+                world.HasFact("Raft", OntologyPredicates.Occupies, "WaterA"),
+                Is.True,
+                "An authored fact must survive a runtime observation refresh.");
+            Assert.That(
+                world.HasFact("Raft", OntologyPredicates.Occupies, "WaterB"),
+                Is.False);
+        }
+
+        [Test]
+        public void RuntimeObservationSingleValueDoesNotRetractAnExistingFact()
+        {
+            var world = new OntologyWorldState();
+            var published = string.Empty;
+            world.AddFact("Player", OntologyPredicates.ImmersionDepth, "Deep");
+
+            Assert.That(
+                OntologyRuntimeObservationFacts.SynchronizeSingleValue(
+                    world,
+                    "Player",
+                    OntologyPredicates.ImmersionDepth,
+                    "Deep",
+                    ref published),
+                Is.False);
+            Assert.That(published, Is.Empty);
+
+            Assert.That(
+                OntologyRuntimeObservationFacts.SynchronizeSingleValue(
+                    world,
+                    "Player",
+                    OntologyPredicates.ImmersionDepth,
+                    string.Empty,
+                    ref published),
+                Is.False);
+            Assert.That(
+                world.HasFact("Player", OntologyPredicates.ImmersionDepth, "Deep"),
+                Is.True);
         }
     }
 }

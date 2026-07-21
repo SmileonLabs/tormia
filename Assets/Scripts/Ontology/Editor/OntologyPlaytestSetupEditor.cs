@@ -206,6 +206,17 @@ namespace Tormia.Ontology.Core.Editor
             var theme = GetOrCreateAsset<OntologyUITheme>(ThemePath);
             var labels = GetOrCreateAsset<OntologyUILabels>(LabelsPath);
             var canvas = GetOrCreateCanvas();
+
+            // The hierarchy is now the visual source of truth. Once an authored runtime
+            // canvas exists, setup only repairs serialized references and never rebuilds or
+            // repositions the user's UI.
+            if (HasAuthoredRuntimeUi(canvas.transform))
+            {
+                SetupUiThemeReferences();
+                Debug.Log("Ontology runtime UI already exists. Skipped UI regeneration; hierarchy values were preserved.");
+                return;
+            }
+
             ConfigureDebugPanel(canvas.transform, theme, labels);
             ConfigureCharacterPartPanel(canvas.transform, theme, labels);
             ConfigureRuntimeHud(canvas.transform, theme, labels);
@@ -218,6 +229,13 @@ namespace Tormia.Ontology.Core.Editor
             SaveUiPrefab(canvas);
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(canvas.gameObject.scene);
             Debug.Log("Ontology runtime UI setup complete.");
+        }
+
+        private static bool HasAuthoredRuntimeUi(Transform canvas)
+        {
+            return canvas.Find("OntologyDebugPanel") != null
+                || canvas.Find("OntologyGameCanvas/WorldEditHUD") != null
+                || canvas.Find("OntologyCharacterCustomizationPanel") != null;
         }
 
         private static void SetupCharacterCustomizationUi()

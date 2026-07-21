@@ -8,23 +8,30 @@ namespace Tormia.Ontology.Core
     {
         [SerializeField] protected OntologyUITheme theme;
         [SerializeField] protected OntologyUILabels labels;
+        private OntologyUILabels runtimeLabels;
 
         protected OntologyUITheme Theme => theme;
-        protected OntologyUILabels Labels => labels;
+        protected OntologyUILabels Labels
+        {
+            get
+            {
+                var value = labels != null
+                    ? labels
+                    : runtimeLabels ??= ScriptableObject.CreateInstance<OntologyUILabels>();
+                value.ApplyLanguagePack();
+                return value;
+            }
+        }
 
+        // Legacy compatibility for OntologyCharacterPartPanel. New hierarchy-authored panels
+        // should bind existing templates instead of calling these helpers.
         protected TextMeshProUGUI CreateText(Transform parent, string name, string text, float fontSize, Color color, TextAlignmentOptions alignment)
         {
             var labelObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(parent, false);
-
             var label = labelObject.GetComponent<TextMeshProUGUI>();
             label.text = text;
-            label.fontSize = fontSize;
             label.color = color;
-            label.alignment = alignment;
-            label.textWrappingMode = TextWrappingModes.NoWrap;
-            label.overflowMode = TextOverflowModes.Ellipsis;
-            label.raycastTarget = false;
             return label;
         }
 
@@ -32,24 +39,20 @@ namespace Tormia.Ontology.Core
         {
             var buttonObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
             buttonObject.transform.SetParent(parent, false);
-
             var rect = buttonObject.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(1f, 0.5f);
             rect.anchorMax = new Vector2(1f, 0.5f);
             rect.pivot = new Vector2(1f, 0.5f);
             rect.anchoredPosition = anchoredPosition;
             rect.sizeDelta = size;
-
             var image = buttonObject.GetComponent<Image>();
             image.color = background;
-
             var label = CreateText(buttonObject.transform, "Text", labelText, fontSize, textColor, TextAlignmentOptions.Center);
             var labelRect = label.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
             labelRect.offsetMin = Vector2.zero;
             labelRect.offsetMax = Vector2.zero;
-
             return buttonObject.GetComponent<Button>();
         }
 
@@ -70,11 +73,7 @@ namespace Tormia.Ontology.Core
             if (label != null)
             {
                 label.text = labelText;
-                label.fontSize = fontSize;
                 label.color = button.interactable ? textColor : Theme.disabledButtonText;
-                label.alignment = TextAlignmentOptions.Center;
-                label.textWrappingMode = TextWrappingModes.NoWrap;
-                label.overflowMode = TextOverflowModes.Ellipsis;
             }
         }
 
@@ -86,9 +85,7 @@ namespace Tormia.Ontology.Core
             }
 
             text.text = value;
-            text.fontSize = fontSize;
             text.color = color;
-            text.alignment = alignment;
         }
     }
 }

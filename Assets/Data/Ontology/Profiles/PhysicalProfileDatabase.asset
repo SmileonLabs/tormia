@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43f3ce66fe6f13646a7411fe1d53b431, type: 3}
+  m_Name: PhysicalProfileDatabase
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyPhysicalProfileDatabase
+  profiles:
+  - {fileID: 11400000, guid: 96ebaf3007414a34db02ba22e973038f, type: 2}
+  - {fileID: 11400000, guid: 6573c8e1aa84fb946a28b0196a339ae8, type: 2}
+  - {fileID: 11400000, guid: 5846d380c3d64a97857d57b7b3b048b8, type: 2}
+  - {fileID: 11400000, guid: 2f1c5edc933d4f09ae8d2d406765ab13, type: 2}

@@ -1,0 +1,732 @@
+key,text,description
+ui.quest_panel.title,퀘스트와 행동,플레이어 퀘스트 패널
+ui.quest_panel.empty_quests,진행 중인 퀘스트가 없습니다,플레이어 퀘스트 패널
+ui.quest_panel.empty_actions,현재 가능한 행동이 없습니다,플레이어 퀘스트 패널
+ui.quest.active,진행 중,플레이어 퀘스트 패널
+ui.quest.completed,완료,플레이어 퀘스트 패널
+ui.quest.goal_prefix,"퀘스트: ",플레이어 퀘스트 패널
+rule_preset.validation.no_object,먼저 월드 오브젝트를 선택하세요.,규칙 블록 검증
+rule_preset.validation.unavailable,규칙 설정 데이터를 찾을 수 없습니다.,규칙 블록 검증
+rule_preset.validation.requires,"이 규칙에 필요한 정보: {0}",규칙 블록 검증
+rule_preset.attachment_setup.title,장착 방식 설정,규칙 블록
+rule_preset.attachment_setup.body,"장착 위치를 고르면 필요한 개념과 트리플을 자동으로 준비한 뒤 규칙을 적용합니다.",규칙 블록
+rule_preset.attachment_setup.apply,설정 후 적용,규칙 블록
+ui.button.add,추가,물리 행동
+ui.button.remove,제거,물리 행동
+ui.button.details_short,상세,물리 행동
+ui.rule_block.quick_action,빠른 설정,규칙 블록
+ui.title.rule_block_details,규칙 블록 상세,규칙 블록
+rule_preset.water_buoyancy,물에서 부력 적용,규칙 블록
+rule_preset.auto_equip,가까이 선택하면 장착,규칙 블록
+rule_preset.temporary_skill,장비 스킬 임시 부여,규칙 블록
+rule_preset.water_buoyancy.description,이 오브젝트가 물 영역에 들어가면 부력 상태가 적용됩니다.,규칙 블록
+rule_preset.auto_equip.description,플레이어가 선택한 뒤 가까이 가면 이 오브젝트를 장착할 수 있습니다.,규칙 블록
+rule_preset.temporary_skill.description,장착된 아이템은 연결 규칙 블록이 있는 동안에만 자신이 가진 스킬을 임시로 부여합니다.,규칙 블록
+rule_preset.temporary_skill_setup.title,장비 스킬 설정,규칙 블록
+rule_preset.temporary_skill_setup.body,이 장비가 제공할 스킬과 스킬을 유지할 규칙 블록을 고르세요. 필요한 트리플을 먼저 만들고 임시 스킬 규칙을 추가합니다.,규칙 블록
+rule_preset.temporary_skill_setup.apply,설정 후 적용,규칙 블록
+rule_preset.temporary_skill_setup.choose,스킬과 유지 조건을 선택하세요,규칙 블록
+rule_preset.temporary_skill_setup.no_choice,적용할 스킬과 유지 조건을 먼저 선택하세요.,규칙 블록
+rule_preset.temporary_skill_setup.no_rule,먼저 이 오브젝트에 스킬 유지 조건이 될 규칙 블록을 추가하세요.,규칙 블록
+rule_preset.temporary_skill_setup.no_skill,현재 온톨로지 카탈로그에 선택할 수 있는 스킬이 없습니다.,규칙 블록
+rule_preset.detail.format,"{0}\n\n이 설정은 현재 배치된 오브젝트에만 적용됩니다.\n\n규칙 블록: {1}\n연결 변수: {2}\n물리 행동: {3}\n개념: {4}\n팩트:\n{5}\n필요한 기존 데이터: {6}\n\n템플릿은 기본값만 제공합니다. 여기서 수정해도 원본 템플릿은 바뀌지 않습니다.",규칙 블록
+ui.physical.base_behavior,기본 물리 행동,물리 행동
+ui.physical.additional_effect,추가 효과,물리 행동
+result.no_additional_physical_effect,더 추가할 수 있는 호환 효과가 없습니다.,물리 행동
+physical_effect.WindDrift,바람에 밀림,물리 효과
+physical_effect.WaveRocking,파도에 흔들림,물리 효과
+relation.has_physical_effect,추가 물리 효과,물리 효과 관계
+relation.active_physical_effect,활성 물리 효과,추론된 물리 효과 관계
+relation.compatible_with,호환 대상,호환 관계
+fact.has_physical_effect,{0}에 {1} 추가 물리 효과가 설정되어 있습니다.,사용자용 팩트
+fact.active_physical_effect,{0}에 현재 {1} 효과가 적용되고 있습니다.,사용자용 추론 팩트
+fact.compatible_with,{0}은(는) {1}과(와) 호환됩니다.,사용자용 호환 팩트
+concept.PhysicalEffect,물리 효과,물리 효과 컨셉
+rule.ActivateWindDriftEffect,호환되는 바람 효과 활성화,물리 효과 규칙
+rule.ActivateWaveRockingEffect,호환되는 파도 효과 활성화,물리 효과 규칙
+rule_description.ActivateWindDriftEffect,바람 효과와 호환되는 오브젝트가 바람에 밀립니다.,물리 효과 규칙
+rule_description.ActivateWaveRockingEffect,파도 효과와 호환되는 오브젝트가 물에서 흔들립니다.,물리 효과 규칙
+ui.title.ontology_editor,온톨로지 편집기,월드 온톨로지 편집기 제목
+ui.tab.triples,트리플,팩트 편집 탭
+ui.tab.rule_blocks,규칙 블록,규칙 블록 탭
+ui.tab.physics,물리,물리 프로필 탭
+ui.tab.results,결과,사용자용 추론 결과 탭
+ui.button.add_triple,+ 트리플 추가,트리플 추가
+ui.button.add_rule_block,+ 규칙 블록 추가,규칙 블록 추가
+ui.button.save_world,월드 저장,스냅샷 저장
+ui.button.load_world,월드 불러오기,스냅샷 불러오기
+ui.subtitle.selected_object,선택한 오브젝트,선택한 오브젝트 부제
+ui.subtitle.no_selection,배치된 오브젝트를 선택하세요,선택 없음 부제
+ui.footer.triples,주어는 고정되어 있습니다. 관계와 값을 수정하세요.,트리플 편집 도움말
+ui.footer.rule_blocks,규칙 블록은 이 오브젝트에 데이터베이스 규칙을 활성화합니다.,규칙 블록 도움말
+ui.footer.physics,이 오브젝트가 어떻게 움직일지 쉬운 문장으로 선택하세요.,물리 도움말
+ui.footer.results,현재 정보와 그 정보를 만든 규칙을 보여줍니다.,결과 도움말
+ui.status.saved,월드를 저장했습니다.,저장 성공
+ui.status.loaded,월드를 불러왔습니다.,불러오기 성공
+ui.status.save_failed,저장 실패: 저장 컨트롤러를 찾지 못했습니다.,저장 실패
+ui.status.load_failed,불러오기 실패: 저장 컨트롤러를 찾지 못했습니다.,불러오기 실패
+ui.dropdown.choose,선택...,드롭다운 안내
+result.world_unavailable,온톨로지 월드가 아직 준비되지 않았습니다.,월드 없음
+result.not_run,아직 규칙을 계산하지 않았습니다.,추론 전
+result.stable,모든 규칙 적용이 완료되었습니다.,안정된 추론
+result.iteration_limit,규칙 계산이 반복 제한에서 중단되었습니다.,반복 제한
+result.summary,"계산 단계: {0} · 새 정보: {1}개 · 변경된 정보: {2}개",추론 요약
+result.current_information,현재 이 오브젝트의 정보,현재 팩트 제목
+result.origin.authored,작성 데이터,작성된 팩트 출처
+result.origin.inferred,추론 데이터,추론된 팩트 출처
+result.origin.observed,관측 데이터,관측된 팩트 출처
+result.applied_rule,적용된 규칙 · {0}단계,적용 규칙 제목
+result.added,추가됨,추가 팩트 표시
+result.removed,삭제됨,삭제 팩트 표시
+result.changed,변경됨,변경 팩트 표시
+result.no_rule_block,연결된 규칙 블록이 없습니다. 규칙을 사용하려면 규칙 블록을 추가하세요.,규칙 블록 없음
+result.no_rules,규칙 데이터베이스에 사용할 수 있는 규칙이 없습니다.,규칙 없음
+result.no_buoyancy_profile,등록된 부력 프로필이 없습니다.,부력 프로필 없음
+result.buoyancy_disabled,이 오브젝트에는 현재 부력이 없습니다.,부력 없음
+result.base_physical_profile,기본 물리 프로필: {0}. 중력이 적용됩니다.,기본 프로필
+result.active_physical_profile,활성 물리 프로필: {0}. 이 설정은 온톨로지 데이터로 저장됩니다.,활성 프로필
+validation.value_required,값을 입력하세요.,값 없음
+validation.number_required,올바른 숫자를 입력하세요.,숫자 오류
+validation.boolean_required,참 또는 거짓을 선택하세요.,불리언 오류
+validation.ambiguous_term,여러 온톨로지 용어와 일치합니다. 하나를 선택하세요.,모호한 별칭
+validation.unknown_localized_term,등록되지 않은 단어입니다. OntologyAliases.csv에 추가하거나 새 Canonical 용어를 만드세요.,미등록 현지어
+validation.invalid_identifier,올바른 온톨로지 식별자를 입력하세요.,식별자 오류
+validation.blocked,저장 불가: {0},저장 차단
+validation.warning,주의: {0} 저장하려면 OK를 한 번 더 누르세요.,경고 확인
+relation.has_concept,종류,컨셉 분류
+relation.located_in,위치,위치 관계
+relation.has_element,원소,원소 관계
+relation.has_state,상태,상태 관계
+relation.related_to,관련 대상,일반 관계
+relation.water_depth,물 깊이,수심
+relation.occupies,들어가 있음,점유
+relation.state,상태,상태
+relation.movement_mode,이동 방식,이동 방식
+relation.physical_profile,물리 프로필,물리 프로필
+relation.attachment_profile,장착 프로필,장착 프로필
+relation.pickup_behavior,상호작용,획득 방식
+relation.has_slot,장착 위치,장착 슬롯
+relation.supports_behavior,지원 동작,지원 동작
+relation.mobility_mode,움직임 성질,이동성
+relation.has_material,재질,재질
+relation.density_class,밀도,밀도
+relation.supported_by,받치는 대상,지지 대상
+relation.resting_on,놓인 대상,놓인 대상
+relation.has_capability,능력,능력
+relation.grants_capability,제공 능력,제공 능력
+relation.grants_skill,제공 스킬,제공 스킬
+relation.skill_grant_requires_rule,스킬 부여 필요 규칙,규칙 블록
+relation.has_skill,스킬,스킬
+relation.has_temporary_skill,임시 스킬,임시 스킬
+relation.can_use_skill,사용 가능 스킬,사용 가능 스킬
+relation.equipped_by,장착한 대상,장착 소유자
+relation.carried_by,운반하는 대상,운반 소유자
+relation.has_rule_block,규칙 블록,규칙 블록 팩트
+concept.Actor,행동 주체,Actor 컨셉
+concept.Agent,에이전트,Agent 컨셉
+concept.Creature,생명체,Creature 컨셉
+concept.NPC,NPC,NPC 컨셉
+concept.PlayerControlled,플레이어 조종,PlayerControlled 컨셉
+concept.Humanoid,인간형,Humanoid 컨셉
+concept.Plant,식물,Plant 컨셉
+concept.Dry,건조함,Dry 컨셉
+concept.Fire,불,Fire 컨셉
+concept.Rock,바위,Rock 컨셉
+concept.Resource,자원,Resource 컨셉
+concept.Landmark,랜드마크,Landmark 컨셉
+concept.TerrainTile,지형 타일,TerrainTile 컨셉
+concept.WaterRegion,물 영역,WaterRegion 컨셉
+concept.QuestBoard,퀘스트 게시판,QuestBoard 컨셉
+concept.Relation,관계,Relation 컨셉
+concept.Reputation,평판,Reputation 컨셉
+concept.CharacterPart,캐릭터 파츠,CharacterPart 컨셉
+concept.TerrainZone,지형 구역,TerrainZone 컨셉
+concept.QuestState,퀘스트 상태,QuestState 컨셉
+concept.FloatableObject,물에 뜨는 오브젝트,FloatableObject 컨셉
+concept.Wearable,착용 가능,Wearable 컨셉
+concept.Carryable,운반 가능,Carryable 컨셉
+concept.Mountable,탑승 가능,Mountable 컨셉
+concept.FlotationDevice,부력 장비,FlotationDevice 컨셉
+state.Deep,깊음,깊은 물 상태
+state.Shallow,얕음,얕은 물 상태
+state.Unknown,알 수 없음,물 깊이를 아직 관측하지 못했습니다
+state.Swimming,수영 중,수영 상태
+state.Wading,얕은 물 걷기,얕은 물 상태
+state.Floating,떠 있음,부유 상태
+state.Dynamic,움직임,동적 상태
+state.Anchored,고정됨,고정 상태
+state.Light,가벼움,가벼운 밀도
+state.Heavy,무거움,무거운 밀도
+value.Water,물,물 원소
+value.Stone,돌,돌 재질
+value.Polymer,폴리머,폴리머 재질
+value.Vegetation,식물성 재질,식물성 재질
+value.Wood,나무 재질,나무 재질
+value.WaterFloat,물에 뜨기,수상 부력 스킬
+value.SelectThenEquip,선택 후 착용,착용 상호작용
+value.SelectThenCarry,선택 후 운반,운반 상호작용
+value.SelectThenMount,선택 후 탑승,탑승 상호작용
+object.stone_1,돌 1,배치 오브젝트 이름
+object.stone_2,돌 2,배치 오브젝트 이름
+object.stone_3,돌 3,배치 오브젝트 이름
+object.grass_1,풀 묶음 1,배치 오브젝트 이름
+object.grass_2,풀 묶음 2,배치 오브젝트 이름
+object.landmark_cluster,랜드마크 숲,배치 오브젝트 이름
+object.inflatable_ring,튜브,배치 오브젝트 이름
+fact.has_concept,{0}의 종류는 {1}입니다.,사용자용 팩트
+fact.located_in,{0}의 위치는 {1}입니다.,사용자용 팩트
+fact.has_state,{0}의 현재 상태는 {1}입니다.,사용자용 팩트
+fact.state,{0}의 현재 상태는 {1}입니다.,사용자용 팩트
+fact.movement_mode,{0}의 이동 방식은 {1}입니다.,사용자용 팩트
+fact.occupies,{0}이(가) {1} 안에 있습니다.,사용자용 팩트
+fact.physical_profile,{0}에 {1} 물리 프로필이 적용되어 있습니다.,사용자용 팩트
+fact.attachment_profile,{0}에 {1} 장착 프로필이 적용되어 있습니다.,사용자용 팩트
+fact.has_material,{0}의 재질은 {1}입니다.,사용자용 팩트
+fact.supported_by,{0}을(를) {1}이(가) 받치고 있습니다.,사용자용 팩트
+fact.resting_on,{0}이(가) {1} 위에 놓여 있습니다.,사용자용 팩트
+fact.has_element,{0}에 {1} 원소가 있습니다.,사용자용 팩트
+fact.related_to,{0}은(는) {1}과(와) 관계가 있습니다.,사용자용 팩트
+fact.water_depth,{0}의 물 깊이는 {1}입니다.,사용자용 팩트
+fact.pickup_behavior,{0}의 상호작용 방식은 {1}입니다.,사용자용 팩트
+fact.has_slot,{0}이(가) {1} 장착 슬롯을 사용합니다.,사용자용 팩트
+fact.supports_behavior,{0}이(가) {1} 동작을 지원합니다.,사용자용 팩트
+fact.mobility_mode,{0}의 이동성은 {1}입니다.,사용자용 팩트
+fact.density_class,{0}의 밀도는 {1}입니다.,사용자용 팩트
+fact.has_capability,{0}이(가) {1} 능력을 가지고 있습니다.,사용자용 팩트
+fact.grants_capability,{0}이(가) {1} 능력을 제공합니다.,사용자용 팩트
+fact.grants_skill,{0}이(가) {1} 스킬을 제공합니다.,사용자용 팩트
+fact.skill_grant_requires_rule,{0}이(가) 스킬을 부여하려면 {1} 규칙 블록이 필요합니다.,사용자용 팩트
+fact.has_skill,{0}이(가) {1} 스킬을 가지고 있습니다.,사용자용 팩트
+fact.has_temporary_skill,{0}이(가) {1} 스킬을 임시로 가지고 있습니다.,사용자용 팩트
+fact.can_use_skill,{0}이(가) {1} 스킬을 사용할 수 있습니다.,사용자용 팩트
+fact.equipped_by,{0}을(를) {1}이(가) 장착하고 있습니다.,사용자용 팩트
+fact.carried_by,{0}을(를) {1}이(가) 운반하고 있습니다.,사용자용 팩트
+fact.has_rule_block,{0}에 {1} 규칙 블록이 있습니다.,사용자용 팩트
+ui.status.no_operation_result,작업 결과가 반환되지 않았습니다.,작업 결과 없음
+common.none,없음,빈 값
+variable.actor,행동 주체,규칙 변수
+variable.target,대상,규칙 변수
+variable.tool,도구,규칙 변수
+variable.item,아이템,규칙 변수
+variable.object,오브젝트,규칙 변수
+variable.water,물 영역,규칙 변수
+variable.support,받침 오브젝트,규칙 변수
+placement.ui.categories,카테고리,배치 UI
+placement.ui.select,선택,배치 UI
+placement.ui.close,닫기,배치 UI
+placement.empty.title,오브젝트 없음,빈 배치 목록
+placement.empty.description,이 카테고리에 배치 가능한 오브젝트가 없습니다.,빈 배치 목록
+placement.status.choose,오브젝트를 선택하세요.,배치 상태
+placement.status.invalid_prefab,이 목록에는 사용할 수 있는 프리팹이 없습니다.,배치 상태
+placement.status.instructions,설치할 바닥으로 마우스를 옮긴 뒤 왼쪽 버튼을 누르세요. Q/E 회전 · Esc 취소,배치 상태
+placement.status.ready,설치 가능: 왼쪽 버튼으로 설치 · Q/E 회전 · Esc 취소,배치 상태
+placement.status.placed,{0} 배치를 완료하고 온톨로지 데이터를 주입했습니다.,배치 상태
+placement.validation.too_far,너무 멉니다. 캐릭터를 가까이 이동하세요.,배치 검증
+placement.validation.too_steep,경사가 너무 가파릅니다.,배치 검증
+placement.validation.unmarked_surface,아직 배치 가능한 표면으로 지정되지 않았습니다.,배치 검증
+placement.validation.wrong_surface,이 오브젝트는 해당 표면에 배치할 수 없습니다.,배치 검증
+placement.validation.too_close,다른 오브젝트와 너무 가깝습니다.,배치 검증
+category.Nature,자연물,배치 카테고리
+category.Landmark,랜드마크,배치 카테고리
+category.Water,물,배치 카테고리
+category.Other,기타,배치 카테고리
+world_edit.status.inactive,오브젝트 가까이에서 Tab을 눌러 선택하세요.,월드 편집 상태
+world_edit.status.finish_placement,먼저 오브젝트 배치를 완료하거나 취소하세요.,월드 편집 상태
+world_edit.status.no_nearby_object,가까이에 편집할 수 있는 오브젝트가 없습니다.,월드 편집 상태
+world_edit.status.moving,마우스로 위치를 정하세요. 왼쪽 버튼 확정 · 오른쪽 버튼 또는 Esc 취소,월드 편집 상태
+world_edit.status.selected,선택됨: {0},월드 편집 상태
+world_edit.summary.no_selection,선택한 오브젝트가 없습니다.,월드 편집 요약
+world_edit.summary.no_ontology,연결된 온톨로지 데이터가 없습니다.,월드 편집 요약
+world_edit.summary.id,아이디,월드 편집 요약
+world_edit.summary.concepts,컨셉,월드 편집 요약
+world_edit.summary.facts,팩트,월드 편집 요약
+character.ui.title,캐릭터 파츠,캐릭터 꾸미기
+character.ui.toggle_hint,C 키로 캐릭터 꾸미기,캐릭터 꾸미기
+character.ui.select_part,파츠를 선택하세요,캐릭터 꾸미기
+character.ui.select_part_description,카테고리와 파츠를 선택해 온톨로지 효과를 확인하세요.,캐릭터 꾸미기
+character.ui.no_icon,아이콘 없음,캐릭터 꾸미기
+character.ui.category,카테고리,캐릭터 꾸미기
+character.ui.part,파츠,캐릭터 꾸미기
+character.ui.slot,장착 위치,캐릭터 꾸미기
+character.ui.unknown_slot,알 수 없는 슬롯,캐릭터 꾸미기
+character.ui.equip,장착,캐릭터 꾸미기
+character.ui.unequip,해제,캐릭터 꾸미기
+character.ui.equipped,장착됨,캐릭터 꾸미기
+character.ui.ontology_facts,온톨로지 팩트,캐릭터 꾸미기
+character.ui.badge.on,사용 중,캐릭터 꾸미기
+character.ui.badge.capability,능력,캐릭터 꾸미기
+character.ui.badge.conflict,충돌,캐릭터 꾸미기
+character.status.missing_data,캐릭터 꾸미기 데이터가 없습니다.,캐릭터 상태
+character.status.select_valid_part,사용할 파츠를 먼저 선택하세요.,캐릭터 상태
+character.status.equip_failed,장착 실패: {0} ({1}),캐릭터 상태
+character.status.unequip_failed,해제 실패: {0} ({1}),캐릭터 상태
+character.status.equipped,장착함: {0},캐릭터 상태
+character.status.unequipped,해제함: {0},캐릭터 상태
+character.detail.category,카테고리,캐릭터 상세
+character.detail.status,상태,캐릭터 상세
+character.detail.effects_will_unequip,효과: 다음 파츠 해제 ,캐릭터 상세
+character.detail.grants,제공 능력,캐릭터 상세
+character.preview.no_adapter,실행 어댑터가 없습니다.,캐릭터 미리보기
+character.preview.already_equipped,이미 장착되어 있습니다.,캐릭터 미리보기
+character.preview.will_replace,{0} 파츠를 교체합니다.,캐릭터 미리보기
+character.preview.available,장착할 수 있습니다.,캐릭터 미리보기
+character.failure.definition_missing,파츠 정의가 없습니다,캐릭터 오류
+character.failure.renderer_missing,렌더러가 없습니다,캐릭터 오류
+character.failure.world_missing,온톨로지 월드가 준비되지 않았습니다,캐릭터 오류
+character.failure.already_equipped,이미 장착되어 있습니다,캐릭터 오류
+character.failure.already_unequipped,이미 해제되어 있습니다,캐릭터 오류
+character.failure.unknown,알 수 없는 이유,캐릭터 오류
+object.stone_1.description,POLY STYLE 돌입니다.,배치 설명
+object.stone_2.description,POLY STYLE 돌입니다.,배치 설명
+object.stone_3.description,POLY STYLE 돌입니다.,배치 설명
+object.grass_1.description,POLY STYLE 식생 묶음입니다.,배치 설명
+object.grass_2.description,POLY STYLE 식생 묶음입니다.,배치 설명
+object.landmark_cluster.description,POLY STYLE 환경 랜드마크입니다.,배치 설명
+object.inflatable_ring.description,온톨로지 데이터로 설정된 가벼운 튜브입니다.,배치 설명
+relation.animation_intent,애니메이션 의도,관계
+relation.attachment_kind,장착 종류,관계
+relation.attacks,공격 대상,관계
+relation.attacks_with,공격 도구,관계
+relation.carried_item,운반 아이템,관계
+relation.cold_damage_tick,추위 피해 시점,관계
+relation.combined,결합 대상,관계
+relation.completed_quest,완료한 퀘스트,관계
+relation.core_vitality,핵심 생명력,관계
+relation.current_tick,현재 틱,관계
+relation.emits,방출 요소,관계
+relation.equipped,장착 아이템,관계
+relation.equipped_item,장착 아이템,관계
+relation.equipped_part,장착 파츠,관계
+relation.exposed_to,노출 환경,관계
+relation.fears,두려워함,관계
+relation.has_item,보유 아이템,관계
+relation.helps,도움을 줌,관계
+relation.immersion_depth,잠긴 깊이,관계
+relation.incompatible_with,함께 사용 불가,관계
+relation.inspects,조사 대상,관계
+relation.intent,의도,관계
+relation.interaction_intent,상호작용 의도,관계
+relation.mood,기분,관계
+relation.mounted_actor,탑승한 주체,관계
+relation.mounted_in,탑승 위치,관계
+relation.movement_state,이동 상태,관계
+relation.near,가까운 대상,관계
+relation.offers,제공 항목,관계
+relation.physical_state,물리 상태,관계
+relation.records,기록 항목,관계
+relation.requires_concept,필요 컨셉,관계
+relation.slot_id,슬롯 아이디,관계
+relation.slot_owner,슬롯 소유자,관계
+relation.standing_on,서 있는 곳,관계
+relation.status,상태,관계
+relation.subject,주체,관계
+relation.surface,표면,관계
+relation.swimming_activity,수영 활동,관계
+relation.talks_to,대화 대상,관계
+relation.target,대상,관계
+relation.temperature,온도,관계
+relation.unequip_part,해제 파츠,관계
+relation.applicable_to,적용 대상,관계
+fact.animation_intent,{0}의 애니메이션 의도는 {1}입니다.,사용자용 팩트
+fact.attachment_kind,{0}의 장착 종류는 {1}입니다.,사용자용 팩트
+fact.attacks,{0}이(가) {1}을(를) 공격합니다.,사용자용 팩트
+fact.attacks_with,{0}이(가) {1}을(를) 공격 도구로 사용합니다.,사용자용 팩트
+fact.carried_item,{0}이(가) {1}을(를) 운반합니다.,사용자용 팩트
+fact.cold_damage_tick,{0}이(가) {1} 시점에 추위 피해를 받았습니다.,사용자용 팩트
+fact.combined,{0}이(가) {1}과(와) 결합되어 있습니다.,사용자용 팩트
+fact.completed_quest,{0}이(가) {1} 퀘스트를 완료했습니다.,사용자용 팩트
+fact.core_vitality,{0}의 핵심 생명력은 {1}입니다.,사용자용 팩트
+fact.current_tick,{0}의 현재 틱은 {1}입니다.,사용자용 팩트
+fact.emits,{0}이(가) {1}을(를) 방출합니다.,사용자용 팩트
+fact.equipped,{0}이(가) {1}을(를) 장착했습니다.,사용자용 팩트
+fact.equipped_item,{0}이(가) {1}을(를) 장착하고 있습니다.,사용자용 팩트
+fact.equipped_part,{0}이(가) {1} 파츠를 장착하고 있습니다.,사용자용 팩트
+fact.exposed_to,{0}이(가) {1}에 노출되어 있습니다.,사용자용 팩트
+fact.fears,{0}이(가) {1}을(를) 두려워합니다.,사용자용 팩트
+fact.has_item,{0}이(가) {1}을(를) 보유하고 있습니다.,사용자용 팩트
+fact.helps,{0}이(가) {1}을(를) 돕습니다.,사용자용 팩트
+fact.immersion_depth,{0}이(가) 물에 잠긴 깊이는 {1}입니다.,사용자용 팩트
+fact.incompatible_with,{0}은(는) {1}과(와) 함께 사용할 수 없습니다.,사용자용 팩트
+fact.inspects,{0}이(가) {1}을(를) 조사합니다.,사용자용 팩트
+fact.intent,{0}의 의도는 {1}입니다.,사용자용 팩트
+fact.interaction_intent,{0}의 상호작용 의도는 {1}입니다.,사용자용 팩트
+fact.mood,{0}의 기분은 {1}입니다.,사용자용 팩트
+fact.mounted_actor,{0}에 {1}이(가) 탑승하고 있습니다.,사용자용 팩트
+fact.mounted_in,{0}이(가) {1}에 탑승하고 있습니다.,사용자용 팩트
+fact.movement_state,{0}의 이동 상태는 {1}입니다.,사용자용 팩트
+fact.near,{0}이(가) {1} 가까이에 있습니다.,사용자용 팩트
+fact.offers,{0}이(가) {1}을(를) 제공합니다.,사용자용 팩트
+fact.physical_state,{0}의 물리 상태는 {1}입니다.,사용자용 팩트
+fact.records,{0}이(가) {1}을(를) 기록합니다.,사용자용 팩트
+fact.requires_concept,{0}에 {1} 컨셉이 필요합니다.,사용자용 팩트
+fact.slot_id,{0}이(가) {1} 슬롯을 사용합니다.,사용자용 팩트
+fact.slot_owner,{0} 슬롯의 소유자는 {1}입니다.,사용자용 팩트
+fact.standing_on,{0}이(가) {1} 위에 서 있습니다.,사용자용 팩트
+fact.status,{0}의 상태는 {1}입니다.,사용자용 팩트
+fact.subject,{0}의 주체는 {1}입니다.,사용자용 팩트
+fact.surface,{0}의 표면은 {1}입니다.,사용자용 팩트
+fact.swimming_activity,{0}의 수영 활동은 {1}입니다.,사용자용 팩트
+fact.talks_to,{0}이(가) {1}과(와) 대화합니다.,사용자용 팩트
+fact.target,{0}의 대상은 {1}입니다.,사용자용 팩트
+fact.temperature,{0}의 온도는 {1}입니다.,사용자용 팩트
+fact.unequip_part,{0}이(가) {1} 파츠를 해제합니다.,사용자용 팩트
+fact.applicable_to,{0}은(는) {1}에 적용할 수 있습니다.,사용자용 팩트
+concept_validation.empty,컨셉을 입력하세요.,컨셉 검증
+concept_validation.not_selectable,{0} 컨셉은 선택할 수 없습니다.,컨셉 검증
+concept_validation.conflict,{0} 컨셉은 기존 {1} 컨셉과 함께 사용할 수 없습니다.,컨셉 검증
+concept_validation.requires,{0} 컨셉에는 {1} 컨셉이 필요합니다.,컨셉 검증
+concept_validation.applicable,{0} 컨셉은 다음 대상에 사용할 수 있습니다: {1}.,컨셉 검증
+concept.PhysicalProfile,물리 프로필,컨셉
+concept.AttachmentProfile,장착 프로필,컨셉
+state.Afraid,두려움,상태
+state.Burning,불타는 중,상태
+state.Calm,차분함,상태
+state.ColdEnvironment,추운 환경,상태
+state.DeathReaction,사망 반응,상태
+state.Discomfort,불편함,상태
+state.Distrustful,불신함,상태
+state.Disturbed,혼란스러움,상태
+state.Drowning,익사 중,상태
+state.Flee,도망침,상태
+state.Freezing,빙결,상태
+state.Healthy,건강함,상태
+state.Idle,대기,상태
+state.ImpairedMovement,불편한 이동,상태
+state.Moving,이동 중,상태
+state.Neutral,중립,상태
+state.Recovering,회복 중,상태
+state.Respectful,존중함,상태
+state.SevereDamageReaction,심각한 피해 반응,상태
+state.ShallowWater,얕은 물 상태,상태
+state.Slowed,느려짐,상태
+state.Smoke,연기,상태
+state.Swamp,늪,상태
+state.TreadingWater,제자리 물장구,상태
+state.Warm,따뜻함,상태
+state.Wary,경계함,상태
+state.Wet,젖음,상태
+value.Accessory,액세서리,값
+value.AngryExpression,화난 표정,값
+value.Attack,공격,값
+value.AudioGear,오디오 장비,값
+value.Back,등,값
+value.Body,몸,값
+value.Buoyancy,부력,값
+value.ClownNose,광대 코,값
+value.ColdProtection,추위 보호,값
+value.ColdProtectionPreparation,추위 보호 준비,값
+value.Costume,코스튬,값
+value.DriverSeat,운전석,값
+value.Ears,귀,값
+value.Eyes,눈,값
+value.Eyewear,안경,값
+value.Face,얼굴,값
+value.FacialHair,수염,값
+value.Feet,발,값
+value.Footwear,신발,값
+value.FullBody,전신,값
+value.Grass,풀,값
+value.Hair,머리카락,값
+value.HandProtection,손 보호,값
+value.Hands,손,값
+value.Handwear,장갑,값
+value.HappyExpression,행복한 표정,값
+value.Head,머리,값
+value.Headwear,모자,값
+value.Help,돕기,값
+value.Ice,얼음,값
+value.Inspect,조사,값
+value.LowerBody,하의,값
+value.Mascot,마스코트,값
+value.NeutralExpression,기본 표정,값
+value.Outerwear,겉옷,값
+value.Outfit,의상,값
+value.Pacifier,공갈젖꼭지,값
+value.RightHand,오른손,값
+value.Shorts,반바지,값
+value.SkinSurface,피부 표면,값
+value.Slippers,슬리퍼,값
+value.Socks,양말,값
+value.Stick,막대기,값
+value.StoneAxe,돌도끼,값
+value.SwampProtectionPreparation,늪 보호 준비,값
+value.SwampResistance,늪 저항,값
+value.Talk,대화,값
+value.Torso,몸통,값
+value.UpperBody,상의,값
+value.Waist,허리,값
+value.Warmth,보온,값
+value.HeavySinking,중량 침강,값
+value.LightBuoyant,경량 부유,값
+value.StaticAnchored,고정형,값
+value.HeavyBuoyant,중량 강부력,값
+value.BackCarry,등에 메기,값
+value.DriverSeatMount,운전석 탑승,값
+value.RightHandCarry,오른손 들기,값
+value.WaistInflatableRing,허리 튜브,값
+entity.Player,플레이어,엔티티
+entity.Goblin,고블린,엔티티
+entity.FireSword,불의 검,엔티티
+entity.Village,마을,엔티티
+entity.VillageOutskirts,마을 외곽,엔티티
+entity.BeachZone,해변 구역,엔티티
+entity.GoblinClan,고블린 부족,엔티티
+entity.Tree,나무,엔티티
+entity.Bush,덤불,엔티티
+entity.Reed,갈대,엔티티
+entity.Torch,횃불,엔티티
+action.attack,{tool}(으)로 {target} 공격,행동 이름
+action.inspect,{target} 조사,행동 이름
+action.talk,{target}와 대화,행동 이름
+action.help,{target} 돕기,행동 이름
+action.equip_part,{target} 장착,행동 이름
+action.unequip_part,{target} 해제,행동 이름
+action.unequip_wearable,{target} 해제,행동 이름
+physical_profile.HeavySinking,중량 침강형,물리 프로필
+physical_profile.LightBuoyant,경량 부유형,물리 프로필
+physical_profile.StaticAnchored,고정형,물리 프로필
+physical_profile.HeavyBuoyant,중량 강부력형,물리 프로필
+ui.button.selected,선택됨,물리 행동
+ui.button.choose,선택,물리 행동
+ui.button.details,상세 내용,물리 행동
+ui.button.apply,적용,물리 행동
+ui.button.close,닫기,물리 행동
+ui.title.physical_details,물리 행동 상세 내용,물리 행동
+result.no_physical_profile,등록된 물리 행동이 없습니다.,물리 행동
+result.no_physical_behavior,아직 선택된 물리 행동이 없습니다.,물리 행동
+result.expected_behavior,예상 결과: {0},물리 행동
+physical_choice.HeavySinking,물에 들어가면 가라앉아요,물리 행동
+physical_choice.LightBuoyant,물 위에 가볍게 떠요,물리 행동
+physical_choice.HeavyBuoyant,물 위에 강하게 떠요,물리 행동
+physical_choice.StaticAnchored,움직이지 않도록 고정해요,물리 행동
+physical_result.HeavySinking,이 오브젝트는 중력을 받아 떨어지고 물에 들어가면 가라앉습니다.,물리 행동
+physical_result.LightBuoyant,이 오브젝트는 천천히 수면으로 올라와 가볍게 떠 있습니다.,물리 행동
+physical_result.HeavyBuoyant,이 무거운 오브젝트는 강한 부력을 받아 수면으로 올라와 떠 있습니다.,물리 행동
+physical_result.StaticAnchored,이 오브젝트는 고정되어 중력이나 부력으로 움직이지 않습니다.,물리 행동
+physical_detail.format,"예상 결과
+{0}
+
+자동 구성되는 온톨로지
+개념: {1}
+물리 프로필: {2}
+규칙 블록: {3}
+
+물리 세부값
+질량: {4:0.##}
+부력 강도: {5:0.##}
+수중 감쇠: {6:0.##}
+잠기는 비율: {7:0%}
+수면 높이 보정: {8:0.##}",물리 행동
+attachment_profile.BackCarry,등에 메기,장착 프로필
+attachment_profile.DriverSeatMount,운전석 탑승,장착 프로필
+attachment_profile.RightHandCarry,오른손 들기,장착 프로필
+attachment_profile.WaistInflatableRing,허리 튜브 착용,장착 프로필
+character_part.Part_Body_Base,기본 몸 010,캐릭터 파츠
+character_part.Part_Face_Base,기본 표정,캐릭터 파츠
+character_part.Part_Male_Emotion_Happy_002,행복한 표정,캐릭터 파츠
+character_part.Part_Male_Emotion_Angry_003,화난 표정,캐릭터 파츠
+character_part.Part_Hairstyle_Base,남성 헤어 001,캐릭터 파츠
+character_part.Part_Hairstyle_Male_005,남성 헤어 005,캐릭터 파츠
+character_part.Part_Hairstyle_Male_Single_006,남성 단일 헤어 006,캐릭터 파츠
+character_part.Part_TShirt_Base,기본 티셔츠,캐릭터 파츠
+character_part.Part_Pants_Base,바지 009,캐릭터 파츠
+character_part.Part_Pants_010,바지 010,캐릭터 파츠
+character_part.Part_Shorts_003,반바지 003,캐릭터 파츠
+character_part.Part_Shoes_Base,운동화 009,캐릭터 파츠
+character_part.Part_Shoe_Slippers_002,슬리퍼 002,캐릭터 파츠
+character_part.Part_Shoe_Slippers_005,슬리퍼 005,캐릭터 파츠
+character_part.Part_Socks_008,양말 008,캐릭터 파츠
+character_part.Part_Outerwear_Base,겉옷 004,캐릭터 파츠
+character_part.Part_Outwear_043,겉옷 043,캐릭터 파츠
+character_part.Part_Outwear_050,겉옷 050,캐릭터 파츠
+character_part.Part_Mascot_002,마스코트 002,캐릭터 파츠
+character_part.Part_Outfit_010,의상 010,캐릭터 파츠
+character_part.Part_FullBody_Base,코스튬 13,캐릭터 파츠
+character_part.Part_Hat_Base,모자 010,캐릭터 파츠
+character_part.Part_Hat_Single_008,단일 모자 008,캐릭터 파츠
+character_part.Part_Hat_Single_013,단일 모자 013,캐릭터 파츠
+character_part.Part_Hat_Single_016,단일 모자 016,캐릭터 파츠
+character_part.Part_Costume_13_002,코스튬 13 모자,캐릭터 파츠
+character_part.Part_Glasses_Base,안경 006,캐릭터 파츠
+character_part.Part_Glasses_004,안경 004,캐릭터 파츠
+character_part.Part_Gloves_Base,장갑 006,캐릭터 파츠
+character_part.Part_Gloves_014,장갑 014,캐릭터 파츠
+character_part.Part_Mustache_Base,콧수염 011,캐릭터 파츠
+character_part.Part_Mustache_003,콧수염 003,캐릭터 파츠
+character_part.Part_Accessories_Base,헤드폰 002,캐릭터 파츠
+character_part.Part_Clown_Nose_001,광대 코 001,캐릭터 파츠
+character_part.Part_Pacifier_001,공갈젖꼭지 001,캐릭터 파츠
+rule.BurnEvent.name,불붙기,규칙
+rule.BurnEvent.description,불 속성 물체에 맞은 마른 식물에 불이 붙습니다.,규칙 설명
+rule.SmokeEvent.name,연기 발생,규칙
+rule.SmokeEvent.description,불타는 오브젝트가 연기를 내어 월드 신호를 만듭니다.,규칙 설명
+rule.FleeEvent.name,도망치기,규칙
+rule.FleeEvent.description,불을 두려워하는 생명체가 가까운 불을 감지하면 도망칩니다.,규칙 설명
+rule.DisturbanceEvent.name,지역 소동,규칙
+rule.DisturbanceEvent.description,마을 근처에서 도망치는 생명체가 지역 소동을 만듭니다.,규칙 설명
+rule.QuestHookEvent.name,조사 퀘스트 발생,규칙
+rule.QuestHookEvent.description,소동이 난 장소와 보이는 연기가 조사 퀘스트의 단서가 됩니다.,규칙 설명
+rule.NpcFearMoodEvent.name,NPC 두려움,규칙
+rule.NpcFearMoodEvent.description,도망치는 NPC의 기분이 두려움으로 바뀝니다.,규칙 설명
+rule.NpcDistrustEvent.name,NPC 불신,규칙
+rule.NpcDistrustEvent.description,두려워하는 NPC와 대화하면 NPC가 플레이어를 불신합니다.,규칙 설명
+rule.NpcRespectEvent.name,NPC 존중,규칙
+rule.NpcRespectEvent.description,마을을 도우면 가까운 NPC가 플레이어를 존중합니다.,규칙 설명
+rule.QuestConsequenceEvent.name,퀘스트 결과,규칙
+rule.QuestConsequenceEvent.description,연기 조사 퀘스트를 완료하면 소동이 난 마을이 회복됩니다.,규칙 설명
+rule.CraftStoneAxeRule.name,돌도끼 제작,규칙
+rule.CraftStoneAxeRule.description,플레이어가 돌도끼를 제작합니다.,규칙 설명
+rule.TileWaterStatusWetRule.name,물 타일에서 젖음,규칙
+rule.TileWaterStatusWetRule.description,물 타일 위에 선 행동 주체가 젖습니다.,규칙 설명
+rule.TileFreezingColdExposureRule.name,빙결 타일 추위 노출,규칙
+rule.TileFreezingColdExposureRule.description,빙결 타일 위에 선 행동 주체가 추운 환경에 노출됩니다.,규칙 설명
+rule.SwampResistanceCapabilityRule.name,늪 저항 능력,규칙
+rule.SwampResistanceCapabilityRule.description,늪 저항 장비가 행동 주체의 늪 이동을 보호합니다.,규칙 설명
+rule.TileSwampMovementSlowRule.name,늪 이동 감소,규칙
+rule.TileSwampMovementSlowRule.description,늪 저항이 없으면 늪 타일 위의 행동 주체가 느려집니다.,규칙 설명
+rule.ColdProtectionWarmthRule.name,추위 보호와 보온,규칙
+rule.ColdProtectionWarmthRule.description,추위 보호 장비가 추위에 노출된 행동 주체를 따뜻하게 유지합니다.,규칙 설명
+rule.ColdExposureVitalityTickRule.name,추위 생명력 피해,규칙
+rule.ColdExposureVitalityTickRule.description,따뜻하지 않은 행동 주체는 매 틱마다 추위로 핵심 생명력이 감소합니다.,규칙 설명
+rule.SlowedAnimationIntentRule.name,느려짐 애니메이션,규칙
+rule.SlowedAnimationIntentRule.description,느려진 행동 주체는 불편한 이동 애니메이션을 우선합니다.,규칙 설명
+rule.ColdAnimationIntentRule.name,추위 애니메이션,규칙
+rule.ColdAnimationIntentRule.description,추위에 노출되면 불편함 애니메이션을 우선합니다.,규칙 설명
+rule.LowVitalityAnimationIntentRule3.name,낮은 생명력 반응 3,규칙
+rule.LowVitalityAnimationIntentRule3.description,핵심 생명력 3에서 심각한 피해 반응 애니메이션을 사용합니다.,규칙 설명
+rule.LowVitalityAnimationIntentRule2.name,낮은 생명력 반응 2,규칙
+rule.LowVitalityAnimationIntentRule2.description,핵심 생명력 2에서 심각한 피해 반응 애니메이션을 사용합니다.,규칙 설명
+rule.LowVitalityAnimationIntentRule1.name,낮은 생명력 반응 1,규칙
+rule.LowVitalityAnimationIntentRule1.description,핵심 생명력 1에서 심각한 피해 반응 애니메이션을 사용합니다.,규칙 설명
+rule.DeathAnimationIntentRule.name,사망 애니메이션,규칙
+rule.DeathAnimationIntentRule.description,핵심 생명력 0에서 사망 반응 애니메이션을 사용합니다.,규칙 설명
+rule.ColdProtectionQuestHook.name,추위 보호 퀘스트,규칙
+rule.ColdProtectionQuestHook.description,추위에 노출되면 보호 의상을 장착하는 퀘스트가 제안됩니다.,규칙 설명
+rule.SwampProtectionQuestHook.name,늪 보호 퀘스트,규칙
+rule.SwampProtectionQuestHook.description,늪 저항 없이 늪에 들어가면 보호 장비 퀘스트가 제안됩니다.,규칙 설명
+rule.DeepWaterOccupancySwimming.name,깊은 물 수영,규칙
+rule.DeepWaterOccupancySwimming.description,물 영역에 깊이 잠긴 행동 주체가 수영 이동을 사용합니다.,규칙 설명
+rule.DeepWaterWithoutSwimmingBlockDrowning.name,깊은 물 익사,규칙
+rule.DeepWaterWithoutSwimmingBlockDrowning.description,수영 규칙과 수영 스킬이 없는 행동 주체가 깊은 물에서 익사합니다.,규칙 설명
+rule.SwimmingMovementAnimationIntent.name,수영 이동 애니메이션,규칙
+rule.SwimmingMovementAnimationIntent.description,수영 중이고 대기 상태가 아니면 수영 애니메이션을 사용합니다.,규칙 설명
+rule.SwimmingIntentRequiresSwimmingMovement.name,수영 애니메이션 정리,규칙
+rule.SwimmingIntentRequiresSwimmingMovement.description,수영 이동이 추론되는 동안에만 수영 애니메이션 의도가 유지됩니다.,규칙 설명
+rule.ShallowWaterOccupancyWading.name,얕은 물 걷기,규칙
+rule.ShallowWaterOccupancyWading.description,물 영역에 얕게 잠긴 행동 주체가 얕은 물 걷기를 사용합니다.,규칙 설명
+rule.SwimmingIdleTreadingWaterIntent.name,제자리 물장구,규칙
+rule.SwimmingIdleTreadingWaterIntent.description,수영 중 가만히 있으면 제자리 물장구 애니메이션을 사용합니다.,규칙 설명
+rule.TreadingWaterIntentRequiresSwimmingMode.name,물장구의 수영 조건,규칙
+rule.TreadingWaterIntentRequiresSwimmingMode.description,수영 이동이 끝나면 제자리 물장구 의도를 제거합니다.,규칙 설명
+rule.TreadingWaterIntentRequiresMovingCleanup.name,이동 시 물장구 정리,규칙
+rule.TreadingWaterIntentRequiresMovingCleanup.description,수영 중 이동을 시작하면 제자리 물장구 의도를 제거합니다.,규칙 설명
+rule.BuoyantWhenInWater.name,물에서 부력 적용,규칙
+rule.BuoyantWhenInWater.description,물 영역에 들어간 부력 오브젝트가 떠 있는 물리 상태가 됩니다.,규칙 설명
+rule.AutoEquipNearbyWearable.name,가까운 장비 착용,규칙
+rule.AutoEquipNearbyWearable.description,선택한 착용 오브젝트에 가까이 가면 비어 있는 장착 슬롯을 예약합니다.,규칙 설명
+rule.EquippedItemGrantsTemporarySkill.name,부유 장비의 임시 스킬 제공,규칙
+rule.EquippedItemGrantsTemporarySkill.description,장착한 아이템이 물에 뜨는 동안 해당 스킬을 행동 주체에게 임시로 제공합니다.,규칙 설명
+rule.LearnedSkillBecomesUsable.name,보유 스킬 사용 가능,규칙
+rule.LearnedSkillBecomesUsable.description,행동 주체가 보유한 스킬을 사용할 수 있게 됩니다.,규칙 설명
+rule.TemporarySkillBecomesUsable.name,임시 스킬 사용 가능,규칙
+rule.TemporarySkillBecomesUsable.description,장비가 스킬을 제공하는 동안 임시 스킬을 사용할 수 있습니다.,규칙 설명
+rule.UsableSwimmingSkillEnablesDeepWaterMovement.name,수영 스킬로 깊은 물 이동,규칙
+rule.UsableSwimmingSkillEnablesDeepWaterMovement.description,수영 스킬을 사용할 수 있는 행동 주체가 깊은 물에서 수영 이동을 사용합니다.,규칙 설명
+rule.UsableSwimmingSkillCancelsDrowning.name,수영 스킬로 익사 해제,규칙
+rule.UsableSwimmingSkillCancelsDrowning.description,사용 가능한 수영 스킬이 남아 있는 익사 이동 상태를 제거합니다.,규칙 설명
+rule.EquippedSlotItemAttaches.name,장착 아이템 연결,규칙
+rule.EquippedSlotItemAttaches.description,장착 슬롯에 예약된 아이템을 행동 주체에게 연결합니다.,규칙 설명
+rule.AutoCarryNearbyCarryable.name,가까운 오브젝트 들기,규칙
+rule.AutoCarryNearbyCarryable.description,선택한 운반 가능 오브젝트에 가까이 가면 비어 있는 운반 슬롯을 예약합니다.,규칙 설명
+rule.CarriedSlotItemAttaches.name,운반 아이템 연결,규칙
+rule.CarriedSlotItemAttaches.description,운반 중인 아이템을 프로필에 정의된 행동 주체 위치에 표시합니다.,규칙 설명
+rule.AutoMountNearbyMountable.name,가까운 오브젝트 탑승,규칙
+rule.AutoMountNearbyMountable.description,선택한 탑승 가능 오브젝트에 가까이 가면 프로필에 정의된 좌석을 예약합니다.,규칙 설명
+rule.MountedActorUsesMount.name,탑승 주체 표시,규칙
+rule.MountedActorUsesMount.description,좌석에 예약된 행동 주체를 해당 탑승 위치에 표시합니다.,규칙 설명
+rule.SupportedObjectRestsOnSupport.name,받침 위에 놓임,규칙
+rule.SupportedObjectRestsOnSupport.description,물리적으로 받쳐진 오브젝트가 받침 온톨로지 엔티티 위에 놓여 있다고 추론합니다.,규칙 설명
+labels.characterPartsTitle,캐릭터 파츠,공통 UI
+labels.debugTitle,온톨로지 디버그,공통 UI
+labels.actionButtonsTitle,행동 버튼,공통 UI
+labels.runSimulation,시뮬레이션 실행,공통 UI
+labels.attackTree,나무 공격,공통 UI
+labels.resetWorld,월드 초기화,공통 UI
+labels.saveSnapshot,저장,공통 UI
+labels.loadSnapshot,불러오기,공통 UI
+labels.equip,장착,공통 UI
+labels.unequip,해제,공통 UI
+labels.equippedState,켜짐,공통 UI
+labels.unequippedState,꺼짐,공통 UI
+labels.meshState,모델,공통 UI
+labels.factState,팩트,공통 UI
+labels.equippedCountFormat,장착 파츠: {0} / {1},공통 UI
+labels.equippedActionFormat,장착함: {0},공통 UI
+labels.unequippedActionFormat,해제함: {0},공통 UI
+labels.equipFailedFormat,장착 실패: {0},공통 UI
+labels.unequipFailedFormat,해제 실패: {0},공통 UI
+labels.partFailureDefinitionMissing,파츠 정의가 없습니다,공통 UI
+labels.partFailureRendererMissing,렌더러가 없습니다,공통 UI
+labels.partFailureWorldMissing,온톨로지 월드가 준비되지 않았습니다,공통 UI
+labels.partFailureAlreadyEquipped,이미 장착되어 있습니다,공통 UI
+labels.partFailureAlreadyUnequipped,이미 해제되어 있습니다,공통 UI
+labels.missingReferences,캐릭터 파츠 UI 참조가 없습니다.,공통 UI
+labels.noPartAdapter,캐릭터 파츠 어댑터가 없습니다.,공통 UI
+labels.noBootstrap,OntologyWorldBootstrap을 찾지 못했습니다.,공통 UI
+labels.noSaveController,OntologySaveController를 찾지 못했습니다.,공통 UI
+labels.questActionPrefix,[퀘스트] ,공통 UI
+labels.allActionsFilter,전체,공통 UI
+labels.questActionsFilter,퀘스트,공통 UI
+labels.partActionsFilter,파츠,공통 UI
+labels.worldActionsFilter,월드,공통 UI
+labels.filterStatusFormat,필터: {0} | 행동: {1},공통 UI
+labels.selectedPartFormat,"선택: {0}\n슬롯: {1}\n상태: {2} | 팩트: {3}",공통 UI
+labels.selectedPartPreviewFormat,"{0}\n능력: {1}\n충돌: {2}\n장착 시: {3}",공통 UI
+labels.conflictWarningFormat,다음 파츠 해제: {0},공통 UI
+labels.capabilitySwampResistance,늪 저항,공통 UI
+labels.capabilityColdProtection,추위 보호,공통 UI
+labels.capabilitySwampResistanceEffect,늪에서 느려짐을 방지합니다,공통 UI
+labels.capabilityColdProtectionEffect,추위에서 따뜻함을 제공합니다,공통 UI
+labels.noCapabilities,없음,공통 UI
+labels.noConflicts,없음,공통 UI
+labels.noDiff,변경 없음,공통 UI
+labels.partSearchPlaceholder,파츠 검색...,공통 UI
+labels.partStateAll,전체,공통 UI
+labels.partStateEquipped,장착됨,공통 UI
+labels.partStateAvailable,사용 가능,공통 UI
+labels.partSlotAll,모든 슬롯,공통 UI
+labels.partStateFilterFormat,상태: {0},공통 UI
+labels.partSlotFilterFormat,슬롯: {0},공통 UI
+labels.graphSummaryFormat,그래프: 팩트 {0}개 | 주체 {1}개 | 관계 {2}개,공통 UI
+labels.questSummaryFormat,퀘스트 행동: {0}개,공통 UI
+labels.toastSaved,스냅샷을 저장했습니다.,공통 UI
+labels.toastLoaded,스냅샷을 불러왔습니다.,공통 UI
+labels.toastReset,월드를 초기화했습니다.,공통 UI
+labels.toastRan,시뮬레이션을 실행했습니다.,공통 UI
+labels.actorToastFactFormat,{0}: {1},공통 UI
+labels.actorToastRemovedFactFormat,{0} 해제: {1},공통 UI
+labels.actorToastStatus,상태,공통 UI
+labels.actorToastMovementState,이동,공통 UI
+labels.actorToastExposure,노출,공통 UI
+labels.actorToastCapability,능력,공통 UI
+labels.actorToastEquippedPart,장착,공통 UI
+labels.actorToastAnimationIntent,애니메이션 의도,공통 UI
+labels.actorToastStandingOn,타일,공통 UI
+labels.hudTitle,[온톨로지 실행 상태],공통 UI
+labels.hudWorldNotReady,월드가 준비되지 않았습니다.,공통 UI
+labels.hudDivider,--------------------------------,공통 UI
+labels.hudCurrentTick,현재 틱,공통 UI
+labels.hudStandingOn,서 있는 곳,공통 UI
+labels.hudCoreVitality,핵심 생명력,공통 UI
+labels.hudStatusWet,젖음 상태,공통 UI
+labels.hudStateSlowed,느려짐 상태,공통 UI
+labels.hudExposedCold,추위 노출,공통 UI
+labels.hudEquippedParts,장착 파츠,공통 UI
+labels.hudPartCapabilities,파츠 능력,공통 UI
+labels.hudAnimationIntent,애니메이션 의도,공통 UI
+labels.hudSelectedIntent,선택된 의도,공통 UI
+labels.hudSelectedAnimation,선택된 애니메이션,공통 UI
+labels.hudSelectedClip,선택된 클립,공통 UI
+labels.trueText,참,공통 UI
+labels.falseText,거짓,공통 UI
+labels.noneText,없음,공통 UI

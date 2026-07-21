@@ -549,7 +549,7 @@ MonoBehaviour:
       obj: Warm
     - kind: 2
       subject: ?board
-      predicate:
+      predicate: 
       obj: QuestBoard
     - kind: 1
       subject: ?board
@@ -561,7 +561,8 @@ MonoBehaviour:
       predicate: offers
       obj: ColdProtectionPreparation
   - id: SwampProtectionQuestHook
-    description: Entering a swamp without resistance offers a protective equipment quest.
+    description: Entering a swamp without resistance offers a protective equipment
+      quest.
     conditions:
     - kind: 0
       subject: ?actor
@@ -577,7 +578,7 @@ MonoBehaviour:
       obj: SwampResistance
     - kind: 2
       subject: ?board
-      predicate:
+      predicate: 
       obj: QuestBoard
     - kind: 1
       subject: ?board
@@ -588,3 +589,566 @@ MonoBehaviour:
       subject: ?board
       predicate: offers
       obj: SwampProtectionPreparation
+  - id: DeepWaterWithoutSwimmingBlockDrowning
+    description: An actor in deep water drowns when they cannot use the Swimming skill.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: occupies
+      obj: ?target
+    - kind: 0
+      subject: ?actor
+      predicate: immersion_depth
+      obj: Deep
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: WaterRegion
+    - kind: 1
+      subject: ?actor
+      predicate: can_use_skill
+      obj: Swimming
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: movement_mode
+      obj: Drowning
+  - id: SwimmingMovementAnimationIntent
+    description: Swimming movement expresses the Swimming animation intent unless
+      the actor is observed as idle.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: movement_mode
+      obj: Swimming
+    - kind: 1
+      subject: ?actor
+      predicate: swimming_activity
+      obj: Idle
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: Swimming
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: Swimming
+  - id: SwimmingIntentRequiresSwimmingMovement
+    description: Swimming animation intent is present only while swimming movement
+      is inferred.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: Swimming
+    - kind: 1
+      subject: ?actor
+      predicate: movement_mode
+      obj: Swimming
+    effects:
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: Swimming
+  - id: ShallowWaterOccupancyWading
+    description: An actor in a WaterRegion whose observed immersion depth is Shallow
+      uses wading movement.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: occupies
+      obj: ?target
+    - kind: 0
+      subject: ?actor
+      predicate: immersion_depth
+      obj: Shallow
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: WaterRegion
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: movement_mode
+      obj: Wading
+  - id: SwimmingIdleTreadingWaterIntent
+    description: Idle swimming activity expresses the TreadingWater animation intent.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: movement_mode
+      obj: Swimming
+    - kind: 0
+      subject: ?actor
+      predicate: swimming_activity
+      obj: Idle
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: TreadingWater
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: TreadingWater
+  - id: TreadingWaterIntentRequiresSwimmingMode
+    description: TreadingWater intent is removed when swimming movement ends.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: TreadingWater
+    - kind: 1
+      subject: ?actor
+      predicate: movement_mode
+      obj: Swimming
+    effects:
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: TreadingWater
+  - id: TreadingWaterIntentRequiresMovingCleanup
+    description: TreadingWater intent is removed when the swimming actor starts moving.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: animation_intent
+      obj: TreadingWater
+    - kind: 0
+      subject: ?actor
+      predicate: swimming_activity
+      obj: Moving
+    effects:
+    - kind: 1
+      subject: ?actor
+      predicate: animation_intent
+      obj: TreadingWater
+  - id: BuoyantWhenInWater
+    description: A FloatableObject occupying a WaterRegion enters the Floating physical
+      state.
+    conditions:
+    - kind: 0
+      subject: ?object
+      predicate: occupies
+      obj: ?water
+    - kind: 2
+      subject: ?object
+      predicate: 
+      obj: FloatableObject
+    - kind: 0
+      subject: ?object
+      predicate: physical_profile
+      obj: ?profile
+    - kind: 0
+      subject: ?profile
+      predicate: supports_behavior
+      obj: Buoyancy
+    - kind: 2
+      subject: ?water
+      predicate: 
+      obj: WaterRegion
+    effects:
+    - kind: 0
+      subject: ?object
+      predicate: physical_state
+      obj: Floating
+  - id: AutoEquipNearbyWearable
+    description: An Actor that intentionally selected and approached a Wearable reserves
+      its semantic equipment slot when that slot is empty.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: near
+      obj: ?object
+    - kind: 0
+      subject: ?actor
+      predicate: interaction_intent
+      obj: ?object
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?object
+      predicate: 
+      obj: Wearable
+    - kind: 0
+      subject: ?object
+      predicate: pickup_behavior
+      obj: SelectThenEquip
+    - kind: 0
+      subject: ?object
+      predicate: attachment_profile
+      obj: ?profile
+    - kind: 0
+      subject: ?profile
+      predicate: attachment_kind
+      obj: Wearable
+    - kind: 0
+      subject: ?object
+      predicate: has_slot
+      obj: ?slot
+    - kind: 1
+      subject: EquipmentSlot_{actor}_{slot}
+      predicate: equipped_item
+      obj: ?equipped
+    effects:
+    - kind: 2
+      subject: EquipmentSlot_{actor}_{slot}
+      predicate: equipped_item
+      obj: ?object
+    - kind: 2
+      subject: EquipmentSlot_{actor}_{slot}
+      predicate: slot_owner
+      obj: ?actor
+    - kind: 2
+      subject: EquipmentSlot_{actor}_{slot}
+      predicate: slot_id
+      obj: ?slot
+  - id: EquippedItemGrantsTemporarySkill
+    description: An equipped item transfers its authored skill to the actor only while
+      its own authored rule-block requirement remains present.
+    conditions:
+    - kind: 0
+      subject: ?item
+      predicate: equipped_by
+      obj: ?actor
+    - kind: 0
+      subject: ?item
+      predicate: grants_skill
+      obj: ?skill
+    - kind: 0
+      subject: ?item
+      predicate: skill_grant_requires_rule
+      obj: ?requiredRule
+    - kind: 0
+      subject: ?item
+      predicate: has_rule_block
+      obj: ?requiredRule
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: has_temporary_skill
+      obj: ?skill
+  - id: LearnedSkillBecomesUsable
+    description: A skill owned by an actor becomes usable.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: has_skill
+      obj: ?skill
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: can_use_skill
+      obj: ?skill
+  - id: TemporarySkillBecomesUsable
+    description: A temporary skill granted by equipment becomes usable while the
+      granting relation exists.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: has_temporary_skill
+      obj: ?skill
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: can_use_skill
+      obj: ?skill
+  - id: UsableSwimmingSkillEnablesDeepWaterMovement
+    description: An actor that can use Swimming uses swimming movement while deeply
+      immersed in a WaterRegion.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: can_use_skill
+      obj: Swimming
+    - kind: 0
+      subject: ?actor
+      predicate: occupies
+      obj: ?target
+    - kind: 0
+      subject: ?actor
+      predicate: immersion_depth
+      obj: Deep
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: WaterRegion
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: movement_mode
+      obj: Swimming
+  - id: UsableSwimmingSkillCancelsDrowning
+    description: A usable Swimming skill removes a stale drowning movement state.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: can_use_skill
+      obj: Swimming
+    - kind: 0
+      subject: ?actor
+      predicate: movement_mode
+      obj: Drowning
+    effects:
+    - kind: 1
+      subject: ?actor
+      predicate: movement_mode
+      obj: Drowning
+  - id: EquippedSlotItemAttaches
+    description: The single item reserved by an Actor equipment slot becomes attached
+      to that Actor.
+    conditions:
+    - kind: 0
+      subject: ?slotEntity
+      predicate: slot_owner
+      obj: ?actor
+    - kind: 0
+      subject: ?slotEntity
+      predicate: slot_id
+      obj: ?slot
+    - kind: 0
+      subject: ?slotEntity
+      predicate: equipped_item
+      obj: ?item
+    - kind: 0
+      subject: ?item
+      predicate: has_slot
+      obj: ?slot
+    - kind: 2
+      subject: ?item
+      predicate: 
+      obj: Wearable
+    effects:
+    - kind: 0
+      subject: ?item
+      predicate: equipped_by
+      obj: ?actor
+  - id: AutoCarryNearbyCarryable
+    description: An Actor that intentionally selected and approached a Carryable
+      reserves its semantic carry slot when that slot is empty.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: near
+      obj: ?object
+    - kind: 0
+      subject: ?actor
+      predicate: interaction_intent
+      obj: ?object
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?object
+      predicate: 
+      obj: Carryable
+    - kind: 0
+      subject: ?object
+      predicate: pickup_behavior
+      obj: SelectThenCarry
+    - kind: 0
+      subject: ?object
+      predicate: attachment_profile
+      obj: ?profile
+    - kind: 0
+      subject: ?profile
+      predicate: attachment_kind
+      obj: Carryable
+    - kind: 0
+      subject: ?object
+      predicate: has_slot
+      obj: ?slot
+    - kind: 1
+      subject: CarrySlot_{actor}_{slot}
+      predicate: carried_item
+      obj: ?carried
+    effects:
+    - kind: 2
+      subject: CarrySlot_{actor}_{slot}
+      predicate: carried_item
+      obj: ?object
+    - kind: 2
+      subject: CarrySlot_{actor}_{slot}
+      predicate: slot_owner
+      obj: ?actor
+    - kind: 2
+      subject: CarrySlot_{actor}_{slot}
+      predicate: slot_id
+      obj: ?slot
+  - id: CarriedSlotItemAttaches
+    description: The item reserved by an Actor carry slot is presented at the profile-defined
+      actor anchor.
+    conditions:
+    - kind: 0
+      subject: ?slotEntity
+      predicate: slot_owner
+      obj: ?actor
+    - kind: 0
+      subject: ?slotEntity
+      predicate: slot_id
+      obj: ?slot
+    - kind: 0
+      subject: ?slotEntity
+      predicate: carried_item
+      obj: ?item
+    - kind: 0
+      subject: ?item
+      predicate: has_slot
+      obj: ?slot
+    - kind: 2
+      subject: ?item
+      predicate: 
+      obj: Carryable
+    effects:
+    - kind: 0
+      subject: ?item
+      predicate: carried_by
+      obj: ?actor
+  - id: AutoMountNearbyMountable
+    description: An Actor that intentionally selected and approached a Mountable
+      reserves its profile-defined seat when that seat is empty.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: near
+      obj: ?mount
+    - kind: 0
+      subject: ?actor
+      predicate: interaction_intent
+      obj: ?mount
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?mount
+      predicate: 
+      obj: Mountable
+    - kind: 0
+      subject: ?mount
+      predicate: pickup_behavior
+      obj: SelectThenMount
+    - kind: 0
+      subject: ?mount
+      predicate: attachment_profile
+      obj: ?profile
+    - kind: 0
+      subject: ?profile
+      predicate: attachment_kind
+      obj: Mountable
+    - kind: 0
+      subject: ?mount
+      predicate: has_slot
+      obj: ?slot
+    - kind: 1
+      subject: MountSlot_{mount}_{slot}
+      predicate: mounted_actor
+      obj: ?occupant
+    effects:
+    - kind: 2
+      subject: MountSlot_{mount}_{slot}
+      predicate: mounted_actor
+      obj: ?actor
+    - kind: 2
+      subject: MountSlot_{mount}_{slot}
+      predicate: slot_owner
+      obj: ?mount
+    - kind: 2
+      subject: MountSlot_{mount}_{slot}
+      predicate: slot_id
+      obj: ?slot
+  - id: MountedActorUsesMount
+    description: The Actor reserved by a Mountable seat is presented at that mount
+      point.
+    conditions:
+    - kind: 0
+      subject: ?slotEntity
+      predicate: slot_owner
+      obj: ?mount
+    - kind: 0
+      subject: ?slotEntity
+      predicate: slot_id
+      obj: ?slot
+    - kind: 0
+      subject: ?slotEntity
+      predicate: mounted_actor
+      obj: ?actor
+    - kind: 0
+      subject: ?mount
+      predicate: has_slot
+      obj: ?slot
+    - kind: 2
+      subject: ?mount
+      predicate: 
+      obj: Mountable
+    effects:
+    - kind: 0
+      subject: ?actor
+      predicate: mounted_in
+      obj: ?mount
+  - id: SupportedObjectRestsOnSupport
+    description: A physical support observation implies that the object is resting
+      on the supporting ontology entity.
+    conditions:
+    - kind: 0
+      subject: ?object
+      predicate: supported_by
+      obj: ?support
+    effects:
+    - kind: 0
+      subject: ?object
+      predicate: resting_on
+      obj: ?support
+  - id: ActivateWindDriftEffect
+    description: A compatible object with the WindDrift effect is affected by wind.
+    conditions:
+    - kind: 0
+      subject: ?object
+      predicate: has_physical_effect
+      obj: WindDrift
+    - kind: 0
+      subject: ?object
+      predicate: physical_profile
+      obj: ?profile
+    - kind: 0
+      subject: WindDrift
+      predicate: compatible_with
+      obj: ?profile
+    effects:
+    - kind: 0
+      subject: ?object
+      predicate: active_physical_effect
+      obj: WindDrift
+  - id: ActivateWaveRockingEffect
+    description: A compatible object with the WaveRocking effect is rocked while
+      occupying water.
+    conditions:
+    - kind: 0
+      subject: ?object
+      predicate: has_physical_effect
+      obj: WaveRocking
+    - kind: 0
+      subject: ?object
+      predicate: physical_profile
+      obj: ?profile
+    - kind: 0
+      subject: WaveRocking
+      predicate: compatible_with
+      obj: ?profile
+    - kind: 0
+      subject: ?object
+      predicate: occupies
+      obj: ?water
+    - kind: 2
+      subject: ?water
+      predicate: 
+      obj: WaterRegion
+    effects:
+    - kind: 0
+      subject: ?object
+      predicate: active_physical_effect
+      obj: WaveRocking

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Core regressions that must remain true while Tormia evolves.",
+  "purposeKo": "Tormia 개발 중 반드시 유지되어야 하는 핵심 회귀 시나리오입니다.",
+  "scenarios": [
+    {
+      "id": "water-occupancy-add-remove",
+      "titleKo": "물 점유 관측 추가와 제거",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyWaterOccupancySensorTests.cs",
+      "evidenceTest": "GenericObjectAddsAndRemovesWaterOccupancyObservation",
+      "enabledExpectationKo": "물 영역에 들어간 오브젝트는 occupies 관계가 관측된다.",
+      "disabledExpectationKo": "물 영역에서 벗어나면 occupies 관계가 제거된다."
+    },
+    {
+      "id": "runtime-observation-ownership",
+      "titleKo": "런타임 관측 Fact 소유권",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Core/OntologyWorldStateTests.cs",
+      "evidenceTest": "RuntimeObservationRetractsOnlyFactsPublishedByThatSensor",
+      "enabledExpectationKo": "센서가 직접 발행한 관측 Fact만 회수한다.",
+      "disabledExpectationKo": "같은 트리플이 이미 작성되어 있으면 센서가 소유권을 주장하거나 제거하지 않는다."
+    },
+    {
+      "id": "buoyancy-rule-enable-disable",
+      "titleKo": "부력 추론의 활성화와 제거",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyBuoyancyAdapterTests.cs",
+      "evidenceTest": "InferredFloatingStateEnablesBuoyancyAndRemovalDisablesIt",
+      "enabledExpectationKo": "Floating 추론 상태가 있으면 부력 어댑터가 활성화된다.",
+      "disabledExpectationKo": "Floating 상태를 제거하면 부력 어댑터가 비활성화된다."
+    },
+    {
+      "id": "wearable-attachment-by-facts",
+      "titleKo": "팩트 기반 착용과 해제",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyAttachmentAdapterTests.cs",
+      "evidenceTest": "NearObservationAndEquippedRelationControlWearableAttachment",
+      "enabledExpectationKo": "Near 및 equipped 관계가 성립하면 장착 표현이 적용된다.",
+      "disabledExpectationKo": "장착 관계가 없어지면 월드 오브젝트 상태로 돌아간다."
+    },
+    {
+      "id": "world-editor-selection-cycle",
+      "titleKo": "Tab 근처 오브젝트 선택 순환",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyRuntimeWorldEditorSelectionTests.cs",
+      "evidenceTest": "TabSelectionCyclesNearbyObjectsInDistanceOrder",
+      "enabledExpectationKo": "가까운 오브젝트가 거리순으로 순환 선택된다.",
+      "disabledExpectationKo": "비활성/삭제된 오브젝트는 순환 후보에서 제외된다."
+    },
+    {
+      "id": "physical-profile-semantic-sync",
+      "titleKo": "물리 의미 선택의 온톨로지 동기화",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyRuntimeWorldEditorSelectionTests.cs",
+      "evidenceTest": "PhysicalMeaningSelectionSynchronizesDependentOntology",
+      "enabledExpectationKo": "물리 의미를 선택하면 필요한 관계/규칙 연결이 함께 설정된다.",
+      "disabledExpectationKo": "다른 물리 의미로 바꾸면 이전 의미의 종속 데이터가 남지 않는다."
+    },
+    {
+      "id": "account-character-world-entry",
+      "titleKo": "계정-캐릭터-월드 입장",
+      "kind": "local-integration",
+      "evidenceFile": "Assets/Scripts/Ontology/Unity/Networking/OntologyWorldAuthorityAccountEntryFlow.cs",
+      "evidenceTest": "Manual Unity smoke: connect, select saved character, register avatar, enter world",
+      "enabledExpectationKo": "개발 계정이 저장 캐릭터와 월드를 읽고 아바타를 등록한 뒤 입장한다.",
+      "disabledExpectationKo": "안정 아바타 ID 또는 등록이 없으면 입장이 거부되고 월드 Fact가 임의로 생성되지 않는다."
+    },
+    {
+      "id": "account-profile-relations-revisioned",
+      "title": "Account profile relations are revisioned and idempotent",
+      "titleKo": "계정 프로필 관계의 리비전 및 멱등 저장",
+      "kind": "local-integration",
+      "evidenceFile": "server/Tormia.WorldAuthority/Program.cs",
+      "evidenceTest": "Manual authority smoke: PUT profile relation, replay identical command, then remove relation",
+      "enabledExpectation": "A profile relation is stored once for the owned character and the returned profile revision advances.",
+      "disabledExpectation": "Replaying the same command does not duplicate a relation; a later revision with an empty relation set removes it.",
+      "enabledExpectationKo": "소유 캐릭터의 프로필 관계는 한 번만 저장되고 프로필 리비전이 증가한다.",
+      "disabledExpectationKo": "같은 명령을 재시도해도 관계가 중복되지 않으며, 이후 빈 관계 집합을 저장하면 관계가 제거된다."
+    },
+    {
+      "id": "world-authority-role-gating",
+      "title": "World authoring is gated by the selected world's role",
+      "kind": "local-integration",
+      "evidenceFile": "Assets/Scripts/Ontology/Unity/Networking/OntologyWorldAuthorityClient.cs",
+      "evidenceTest": "Manual authority smoke: owner/editor can publish; viewer receives forbidden and no duplicate replay event",
+      "enabledExpectation": "owner/editor sessions expose CanEditCurrentWorld and accepted commands advance one revision",
+      "disabledExpectation": "viewer sessions do not auto-publish and server rejects a command with forbidden"
+    }
+  ]
+}

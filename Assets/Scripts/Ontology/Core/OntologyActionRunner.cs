@@ -30,7 +30,8 @@ namespace Tormia.Ontology.Core
                 world.GetOrCreateEntity(action.ToolId);
             }
 
-            var added = false;
+            var changed = false;
+            var matchedDefinition = false;
             foreach (var definition in definitions)
             {
                 if (definition == null || definition.actionVerb != action.Verb.Value)
@@ -43,23 +44,72 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                added |= world.AddFact(
-                    Resolve(definition.subjectPattern, action),
-                    definition.predicate,
-                    Resolve(definition.objectPattern, action));
+                var initialBinding = new System.Collections.Generic.Dictionary<string, OntologyId>
+                {
+                    ["?actor"] = action.ActorId,
+                    ["?target"] = action.TargetId
+                };
+                if (!action.ToolId.IsEmpty)
+                {
+                    initialBinding["?tool"] = action.ToolId;
+                }
+
+                foreach (var binding in OntologyConditionMatcher.Match(
+                             world,
+                             definition.conditions,
+                             initialBinding))
+                {
+                    matchedDefinition = true;
+                    if (definition.effects != null && definition.effects.Count > 0)
+                    {
+                        foreach (var effect in definition.effects)
+                        {
+                            changed |= ApplyEffect(world, effect, binding);
+                        }
+                    }
+                    else if (!string.IsNullOrWhiteSpace(definition.predicate))
+                    {
+                        changed |= world.AddFact(
+                            Resolve(definition.subjectPattern, action),
+                            definition.predicate,
+                            Resolve(definition.objectPattern, action));
+                    }
+                }
             }
 
-            if (!added)
+            if (!matchedDefinition)
             {
-                added |= world.AddFact(action.ActorId, action.Verb, action.TargetId);
+                changed |= world.AddFact(action.ActorId, action.Verb, action.TargetId);
             }
 
-            if (added)
+            if (changed)
             {
                 session?.RecordAction(action);
             }
 
-            return added;
+            return changed;
+        }
+
+        private static bool ApplyEffect(
+            OntologyWorldState world,
+            OntologyEffect effect,
+            System.Collections.Generic.Dictionary<string, OntologyId> binding)
+        {
+            if (effect == null)
+            {
+                return false;
+            }
+
+            var subject = OntologyConditionMatcher.Resolve(effect.subject, binding);
+            var predicate = OntologyConditionMatcher.Resolve(effect.predicate, binding);
+            var obj = OntologyConditionMatcher.Resolve(effect.obj, binding);
+            return effect.kind switch
+            {
+                OntologyEffectKind.RemoveFact => world.RemoveFact(subject, predicate, obj),
+                OntologyEffectKind.SetFact => world.SetFact(subject, predicate, obj, out _),
+                OntologyEffectKind.AdjustNumberFact => world.AdjustNumberFact(subject, predicate, obj),
+                _ => world.AddFact(subject, predicate, obj)
+            };
         }
 
         private static OntologyId Resolve(string pattern, OntologyAction action)
@@ -87,8 +137,42 @@ namespace Tormia.Ontology.Core
                 new OntologyActionEffectDefinition { actionVerb = "inspect", predicate = "inspects", objectPattern = "?target" },
                 new OntologyActionEffectDefinition { actionVerb = "help", predicate = "helps", objectPattern = "?target" },
                 new OntologyActionEffectDefinition { actionVerb = "equip_part", predicate = OntologyPredicates.EquippedPart, objectPattern = "?target" },
-                new OntologyActionEffectDefinition { actionVerb = "unequip_part", predicate = OntologyPredicates.UnequipPart, objectPattern = "?target" }
+                new OntologyActionEffectDefinition { actionVerb = "unequip_part", predicate = OntologyPredicates.UnequipPart, objectPattern = "?target" },
+                CreateUnequipWearableDefinition()
             };
+        }
+
+        private static OntologyActionEffectDefinition CreateUnequipWearableDefinition()
+        {
+            var definition = new OntologyActionEffectDefinition
+            {
+                actionVerb = OntologyActions.UnequipWearable
+            };
+            definition.conditions.Add(OntologyCondition.Fact(
+                "?target",
+                OntologyPredicates.EquippedBy,
+                "?actor"));
+            definition.conditions.Add(OntologyCondition.Fact(
+                "?slot",
+                OntologyPredicates.SlotOwner,
+                "?actor"));
+            definition.conditions.Add(OntologyCondition.Fact(
+                "?slot",
+                OntologyPredicates.EquippedItem,
+                "?target"));
+            definition.effects.Add(OntologyEffect.RemoveFact(
+                "?slot",
+                OntologyPredicates.EquippedItem,
+                "?target"));
+            definition.effects.Add(OntologyEffect.RemoveFact(
+                "?target",
+                OntologyPredicates.EquippedBy,
+                "?actor"));
+            definition.effects.Add(OntologyEffect.RemoveFact(
+                "?actor",
+                OntologyPredicates.InteractionIntent,
+                "?target"));
+            return definition;
         }
     }
 }

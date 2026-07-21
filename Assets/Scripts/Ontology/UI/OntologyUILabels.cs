@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 
 namespace Tormia.Ontology.Core
@@ -5,6 +7,10 @@ namespace Tormia.Ontology.Core
     [CreateAssetMenu(menuName = "Tormia/Ontology/UI Labels", fileName = "OntologyUILabels")]
     public sealed class OntologyUILabels : ScriptableObject
     {
+        [System.NonSerialized] private Dictionary<string, string> sourceFallbacks;
+        [System.NonSerialized] private OntologyDisplayLanguage appliedLanguage;
+        [System.NonSerialized] private bool hasAppliedLanguage;
+
         public string characterPartsTitle = "Character Parts";
         public string debugTitle = "Ontology Debug";
         public string actionButtonsTitle = "Action Buttons";
@@ -89,5 +95,40 @@ namespace Tormia.Ontology.Core
         public string trueText = "TRUE";
         public string falseText = "FALSE";
         public string noneText = "None";
+
+        /// <summary>
+        /// Applies display-only translations to this UI label asset. Canonical
+        /// ontology ids and saved facts are never changed.
+        /// New public string fields automatically participate through the
+        /// labels.&lt;fieldName&gt; CSV key convention.
+        /// </summary>
+        public void ApplyLanguagePack()
+        {
+            var language = OntologyLanguagePackService.CurrentLanguage;
+            if (hasAppliedLanguage && appliedLanguage == language)
+                return;
+
+            var fields = GetType().GetFields(
+                BindingFlags.Instance | BindingFlags.Public);
+            sourceFallbacks ??= new Dictionary<string, string>();
+            foreach (var field in fields)
+            {
+                if (field.FieldType != typeof(string))
+                    continue;
+                if (!sourceFallbacks.TryGetValue(field.Name, out var fallback))
+                {
+                    fallback = field.GetValue(this) as string ?? string.Empty;
+                    sourceFallbacks.Add(field.Name, fallback);
+                }
+                field.SetValue(
+                    this,
+                    OntologyLanguagePackService.Text(
+                        "labels." + field.Name,
+                        fallback));
+            }
+
+            appliedLanguage = language;
+            hasAppliedLanguage = true;
+        }
     }
 }

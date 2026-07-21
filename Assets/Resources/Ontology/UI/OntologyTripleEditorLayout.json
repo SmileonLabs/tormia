@@ -1,0 +1,39 @@
+{
+  "layoutId": "ontology-triple-editor-v1",
+  "panel": {
+    "title": "ONTOLOGY TRIPLES",
+    "selectedObjectSubtitle": "Selected object",
+    "subjectLocked": true,
+    "helpText": "Subject is fixed. Edit relation and object."
+  },
+  "tripleRow": {
+    "subject": {
+      "source": "selectedObject",
+      "editable": false
+    },
+    "relation": {
+      "editable": true,
+      "suggestions": [
+        "has_concept",
+        "located_in",
+        "has_element",
+        "has_state",
+        "related_to"
+      ]
+    },
+    "object": {
+      "editable": true,
+      "allowNewIdentifier": true
+    },
+    "actions": ["save", "delete"]
+  },
+  "toolbar": {
+    "actions": ["addTriple", "close"]
+  },
+  "validation": {
+    "preventDuplicateTriples": true,
+    "requireRelation": true,
+    "requireObject": true,
+    "warnOnPotentialConflict": true
+  }
+}

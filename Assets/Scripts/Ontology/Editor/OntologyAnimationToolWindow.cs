@@ -50,24 +50,7 @@ namespace Tormia.Ontology.Editor
         private bool CanUse(OntologyAnimationDefinition definition)
         {
             if (definition.clip == null || profile == null) return definition.clip != null;
-            return Matches(definition.actorTypes, profile.actorType) &&
-                   Matches(definition.rigTypes, profile.rigType) &&
-                   (definition.requiredCapabilities == null || AllCapabilities(definition));
-        }
-
-        private bool AllCapabilities(OntologyAnimationDefinition definition)
-        {
-            foreach (var capability in definition.requiredCapabilities)
-                if (!profile.HasCapability(capability)) return false;
-            return true;
-        }
-
-        private static bool Matches(string[] values, string expected)
-        {
-            if (values == null || values.Length == 0) return true;
-            foreach (var value in values)
-                if (string.Equals(value, expected, StringComparison.Ordinal)) return true;
-            return false;
+            return profile.HasAnimation(definition.animationId);
         }
 
         private static bool HasIntent(OntologyAnimationDefinition definition, string value)

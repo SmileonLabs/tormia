@@ -48,3 +48,34 @@ MonoBehaviour:
     predicate: unequip_part
     objectPattern: ?target
     requiresTool: 0
+  - actionVerb: unequip_wearable
+    subjectPattern: ?actor
+    predicate:
+    objectPattern: ?target
+    requiresTool: 0
+    conditions:
+    - kind: 0
+      subject: ?target
+      predicate: equipped_by
+      obj: ?actor
+    - kind: 0
+      subject: ?slot
+      predicate: slot_owner
+      obj: ?actor
+    - kind: 0
+      subject: ?slot
+      predicate: equipped_item
+      obj: ?target
+    effects:
+    - kind: 1
+      subject: ?slot
+      predicate: equipped_item
+      obj: ?target
+    - kind: 1
+      subject: ?target
+      predicate: equipped_by
+      obj: ?actor
+    - kind: 1
+      subject: ?actor
+      predicate: interaction_intent
+      obj: ?target

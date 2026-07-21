@@ -17,6 +17,7 @@ namespace Tormia.Ontology.Core
         [SerializeField] private Button filterButton;
         [SerializeField] private OntologySaveController saveController;
         [SerializeField] private RectTransform actionButtonContainer;
+        [SerializeField] private Button actionButtonTemplate;
         [SerializeField] private TMP_Text titleText;
         [SerializeField] private TMP_Text toastText;
         [SerializeField] private TMP_Text graphSummaryText;
@@ -71,6 +72,24 @@ namespace Tormia.Ontology.Core
             {
                 filterButton.onClick.AddListener(CycleActionFilter);
             }
+        }
+
+        private void OnEnable()
+        {
+            OntologyLanguagePackService.LanguageChanged += HandleLanguageChanged;
+        }
+
+        private void OnDisable()
+        {
+            OntologyLanguagePackService.LanguageChanged -= HandleLanguageChanged;
+        }
+
+        private void HandleLanguageChanged()
+        {
+            OntologyLanguagePackService.EnsureKoreanFontFallback(transform);
+            ApplyTheme();
+            RefreshGraphSummary();
+            RefreshActionButtons();
         }
 
         private void Start()
@@ -209,6 +228,10 @@ namespace Tormia.Ontology.Core
 
         private void EnsureUiReferences()
         {
+            if (actionButtonTemplate == null)
+            {
+                actionButtonTemplate = transform.Find("ActionButtonContainer/ButtonsScrollView/Viewport/Buttons/ActionButtonTemplate")?.GetComponent<Button>();
+            }
             if (titleText == null)
             {
                 titleText = transform.Find("Title")?.GetComponent<TMP_Text>();
@@ -236,13 +259,6 @@ namespace Tormia.Ontology.Core
             if (background != null)
             {
                 background.color = Theme.panelBackground;
-            }
-
-            var rect = transform as RectTransform;
-            if (rect != null)
-            {
-                rect.sizeDelta = Theme.debugPanelSize;
-                rect.anchoredPosition = Theme.debugPanelAnchoredPosition;
             }
 
             StyleText(titleText, Labels.debugTitle, Theme.titleFontSize, Theme.titleText, TextAlignmentOptions.Center);
@@ -399,38 +415,29 @@ namespace Tormia.Ontology.Core
 
         private void CreateActionButton(OntologyActionCandidate candidate, int index)
         {
-            var buttonObject = new GameObject("ActionButton_" + index, typeof(RectTransform), typeof(Image), typeof(Button));
-            buttonObject.transform.SetParent(actionButtonContainer, false);
+            if (actionButtonTemplate == null || actionButtonContainer == null)
+            {
+                Debug.LogError("[OntologyDebugPanel] ActionButtonTemplate or container is missing from the hierarchy.", this);
+                return;
+            }
 
-            var rect = buttonObject.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(1f, 1f);
-            rect.pivot = new Vector2(0.5f, 1f);
-            rect.anchoredPosition = new Vector2(0f, -index * Theme.actionButtonSpacing);
-            rect.sizeDelta = new Vector2(0f, Theme.actionButtonHeight);
-
+            var buttonObject = Instantiate(actionButtonTemplate, actionButtonContainer);
+            buttonObject.gameObject.SetActive(true);
+            buttonObject.name = "ActionButton_" + index;
             var image = buttonObject.GetComponent<Image>();
-            image.color = Theme.actionButton;
-
-            var labelObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
-            labelObject.transform.SetParent(buttonObject.transform, false);
-            var labelRect = labelObject.GetComponent<RectTransform>();
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = Theme.actionButtonTextPadding;
-            labelRect.offsetMax = -Theme.actionButtonTextPadding;
-
-            var label = labelObject.GetComponent<TextMeshProUGUI>();
-            label.text = candidate.IsQuestGoal ? Labels.questActionPrefix + candidate.Label : candidate.Label;
-            label.fontSize = Theme.actionButtonFontSize;
-            label.fontStyle = FontStyles.Bold;
+            if (image != null) image.color = Theme.actionButton;
+            var label = buttonObject.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (label == null) return;
+            var actionLabel =
+                OntologyLanguagePackService.ActionLabel(candidate);
+            label.text = candidate.IsQuestGoal
+                ? Labels.questActionPrefix + actionLabel
+                : actionLabel;
             label.color = candidate.IsQuestGoal ? Theme.questActionText : Theme.buttonText;
-            label.alignment = TextAlignmentOptions.MidlineLeft;
-            label.textWrappingMode = TextWrappingModes.NoWrap;
-            label.overflowMode = TextOverflowModes.Ellipsis;
 
-            buttonObject.GetComponent<Button>().onClick.AddListener(() => ExecuteCandidate(candidate));
-            actionButtonObjects.Add(buttonObject);
+            buttonObject.onClick.RemoveAllListeners();
+            buttonObject.onClick.AddListener(() => ExecuteCandidate(candidate));
+            actionButtonObjects.Add(buttonObject.gameObject);
         }
     }
 }

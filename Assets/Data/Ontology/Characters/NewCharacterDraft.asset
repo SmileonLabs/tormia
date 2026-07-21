@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 449ad14fc818b2c4cbfc663045d5dcf8, type: 3}
+  m_Name: NewCharacterDraft
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyCharacterDraft
+  characterId: NewCharacter
+  userPrompt: A friendly village guide who knows the mountain paths.
+  designBrief: 
+  stage: 0
+  conceptImage: {fileID: 0}
+  approvedConceptImage: {fileID: 0}
+  conceptFeedback: 
+  generatedModelPrefab: {fileID: 0}
+  actorProfile: {fileID: 0}

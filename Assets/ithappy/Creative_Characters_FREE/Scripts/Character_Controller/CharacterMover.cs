@@ -112,6 +112,12 @@ namespace ithappy.Creative_Characters_FREE.Controller
 
         private void OnControllerColliderHit(ControllerColliderHit hit)
         {
+            // This controller can be intentionally disabled when Tormia's Input System
+            // controller owns movement. Unity may still send collision callbacks then.
+            if (m_Movement == null)
+            {
+                return;
+            }
             if(hit.normal.y > m_Controller.stepOffset)
             {
                 m_Movement.SetSurface(hit.normal);

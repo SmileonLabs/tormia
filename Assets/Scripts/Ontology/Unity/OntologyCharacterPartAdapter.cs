@@ -9,12 +9,17 @@ namespace Tormia.Ontology.Core
         [SerializeField] private OntologyWorldBootstrap bootstrap;
         [SerializeField] private OntologyCharacterPartDatabase partDatabase;
         [SerializeField] private Transform visualRoot;
-        [SerializeField] private string actorId = "Player";
+        [SerializeField] private OntologyObject actorObject;
+        [SerializeField, Tooltip("Legacy fallback only. Leave empty; OntologyObject.EntityId is authoritative.")]
+        private string actorId;
         [SerializeField] private bool applyOnStart = true;
         [SerializeField] private bool injectFactsOnStart = true;
         [SerializeField] private bool syncFromWorldFacts = true;
 
         public OntologyCharacterPartDatabase PartDatabase => partDatabase;
+        private string ActorId => actorObject != null && !string.IsNullOrWhiteSpace(actorObject.EntityId)
+            ? actorObject.EntityId
+            : actorId;
 
         public const string FailureDefinitionMissing = "definition_missing";
         public const string FailureRendererMissing = "renderer_missing";
@@ -22,16 +27,34 @@ namespace Tormia.Ontology.Core
         public const string FailureAlreadyEquipped = "already_equipped";
         public const string FailureAlreadyUnequipped = "already_unequipped";
 
-        private void Update()
+        private void OnEnable()
         {
-            if (syncFromWorldFacts)
+            if (bootstrap == null)
             {
-                SyncFromWorldFacts();
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
+            }
+
+            if (bootstrap != null)
+            {
+                bootstrap.WorldChanged += HandleWorldChanged;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (bootstrap != null)
+            {
+                bootstrap.WorldChanged -= HandleWorldChanged;
             }
         }
 
         private void Awake()
         {
+            if (actorObject == null)
+            {
+                actorObject = GetComponentInParent<OntologyObject>();
+            }
+
             if (bootstrap == null)
             {
                 bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
@@ -39,8 +62,12 @@ namespace Tormia.Ontology.Core
 
             if (visualRoot == null)
             {
-                var child = transform.Find("Visual_Base_Mesh");
-                visualRoot = child != null ? child : transform;
+                // The visual root is a presentation binding, so it belongs in the
+                // serialized scene/prefab configuration rather than in a dependency
+                // on a third-party character hierarchy name. Falling back to this
+                // component root keeps generic characters usable without guessing a
+                // child such as "Visual_Base_Mesh".
+                visualRoot = transform;
             }
         }
 
@@ -61,6 +88,14 @@ namespace Tormia.Ontology.Core
         {
             yield return null;
             InjectActivePartFacts();
+        }
+
+        private void HandleWorldChanged()
+        {
+            if (syncFromWorldFacts)
+            {
+                SyncFromWorldFacts();
+            }
         }
 
         public void ApplyDefaultPreset()
@@ -97,6 +132,62 @@ namespace Tormia.Ontology.Core
             }
         }
 
+        /// <summary>
+        /// Applies an account-owned character appearance profile when its avatar enters a world.
+        /// The profile remains account data; this method only projects it into the local ontology
+        /// actor presentation and the actor's current equipped_part facts.
+        /// An empty profile deliberately resolves to the template's data-defined default preset.
+        /// </summary>
+        public bool ApplyAccountProfile(IReadOnlyList<string> equippedPartIds)
+        {
+            if (partDatabase == null || partDatabase.Definitions == null || visualRoot == null)
+            {
+                return false;
+            }
+
+            if (equippedPartIds == null || equippedPartIds.Count == 0)
+            {
+                ApplyDefaultPreset();
+                InjectActivePartFacts();
+                return true;
+            }
+
+            var requestedIds = new HashSet<string>(equippedPartIds, System.StringComparer.Ordinal);
+            var clearedRendererPaths = new HashSet<string>();
+            foreach (var definition in partDatabase.Definitions)
+            {
+                if (definition == null || string.IsNullOrWhiteSpace(definition.rendererPath)
+                    || !clearedRendererPaths.Add(definition.rendererPath))
+                {
+                    continue;
+                }
+
+                var renderer = FindRenderer(definition.rendererPath);
+                if (renderer != null)
+                {
+                    renderer.enabled = false;
+                }
+            }
+
+            foreach (var definition in partDatabase.Definitions)
+            {
+                if (definition == null || !requestedIds.Contains(definition.partId))
+                {
+                    continue;
+                }
+
+                if (definition.visibleInCustomization || !IsLinkedByEquippedDefinition(definition.partId))
+                {
+                    DisableConflictingParts(definition);
+                }
+
+                SetPartEnabled(definition, true);
+            }
+
+            InjectActivePartFacts();
+            return true;
+        }
+
         public void InjectActivePartFacts()
         {
             EnsureWorldReady();
@@ -107,7 +198,7 @@ namespace Tormia.Ontology.Core
 
             OntologyCharacterPartFactSynchronizer.RebuildActorFacts(
                 bootstrap.World,
-                actorId,
+                ActorId,
                 partDatabase.Definitions,
                 IsDefinitionActive);
         }
@@ -138,13 +229,13 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                if (bootstrap.World.HasFact(actorId, OntologyPredicates.UnequipPart, definition.partId))
+                if (bootstrap.World.HasFact(ActorId, OntologyPredicates.UnequipPart, definition.partId))
                 {
                     factsChanged |= SetDefinitionEquipped(definition, false);
                     continue;
                 }
 
-                if (bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, definition.partId))
+                if (bootstrap.World.HasFact(ActorId, OntologyPredicates.EquippedPart, definition.partId))
                 {
                     if (!definition.visibleInCustomization && IsLinkedByEquippedDefinition(definition.partId))
                     {
@@ -196,7 +287,7 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                if (!bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, definition.partId))
+                if (!bootstrap.World.HasFact(ActorId, OntologyPredicates.EquippedPart, definition.partId))
                 {
                     continue;
                 }
@@ -313,14 +404,30 @@ namespace Tormia.Ontology.Core
 
             EnsureWorldReady();
             return bootstrap != null && bootstrap.World != null
-                ? bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, definition.partId)
+                ? bootstrap.World.HasFact(ActorId, OntologyPredicates.EquippedPart, definition.partId)
                 : IsDefinitionActive(definition);
         }
 
         public bool HasEquippedPartFact(string partId)
         {
             EnsureWorldReady();
-            return bootstrap != null && bootstrap.World != null && bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, partId);
+            return bootstrap != null && bootstrap.World != null && bootstrap.World.HasFact(ActorId, OntologyPredicates.EquippedPart, partId);
+        }
+
+        /// <summary>
+        /// Returns the visible account-appearance selection. Callers persist
+        /// this only to the selected account character profile, never as an
+        /// arbitrary world Fact.
+        /// </summary>
+        public string[] GetEquippedPartIds()
+        {
+            if (partDatabase == null || partDatabase.Definitions == null) return System.Array.Empty<string>();
+            var result = new List<string>();
+            foreach (var definition in partDatabase.Definitions)
+            {
+                if (definition != null && IsPartEquipped(definition.partId)) result.Add(definition.partId);
+            }
+            return result.ToArray();
         }
 
         private OntologyCharacterPartDefinition FindDefinition(string partId)
@@ -408,13 +515,13 @@ namespace Tormia.Ontology.Core
                 if (equipped)
                 {
                     InjectPartDefinitionFacts(definition);
-                    factsChanged |= bootstrap.World.AddFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
-                    factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
+                    factsChanged |= bootstrap.World.AddFact(ActorId, OntologyPredicates.EquippedPart, definition.partId);
+                    factsChanged |= bootstrap.World.RemoveFact(ActorId, OntologyPredicates.UnequipPart, definition.partId);
                 }
                 else
                 {
-                    factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
-                    factsChanged |= bootstrap.World.RemoveFact(actorId, OntologyPredicates.UnequipPart, definition.partId);
+                    factsChanged |= bootstrap.World.RemoveFact(ActorId, OntologyPredicates.EquippedPart, definition.partId);
+                    factsChanged |= bootstrap.World.RemoveFact(ActorId, OntologyPredicates.UnequipPart, definition.partId);
                 }
             }
 
@@ -436,7 +543,7 @@ namespace Tormia.Ontology.Core
             foreach (var definition in partDatabase.Definitions)
             {
                 if (definition == null
-                    || !bootstrap.World.HasFact(actorId, OntologyPredicates.EquippedPart, definition.partId))
+                    || !bootstrap.World.HasFact(ActorId, OntologyPredicates.EquippedPart, definition.partId))
                 {
                     continue;
                 }

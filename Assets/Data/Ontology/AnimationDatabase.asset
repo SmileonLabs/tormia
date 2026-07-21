@@ -15,6 +15,11 @@ MonoBehaviour:
   definitions:
   - animationId: Anim_Idle_Breathing
     clip: {fileID: 7400000, guid: 3ed56c1c8d524197b0c60b0b09bb8d84, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Idle
     - Breathing
@@ -26,6 +31,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Idle_Look_Around
     clip: {fileID: 7400000, guid: c7ab98e30fdf4ecfb26a439b0cb318c5, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Idle
     - AlertIdle
@@ -36,6 +46,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Idle_Relaxed
     clip: {fileID: 7400000, guid: c52272260b5340bbbc2512932157aac3, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Idle
     - RelaxedIdle
@@ -46,6 +61,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Walk_Forward
     clip: {fileID: 7400000, guid: 98b6a2eb86734f97bdcfb9fcd236f27d, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Forward
@@ -56,6 +76,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Walk_Backward
     clip: {fileID: 7400000, guid: 212ae36e2e204ce2844c1c4905285b65, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Backward
@@ -66,6 +91,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Run_Forward
     clip: {fileID: 7400000, guid: f32e0a8fd4d44af18ae7f0562fe8cf75, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Forward
@@ -77,6 +107,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Run_Backward
     clip: {fileID: 7400000, guid: ddae1c8eb8e14567b4b6d8d41607d2db, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Backward
@@ -88,6 +123,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Run_Left
     clip: {fileID: 7400000, guid: 543b8c31fa1141d897f189b4765741d2, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Left
@@ -99,6 +139,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Run_Right
     clip: {fileID: 7400000, guid: 04e87bdc25744cfdab0e7838576047c3, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Right
@@ -110,6 +155,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Strafe_Left
     clip: {fileID: 7400000, guid: 5a3832995d7c4cd0affdb41cd20d0fc5, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Left
@@ -120,6 +170,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Strafe_Right
     clip: {fileID: 7400000, guid: 50f3545cb7134cc7bbb47ed9d151c7d1, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Right
@@ -130,6 +185,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Jump_Start
     clip: {fileID: 7400000, guid: 5a9a451b24024a41ab46c9aa555bc41d, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Jump
     - Airborne
@@ -140,6 +200,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Jump_Loop
     clip: {fileID: 7400000, guid: 7cc61edbc91e4638a961fc0228920a80, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Jump
     - Airborne
@@ -150,6 +215,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Jump_End
     clip: {fileID: 7400000, guid: e234e2a5d3e04f9a8fa6d6295555c345, type: 2}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Jump
     - Landing
@@ -160,6 +230,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Crouch_Walk_Forward
     clip: {fileID: 9198153334671162169, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Crouch
@@ -172,6 +247,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Crouch_Walk_Backward
     clip: {fileID: 439784503820603027, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Crouch
@@ -184,6 +264,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Crouch_Walk_Left
     clip: {fileID: -7504226609968954862, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Crouch
@@ -196,6 +281,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Crouch_Walk_Right
     clip: {fileID: -7624677252082611786, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Locomotion
     - Crouch
@@ -208,6 +298,11 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Hit_Reaction_Light
     clip: {fileID: 732519596084210561, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - DamageReaction
     - LightSeverity
@@ -218,6 +313,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Hit_Reaction_Heavy
     clip: {fileID: 4298968129520807213, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - DamageReaction
     - HeavySeverity
@@ -227,6 +327,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Fall
     clip: {fileID: 5917537482288442099, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - CollapseReaction
     - Airborne
@@ -236,6 +341,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Death_Backward
     clip: {fileID: -4950758156531648292, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - DeathReaction
     - Backward
@@ -245,6 +355,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Death_Forward
     clip: {fileID: 6182763086745782283, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - DeathReaction
     - Forward
@@ -254,6 +369,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Attack_Punch
     clip: {fileID: -7394484345467444417, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Attack
     - Unarmed
@@ -264,6 +384,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Attack_Kick
     clip: {fileID: 2771865946972476010, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Attack
     - Unarmed
@@ -274,6 +399,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Block_With_Hands
     clip: {fileID: -4478515264891265488, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Defense
     - Block
@@ -284,6 +414,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Dodge_Roll
     clip: {fileID: 1396319113448604862, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Evasion
     - Roll
@@ -294,6 +429,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Dodge_Sidestep
     clip: {fileID: 2737883252764492063, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Evasion
     - Sidestep
@@ -303,6 +443,11 @@ MonoBehaviour:
     canBlend: 0
   - animationId: Anim_Climb_Ladder
     clip: {fileID: -6200094899576005654, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
     properties:
     - Traversal
     - Climb
@@ -310,3 +455,31 @@ MonoBehaviour:
     - Traversal
     priority: 50
     canBlend: 0
+  - animationId: Anim_Swimming
+    clip: {fileID: -203655887218126122, guid: 4659398749ed1334ab4d1d594ce7c168, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
+    properties:
+    - Swimming
+    - Locomotion
+    intents:
+    - Swimming
+    priority: 50
+    canBlend: 1
+  - animationId: Anim_Treading_Water
+    clip: {fileID: -203655887218126122, guid: f625706e23c137a4782caaf2b2a55155, type: 3}
+    actorTypes: []
+    rigTypes: []
+    requiredCapabilities: []
+    layer: 0
+    interruptible: 1
+    properties:
+    - Swimming
+    - Idle
+    intents:
+    - TreadingWater
+    priority: 95
+    canBlend: 1

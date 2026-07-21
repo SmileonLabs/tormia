@@ -9,5 +9,17 @@ namespace Tormia.Ontology.Core
         [SerializeField] private List<OntologyRuleDefinition> definitions = new();
 
         public IReadOnlyList<OntologyRuleDefinition> Definitions => definitions;
+
+        public OntologyRuleDefinition CreateDefinition(string id)
+        {
+            var definition = new OntologyRuleDefinition { id = id };
+            definitions.Add(definition);
+            return definition;
+        }
+
+        public bool RemoveDefinition(OntologyRuleDefinition definition)
+        {
+            return definition != null && definitions.Remove(definition);
+        }
     }
 }

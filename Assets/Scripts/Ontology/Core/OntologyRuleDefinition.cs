@@ -7,6 +7,9 @@ namespace Tormia.Ontology.Core
     public sealed class OntologyRuleDefinition
     {
         public string id;
+        // Immutable server catalog version. A Rule Block binds to this version so
+        // publishing an updated rule cannot silently rewrite an existing world.
+        public int catalogVersion = 1;
         public string description;
         public List<OntologyCondition> conditions = new();
         public List<OntologyEffect> effects = new();
@@ -137,9 +140,39 @@ namespace Tormia.Ontology.Core
 
     public enum OntologyEffectKind
     {
+        // Derived relation. The simulation retracts and recomputes it whenever observations change.
         AddFact,
+        // Explicitly withdraws a relation from the current world state.
         RemoveFact,
+        // Persistent state transition. It is not part of the retractable inferred-fact set.
         SetFact,
+        // Persistent numeric state transition.
         AdjustNumberFact
+    }
+
+    public static class OntologyEffectSemantics
+    {
+        public static bool IsRetractableInference(this OntologyEffectKind kind)
+        {
+            return kind == OntologyEffectKind.AddFact;
+        }
+
+        public static bool IsPersistentStateMutation(this OntologyEffectKind kind)
+        {
+            return kind == OntologyEffectKind.SetFact ||
+                   kind == OntologyEffectKind.AdjustNumberFact;
+        }
+
+        public static string DisplayName(this OntologyEffectKind kind)
+        {
+            return kind switch
+            {
+                OntologyEffectKind.AddFact => "Infer Fact (recomputed)",
+                OntologyEffectKind.RemoveFact => "Remove Fact",
+                OntologyEffectKind.SetFact => "Set Persistent State",
+                OntologyEffectKind.AdjustNumberFact => "Adjust Persistent Number",
+                _ => kind.ToString()
+            };
+        }
     }
 }

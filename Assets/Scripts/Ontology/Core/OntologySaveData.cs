@@ -6,9 +6,57 @@ namespace Tormia.Ontology.Core
     [Serializable]
     public sealed class OntologySaveData
     {
+        // Version 7 persists per-instance semantic contribution ownership, so a
+        // preset can be removed without erasing independently authored triples.
+        public int version = 7;
         public List<OntologyFactRecord> facts = new();
         public List<OntologyActionRecord> actionHistory = new();
         public List<OntologyEventRecord> eventHistory = new();
+        public List<OntologyPlacedObjectRecord> placedObjects = new();
+        public List<string> controlledRuleIds = new();
+    }
+
+    [Serializable]
+    public sealed class OntologyPlacedObjectRecord
+    {
+        public string instanceName;
+        public string definitionId;
+        public OntologyTransformRecord transform = new();
+        public List<string> concepts = new();
+        public List<OntologyFactRecord> facts = new();
+        public List<OntologyRuleBlockRecord> ruleBlocks = new();
+        public List<OntologySemanticContributionRecord> semanticContributions = new();
+    }
+
+    [Serializable]
+    public sealed class OntologyRuleBlockRecord
+    {
+        public string ruleId;
+        public string bindingVariable = "?target";
+    }
+
+    [Serializable]
+    public sealed class OntologySemanticContributionRecord
+    {
+        public string ownerId;
+        public List<string> concepts = new();
+        public List<OntologyFactRecord> facts = new();
+        public List<OntologyRuleBlockRecord> ruleBlocks = new();
+    }
+
+    [Serializable]
+    public sealed class OntologyTransformRecord
+    {
+        public float positionX;
+        public float positionY;
+        public float positionZ;
+        public float rotationX;
+        public float rotationY;
+        public float rotationZ;
+        public float rotationW = 1f;
+        public float scaleX = 1f;
+        public float scaleY = 1f;
+        public float scaleZ = 1f;
     }
 
     [Serializable]
@@ -37,13 +85,23 @@ namespace Tormia.Ontology.Core
 
     public static class OntologySaveDataConverter
     {
-        public static OntologySaveData Capture(OntologyWorldState world, OntologySession session)
+        public static OntologySaveData Capture(
+            OntologyWorldState world,
+            OntologySession session,
+            IReadOnlyList<OntologyRuleDefinition> ruleDefinitions = null)
         {
             var saveData = new OntologySaveData();
             if (world != null)
             {
                 foreach (var fact in world.Facts)
                 {
+                    if (OntologyDerivedFactPolicy.IsDerived(
+                            fact,
+                            ruleDefinitions))
+                    {
+                        continue;
+                    }
+
                     saveData.facts.Add(new OntologyFactRecord
                     {
                         subject = fact.Subject.Value,
@@ -79,7 +137,9 @@ namespace Tormia.Ontology.Core
             return saveData;
         }
 
-        public static OntologyWorldState RestoreWorld(OntologySaveData saveData)
+        public static OntologyWorldState RestoreWorld(
+            OntologySaveData saveData,
+            IReadOnlyList<OntologyRuleDefinition> ruleDefinitions = null)
         {
             var world = new OntologyWorldState();
             if (saveData == null)
@@ -90,6 +150,17 @@ namespace Tormia.Ontology.Core
             foreach (var record in saveData.facts)
             {
                 if (record == null)
+                {
+                    continue;
+                }
+
+                var fact = new OntologyFact(
+                    record.subject,
+                    record.predicate,
+                    record.obj);
+                if (OntologyDerivedFactPolicy.IsDerived(
+                        fact,
+                        ruleDefinitions))
                 {
                     continue;
                 }
@@ -129,7 +200,7 @@ namespace Tormia.Ontology.Core
             {
                 if (record != null)
                 {
-                    session.EventHistory.Add(new OntologyEvent(record.eventType, record.reason));
+                    session.RecordEvent(new OntologyEvent(record.eventType, record.reason));
                 }
             }
 

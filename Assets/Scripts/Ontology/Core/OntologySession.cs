@@ -5,8 +5,21 @@ namespace Tormia.Ontology.Core
 {
     public sealed class OntologySession
     {
+        public const int DefaultMaxActionHistory = 128;
+        public const int DefaultMaxEventHistory = 512;
+
         public List<OntologyAction> ActionHistory { get; } = new();
         public List<OntologyEvent> EventHistory { get; } = new();
+        public int MaxActionHistory { get; }
+        public int MaxEventHistory { get; }
+
+        public OntologySession(
+            int maxActionHistory = DefaultMaxActionHistory,
+            int maxEventHistory = DefaultMaxEventHistory)
+        {
+            MaxActionHistory = System.Math.Max(1, maxActionHistory);
+            MaxEventHistory = System.Math.Max(1, maxEventHistory);
+        }
 
         public void Clear()
         {
@@ -17,6 +30,18 @@ namespace Tormia.Ontology.Core
         public void RecordAction(OntologyAction action)
         {
             ActionHistory.Add(action);
+            TrimToCapacity(ActionHistory, MaxActionHistory);
+        }
+
+        public void RecordEvent(OntologyEvent ontologyEvent)
+        {
+            if (ontologyEvent == null)
+            {
+                return;
+            }
+
+            EventHistory.Add(ontologyEvent);
+            TrimToCapacity(EventHistory, MaxEventHistory);
         }
 
         public void RecordEvents(OntologySimulationResult result)
@@ -30,7 +55,7 @@ namespace Tormia.Ontology.Core
             {
                 foreach (var ontologyEvent in step.Events)
                 {
-                    EventHistory.Add(ontologyEvent);
+                    RecordEvent(ontologyEvent);
                 }
             }
         }
@@ -58,6 +83,15 @@ namespace Tormia.Ontology.Core
             }
 
             return builder.ToString().TrimEnd();
+        }
+
+        private static void TrimToCapacity<T>(List<T> values, int capacity)
+        {
+            var overflow = values.Count - capacity;
+            if (overflow > 0)
+            {
+                values.RemoveRange(0, overflow);
+            }
         }
     }
 }

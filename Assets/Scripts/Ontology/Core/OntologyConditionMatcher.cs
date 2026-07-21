@@ -106,8 +106,18 @@ namespace Tormia.Ontology.Core
             var output = new List<Dictionary<string, OntologyId>>();
             foreach (var binding in inputBindings)
             {
-                foreach (var fact in world.Facts)
+                foreach (var fact in GetCandidateFacts(world, condition, binding))
                 {
+                    // Avoid allocating a new binding for every unrelated fact. Most rule
+                    // conditions specify a predicate, so the world index plus this check
+                    // discards non-matches before any dictionary copy is made.
+                    if (!CanMatch(condition.subject, fact.Subject, binding) ||
+                        !CanMatch(condition.predicate, fact.Predicate, binding) ||
+                        !CanMatch(condition.obj, fact.Object, binding))
+                    {
+                        continue;
+                    }
+
                     var next = new Dictionary<string, OntologyId>(binding);
                     if (TryMatch(condition.subject, fact.Subject, next)
                         && TryMatch(condition.predicate, fact.Predicate, next)
@@ -129,16 +139,84 @@ namespace Tormia.Ontology.Core
             var output = new List<Dictionary<string, OntologyId>>();
             foreach (var binding in inputBindings)
             {
-                var subject = Resolve(condition.subject, binding);
-                var predicate = Resolve(condition.predicate, binding);
-                var obj = Resolve(condition.obj, binding);
-                if (!world.HasFact(subject, predicate, obj))
+                var found = false;
+                foreach (var fact in GetCandidateFacts(world, condition, binding))
+                {
+                    if (MatchesNegativePattern(condition.subject, fact.Subject, binding) &&
+                        MatchesNegativePattern(condition.predicate, fact.Predicate, binding) &&
+                        MatchesNegativePattern(condition.obj, fact.Object, binding))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
                 {
                     output.Add(binding);
                 }
             }
 
             return output;
+        }
+
+        private static IEnumerable<OntologyFact> GetCandidateFacts(
+            OntologyWorldState world,
+            OntologyCondition condition,
+            Dictionary<string, OntologyId> binding)
+        {
+            if (world == null || condition == null)
+            {
+                return EmptyFacts;
+            }
+
+            if (TryResolveKnownValue(condition.predicate, binding, out var predicate))
+            {
+                return world.GetFactsForPredicate(predicate);
+            }
+
+            return world.Facts;
+        }
+
+        private static bool CanMatch(
+            string pattern,
+            OntologyId value,
+            Dictionary<string, OntologyId> binding)
+        {
+            if (IsVariable(pattern))
+            {
+                return !binding.TryGetValue(pattern, out var bound) || bound.Equals(value);
+            }
+
+            return Resolve(pattern, binding).Equals(value);
+        }
+
+        private static bool TryResolveKnownValue(
+            string pattern,
+            Dictionary<string, OntologyId> binding,
+            out OntologyId value)
+        {
+            value = default;
+            if (IsVariable(pattern))
+            {
+                return binding != null && binding.TryGetValue(pattern, out value);
+            }
+
+            value = Resolve(pattern, binding);
+            return !value.IsEmpty;
+        }
+
+        private static bool MatchesNegativePattern(
+            string pattern,
+            OntologyId value,
+            Dictionary<string, OntologyId> binding)
+        {
+            if (IsVariable(pattern))
+            {
+                return !binding.TryGetValue(pattern, out var bound) || bound.Equals(value);
+            }
+
+            return Resolve(pattern, binding).Equals(value);
         }
 
         private static bool TryMatch(string pattern, OntologyId value, Dictionary<string, OntologyId> binding)
@@ -159,12 +237,17 @@ namespace Tormia.Ontology.Core
 
         private static OntologyCondition AsConceptFact(OntologyCondition condition)
         {
-            return OntologyCondition.Fact(condition.subject, "has_concept", condition.obj);
+            return OntologyCondition.Fact(
+                condition.subject,
+                OntologyPredicates.HasConcept,
+                condition.obj);
         }
 
         private static bool IsVariable(string value)
         {
             return !string.IsNullOrEmpty(value) && value[0] == '?';
         }
+
+        private static readonly OntologyFact[] EmptyFacts = new OntologyFact[0];
     }
 }

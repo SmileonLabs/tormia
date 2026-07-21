@@ -1,0 +1,732 @@
+key,text,description
+ui.quest_panel.title,Quests & Actions,Player quest panel
+ui.quest_panel.empty_quests,No active quests,Player quest panel
+ui.quest_panel.empty_actions,No available actions,Player quest panel
+ui.quest.active,Active,Player quest panel
+ui.quest.completed,Completed,Player quest panel
+ui.quest.goal_prefix,"Quest: ",Player quest panel
+rule_preset.validation.no_object,Select a world object first.,Rule-block validation
+rule_preset.validation.unavailable,Rule setup data is unavailable.,Rule-block validation
+rule_preset.validation.requires,"This rule needs: {0}",Rule-block validation
+rule_preset.attachment_setup.title,Configure attachment,Rule blocks
+rule_preset.attachment_setup.body,"Choose where the object attaches. The needed concepts and triples will be prepared before the rule is applied.",Rule blocks
+rule_preset.attachment_setup.apply,Configure and apply,Rule blocks
+ui.button.add,Add,Physical behavior
+ui.button.remove,Remove,Physical behavior
+ui.button.details_short,Details,Physical behavior
+ui.physical.base_behavior,Base physical behavior,Physical behavior
+ui.physical.additional_effect,Additional effect,Physical behavior
+result.no_additional_physical_effect,No more compatible effects can be added.,Physical behavior
+physical_effect.WindDrift,Pushed by wind,Physical effect
+physical_effect.WaveRocking,Rocked by waves,Physical effect
+relation.has_physical_effect,additional physical effect,Physical effect relation
+relation.active_physical_effect,active physical effect,Inferred physical effect relation
+relation.compatible_with,compatible with,Compatibility relation
+fact.has_physical_effect,{0} has the additional physical effect {1}.,Readable fact
+fact.active_physical_effect,{0} is currently affected by {1}.,Readable inferred fact
+fact.compatible_with,{0} is compatible with {1}.,Readable compatibility fact
+concept.PhysicalEffect,Physical effect,Physical effect concept
+rule.ActivateWindDriftEffect,Activate compatible wind effect,Physical effect rule
+rule.ActivateWaveRockingEffect,Activate compatible wave effect,Physical effect rule
+rule_description.ActivateWindDriftEffect,A compatible object with the wind effect is pushed by wind.,Physical effect rule
+rule_description.ActivateWaveRockingEffect,A compatible object in water with the wave effect is rocked by waves.,Physical effect rule
+ui.title.ontology_editor,Ontology Editor,World ontology editor title
+ui.tab.triples,Triples,Fact editing tab
+ui.tab.rule_blocks,Rule Blocks,Rule block tab
+ui.tab.physics,Physics,Physical profile tab
+ui.tab.results,Results,Readable inference results tab
+ui.button.add_triple,+ Add Triple,Add a triple
+ui.button.add_rule_block,+ Add Rule Block,Add a rule block
+ui.button.save_world,Save World,Save snapshot
+ui.button.load_world,Load World,Load snapshot
+ui.subtitle.selected_object,Selected object,Selected object subtitle
+ui.subtitle.no_selection,Select a placed object,No selection subtitle
+ui.footer.triples,The subject is fixed. Edit the relation and value.,Triple editing help
+ui.footer.rule_blocks,A rule block enables a database rule for this object.,Rule block help
+ui.footer.physics,Choose the sentence that describes what this object should do.,Physics help
+ui.footer.results,This shows current information and the rules that created it.,Results help
+ui.status.saved,World saved successfully.,Save success
+ui.status.loaded,World loaded successfully.,Load success
+ui.status.save_failed,Save failed: the save controller was not found.,Save failure
+ui.status.load_failed,Load failed: the save controller was not found.,Load failure
+ui.dropdown.choose,Choose...,Dropdown placeholder
+result.world_unavailable,The ontology world has not been initialized.,World unavailable
+result.not_run,Rules have not been evaluated yet.,Inference has not run
+result.stable,All rules have been applied.,Stable inference
+result.iteration_limit,Rule evaluation stopped at the iteration limit.,Iteration limit
+result.summary,"Iterations: {0} · New information: {1} · Changed information: {2}",Inference summary
+result.current_information,Current information,Current fact heading
+result.origin.authored,Authored,Authored fact origin
+result.origin.inferred,Inferred,Inferred fact origin
+result.origin.observed,Observed,Observed fact origin
+result.applied_rule,Applied rule · step {0},Applied rule heading
+result.added,Added,Added fact label
+result.removed,Removed,Removed fact label
+result.changed,Changed,Changed fact label
+result.no_rule_block,No rule block is assigned. Add one to enable a database rule for this object.,No rule block
+result.no_rules,No rules are available in the Rule Database.,No rules
+result.no_buoyancy_profile,No buoyancy profile is registered.,No buoyancy profile
+result.buoyancy_disabled,This object does not currently float.,No buoyancy
+result.base_physical_profile,Base physical profile: {0}. Gravity is active.,Base profile
+result.active_physical_profile,Active physical profile: {0}. This setting is saved as ontology data.,Active profile
+validation.value_required,Enter a value.,Value missing
+validation.number_required,Enter a valid number.,Invalid number
+validation.boolean_required,Choose true or false.,Invalid boolean
+validation.ambiguous_term,This word matches more than one ontology term. Choose one.,Ambiguous alias
+validation.unknown_localized_term,This word is not registered. Add it to OntologyAliases.csv or create a new canonical term.,Unknown localized term
+validation.invalid_identifier,Enter a valid ontology identifier.,Invalid identifier
+validation.blocked,BLOCKED: {0},Blocked validation
+validation.warning,WARNING: {0} Press OK again to confirm.,Warning confirmation
+relation.has_concept,type,Concept classification
+relation.located_in,location,Location relation
+relation.has_element,element,Element relation
+relation.has_state,status,State relation
+relation.related_to,related object,Generic relationship
+relation.water_depth,water depth,Water depth
+relation.occupies,occupies,Occupancy
+relation.state,state,State
+relation.movement_mode,movement mode,Movement mode
+relation.physical_profile,physical profile,Physical profile
+relation.attachment_profile,attachment profile,Attachment profile
+relation.pickup_behavior,interaction,Pickup behavior
+relation.has_slot,equipment slot,Equipment slot
+relation.supports_behavior,supported behavior,Supported behavior
+relation.mobility_mode,mobility,mobility mode
+relation.has_material,material,Material
+relation.density_class,density,Density class
+relation.supported_by,supported by,Support entity
+relation.resting_on,resting on,Resting entity
+relation.has_capability,capability,Capability
+relation.grants_capability,grants capability,Granted capability
+relation.grants_skill,grants skill,Granted skill
+relation.skill_grant_requires_rule,skill grant requires rule,Rule blocks
+relation.has_skill,skill,Skill
+relation.has_temporary_skill,temporary skill,Temporary skill
+relation.can_use_skill,usable skill,Usable skill
+relation.equipped_by,equipped by,Equipment owner
+relation.carried_by,carried by,Carry owner
+relation.has_rule_block,rule block,Rule block fact
+concept.Actor,Actor,Actor concept
+concept.Agent,Agent,Agent concept
+concept.Creature,Creature,Creature concept
+concept.NPC,NPC,NPC concept
+concept.PlayerControlled,Player-controlled,Player controlled concept
+concept.Humanoid,Humanoid,Humanoid concept
+concept.Plant,Plant,Plant concept
+concept.Dry,Dry,Dry concept
+concept.Fire,Fire,Fire concept
+concept.Rock,Rock,Rock concept
+concept.Resource,Resource,Resource concept
+concept.Landmark,Landmark,Landmark concept
+concept.TerrainTile,Terrain tile,Terrain tile concept
+concept.WaterRegion,Water region,Water region concept
+concept.QuestBoard,Quest board,Quest board concept
+concept.Relation,Relationship,Relation concept
+concept.Reputation,Reputation,Reputation concept
+concept.CharacterPart,Character part,Character part concept
+concept.TerrainZone,Terrain zone,Terrain zone concept
+concept.QuestState,Quest state,Quest state concept
+concept.FloatableObject,Floatable object,Floatable object concept
+concept.Wearable,Wearable,Wearable concept
+concept.Carryable,Carryable,Carryable concept
+concept.Mountable,Mountable,Mountable concept
+concept.FlotationDevice,Flotation device,Flotation device concept
+state.Deep,Deep,Deep water state
+state.Shallow,Shallow,Shallow water state
+state.Unknown,Unknown,Water depth has not been observed
+state.Swimming,Swimming,Swimming state
+state.Wading,Wading,Wading state
+state.Floating,Floating,Floating state
+state.Dynamic,Dynamic,Dynamic state
+state.Anchored,Anchored,Anchored state
+state.Light,Light,Light density
+state.Heavy,Heavy,Heavy density
+value.Water,Water,Water element
+value.Stone,Stone,Stone material
+value.Polymer,Polymer,Polymer material
+value.Vegetation,Vegetation,Vegetation material
+value.Wood,Wood,Wood material
+value.WaterFloat,Water Float,Water float skill
+value.SelectThenEquip,Select then equip,Equip interaction
+value.SelectThenCarry,Select then carry,Carry interaction
+value.SelectThenMount,Select then mount,Mount interaction
+object.stone_1,Stone 1,Placeable display name
+object.stone_2,Stone 2,Placeable display name
+object.stone_3,Stone 3,Placeable display name
+object.grass_1,Grass 1,Placeable display name
+object.grass_2,Grass 2,Placeable display name
+object.landmark_cluster,Landmark Cluster,Placeable display name
+object.inflatable_ring,Inflatable Ring,Placeable display name
+fact.has_concept,{0} is classified as {1}.,Readable fact
+fact.located_in,{0} is located in {1}.,Readable fact
+fact.has_state,{0} is currently {1}.,Readable fact
+fact.state,{0} is currently {1}.,Readable fact
+fact.movement_mode,{0} moves by {1}.,Readable fact
+fact.occupies,{0} is inside {1}.,Readable fact
+fact.physical_profile,{0} uses the physical profile {1}.,Readable fact
+fact.attachment_profile,{0} uses the attachment profile {1}.,Readable fact
+fact.has_material,{0} is made of {1}.,Readable fact
+fact.supported_by,{0} is supported by {1}.,Readable fact
+fact.resting_on,{0} is resting on {1}.,Readable fact
+fact.has_element,{0} contains the element {1}.,Readable fact
+fact.related_to,{0} is related to {1}.,Readable fact
+fact.water_depth,{0}'s water depth is {1}.,Readable fact
+fact.pickup_behavior,{0}'s interaction is {1}.,Readable fact
+fact.has_slot,{0} uses the equipment slot {1}.,Readable fact
+fact.supports_behavior,{0} supports {1}.,Readable fact
+fact.mobility_mode,{0}'s mobility is {1}.,Readable fact
+fact.density_class,{0}'s density is {1}.,Readable fact
+fact.has_capability,{0} has the capability {1}.,Readable fact
+fact.grants_capability,{0} grants the capability {1}.,Readable fact
+fact.grants_skill,{0} grants the skill {1}.,Readable fact
+fact.skill_grant_requires_rule,{0} requires the rule block {1} to grant a skill.,Readable fact
+fact.has_skill,{0} has the skill {1}.,Readable fact
+fact.has_temporary_skill,{0} temporarily has the skill {1}.,Readable fact
+fact.can_use_skill,{0} can use the skill {1}.,Readable fact
+fact.equipped_by,{0} is equipped by {1}.,Readable fact
+fact.carried_by,{0} is carried by {1}.,Readable fact
+fact.has_rule_block,{0} has the rule block {1}.,Readable fact
+ui.status.no_operation_result,The operation did not return a result.,Operation fallback
+common.none,None,Empty value
+variable.actor,Actor,Rule variable
+variable.target,Target,Rule variable
+variable.tool,Tool,Rule variable
+variable.item,Item,Rule variable
+variable.object,Object,Rule variable
+variable.water,Water region,Rule variable
+variable.support,Support,Rule variable
+placement.ui.categories,Categories,Placement heading
+placement.ui.select,Select,Placement action
+placement.ui.close,Close,Placement action
+placement.empty.title,No objects,Empty placement catalog
+placement.empty.description,No placeable objects are registered in this category.,Empty placement catalog
+placement.status.choose,Choose an object.,Placement status
+placement.status.invalid_prefab,This catalog entry has no valid prefab.,Placement status
+placement.status.instructions,Move the mouse over a valid surface then left-click to place. Q/E rotates; Esc cancels.,Placement status
+placement.status.ready,Ready: left-click to place. Q/E rotates; Esc cancels.,Placement status
+placement.status.placed,{0} was placed and its ontology data was injected.,Placement status
+placement.validation.too_far,Too far away. Move your character closer.,Placement validation
+placement.validation.too_steep,This surface is too steep.,Placement validation
+placement.validation.unmarked_surface,This surface has not been marked for placement yet.,Placement validation
+placement.validation.wrong_surface,This object cannot be placed on this type of surface.,Placement validation
+placement.validation.too_close,Too close to another placed object.,Placement validation
+category.Nature,Nature,Placement category
+category.Landmark,Landmark,Placement category
+category.Water,Water,Placement category
+category.Other,Other,Placement category
+world_edit.status.inactive,Press Tab near an object to select it.,World edit status
+world_edit.status.finish_placement,Finish or cancel object placement first.,World edit status
+world_edit.status.no_nearby_object,No nearby editable object was found.,World edit status
+world_edit.status.moving,Move the mouse to position the object. Left-click confirms; right-click or Esc cancels.,World edit status
+world_edit.status.selected,Selected: {0},World edit status
+world_edit.summary.no_selection,No object selected.,World edit summary
+world_edit.summary.no_ontology,No ontology data is attached.,World edit summary
+world_edit.summary.id,Id,World edit summary
+world_edit.summary.concepts,Concepts,World edit summary
+world_edit.summary.facts,Facts,World edit summary
+character.ui.title,Character Parts,Character customization
+character.ui.toggle_hint,Press C to customize,Character customization
+character.ui.select_part,Select a part,Character customization
+character.ui.select_part_description,Choose a category and part to preview ontology effects.,Character customization
+character.ui.no_icon,No icon,Character customization
+character.ui.category,Category,Character customization
+character.ui.part,Part,Character customization
+character.ui.slot,Slot,Character customization
+character.ui.unknown_slot,Unknown slot,Character customization
+character.ui.equip,Equip,Character customization
+character.ui.unequip,Unequip,Character customization
+character.ui.equipped,Equipped,Character customization
+character.ui.ontology_facts,Ontology Facts,Character customization
+character.ui.badge.on,On,Character customization
+character.ui.badge.capability,Capability,Character customization
+character.ui.badge.conflict,Conflict,Character customization
+character.status.missing_data,Character customization data is missing.,Character status
+character.status.select_valid_part,Select a valid part first.,Character status
+character.status.equip_failed,Equip failed: {0} ({1}),Character status
+character.status.unequip_failed,Unequip failed: {0} ({1}),Character status
+character.status.equipped,Equipped: {0},Character status
+character.status.unequipped,Unequipped: {0},Character status
+character.detail.category,Category,Character detail
+character.detail.status,Status,Character detail
+character.detail.effects_will_unequip,Effects: will unequip ,Character detail
+character.detail.grants,Grants,Character detail
+character.preview.no_adapter,No runtime adapter.,Character preview
+character.preview.already_equipped,Already equipped.,Character preview
+character.preview.will_replace,Will replace {0}.,Character preview
+character.preview.available,Available to equip.,Character preview
+character.failure.definition_missing,part definition is missing,Character failure
+character.failure.renderer_missing,target renderer is missing,Character failure
+character.failure.world_missing,ontology world is not ready,Character failure
+character.failure.already_equipped,already equipped,Character failure
+character.failure.already_unequipped,already unequipped,Character failure
+character.failure.unknown,unknown reason,Character failure
+object.stone_1.description,A POLY STYLE stone.,Placeable description
+object.stone_2.description,A POLY STYLE stone.,Placeable description
+object.stone_3.description,A POLY STYLE stone.,Placeable description
+object.grass_1.description,A POLY STYLE vegetation group.,Placeable description
+object.grass_2.description,A POLY STYLE vegetation group.,Placeable description
+object.landmark_cluster.description,A POLY STYLE environment cluster.,Placeable description
+object.inflatable_ring.description,A light inflatable ring configured by ontology data.,Placeable description
+relation.animation_intent,animation intent,Relation
+relation.attachment_kind,attachment kind,Relation
+relation.attacks,attacks,Relation
+relation.attacks_with,attacks with,Relation
+relation.carried_item,carried item,Relation
+relation.cold_damage_tick,cold damage tick,Relation
+relation.combined,combined with,Relation
+relation.completed_quest,completed quest,Relation
+relation.core_vitality,core vitality,Relation
+relation.current_tick,current tick,Relation
+relation.emits,emits,Relation
+relation.equipped,equipped item,Relation
+relation.equipped_item,equipped item,Relation
+relation.equipped_part,equipped part,Relation
+relation.exposed_to,exposed to,Relation
+relation.fears,fears,Relation
+relation.has_item,item,Relation
+relation.helps,helps,Relation
+relation.immersion_depth,immersion depth,Relation
+relation.incompatible_with,incompatible with,Relation
+relation.inspects,inspects,Relation
+relation.intent,intent,Relation
+relation.interaction_intent,interaction intent,Relation
+relation.mood,mood,Relation
+relation.mounted_actor,mounted actor,Relation
+relation.mounted_in,mounted in,Relation
+relation.movement_state,movement state,Relation
+relation.near,near,Relation
+relation.offers,offers,Relation
+relation.physical_state,physical state,Relation
+relation.records,records,Relation
+relation.requires_concept,requires concept,Relation
+relation.slot_id,slot id,Relation
+relation.slot_owner,slot owner,Relation
+relation.standing_on,standing on,Relation
+relation.status,status,Relation
+relation.subject,subject,Relation
+relation.surface,surface,Relation
+relation.swimming_activity,swimming activity,Relation
+relation.talks_to,talks to,Relation
+relation.target,target,Relation
+relation.temperature,temperature,Relation
+relation.unequip_part,unequip part,Relation
+relation.applicable_to,applicable to,Relation
+fact.animation_intent,{0}'s animation intent is {1}.,Readable fact
+fact.attachment_kind,{0}'s attachment kind is {1}.,Readable fact
+fact.attacks,{0} attacks {1}.,Readable fact
+fact.attacks_with,{0} attacks with {1}.,Readable fact
+fact.carried_item,{0} carries {1}.,Readable fact
+fact.cold_damage_tick,{0} received cold damage at {1}.,Readable fact
+fact.combined,{0} is combined with {1}.,Readable fact
+fact.completed_quest,{0} completed {1}.,Readable fact
+fact.core_vitality,{0}'s core vitality is {1}.,Readable fact
+fact.current_tick,{0}'s current tick is {1}.,Readable fact
+fact.emits,{0} emits {1}.,Readable fact
+fact.equipped,{0} equipped {1}.,Readable fact
+fact.equipped_item,{0} has {1} equipped.,Readable fact
+fact.equipped_part,{0} has the part {1} equipped.,Readable fact
+fact.exposed_to,{0} is exposed to {1}.,Readable fact
+fact.fears,{0} fears {1}.,Readable fact
+fact.has_item,{0} owns {1}.,Readable fact
+fact.helps,{0} helps {1}.,Readable fact
+fact.immersion_depth,{0}'s immersion depth is {1}.,Readable fact
+fact.incompatible_with,{0} is incompatible with {1}.,Readable fact
+fact.inspects,{0} inspects {1}.,Readable fact
+fact.intent,{0}'s intent is {1}.,Readable fact
+fact.interaction_intent,{0}'s interaction intent is {1}.,Readable fact
+fact.mood,{0}'s mood is {1}.,Readable fact
+fact.mounted_actor,{0} carries the mounted actor {1}.,Readable fact
+fact.mounted_in,{0} is mounted in {1}.,Readable fact
+fact.movement_state,{0}'s movement state is {1}.,Readable fact
+fact.near,{0} is near {1}.,Readable fact
+fact.offers,{0} offers {1}.,Readable fact
+fact.physical_state,{0}'s physical state is {1}.,Readable fact
+fact.records,{0} records {1}.,Readable fact
+fact.requires_concept,{0} requires the concept {1}.,Readable fact
+fact.slot_id,{0} uses slot {1}.,Readable fact
+fact.slot_owner,{0}'s slot owner is {1}.,Readable fact
+fact.standing_on,{0} is standing on {1}.,Readable fact
+fact.status,{0}'s status is {1}.,Readable fact
+fact.subject,{0}'s subject is {1}.,Readable fact
+fact.surface,{0}'s surface is {1}.,Readable fact
+fact.swimming_activity,{0}'s swimming activity is {1}.,Readable fact
+fact.talks_to,{0} talks to {1}.,Readable fact
+fact.target,{0}'s target is {1}.,Readable fact
+fact.temperature,{0}'s temperature is {1}.,Readable fact
+fact.unequip_part,{0} removes the part {1}.,Readable fact
+fact.applicable_to,{0} is applicable to {1}.,Readable fact
+concept_validation.empty,Concept cannot be empty.,Concept validation
+concept_validation.not_selectable,{0} is not selectable.,Concept validation
+concept_validation.conflict,{0} conflicts with the existing concept {1}.,Concept validation
+concept_validation.requires,{0} requires the concept {1}.,Concept validation
+concept_validation.applicable,{0} is intended for objects with: {1}.,Concept validation
+concept.PhysicalProfile,Physical profile,Concept
+concept.AttachmentProfile,Attachment profile,Concept
+state.Afraid,Afraid,State
+state.Burning,Burning,State
+state.Calm,Calm,State
+state.ColdEnvironment,Cold environment,State
+state.DeathReaction,Death reaction,State
+state.Discomfort,Discomfort,State
+state.Distrustful,Distrustful,State
+state.Disturbed,Disturbed,State
+state.Drowning,Drowning,State
+state.Flee,Fleeing,State
+state.Freezing,Freezing,State
+state.Healthy,Healthy,State
+state.Idle,Idle,State
+state.ImpairedMovement,Impaired movement,State
+state.Moving,Moving,State
+state.Neutral,Neutral,State
+state.Recovering,Recovering,State
+state.Respectful,Respectful,State
+state.SevereDamageReaction,Severe damage reaction,State
+state.ShallowWater,Shallow water,State
+state.Slowed,Slowed,State
+state.Smoke,Smoke,State
+state.Swamp,Swamp,State
+state.TreadingWater,Treading water,State
+state.Warm,Warmed,State
+state.Wary,Wary,State
+state.Wet,Wet,State
+value.Accessory,Accessory,Value
+value.AngryExpression,Angry expression,Value
+value.Attack,Attack,Value
+value.AudioGear,Audio gear,Value
+value.Back,Back,Value
+value.Body,Body,Value
+value.Buoyancy,Buoyancy,Value
+value.ClownNose,Clown nose,Value
+value.ColdProtection,Cold protection,Value
+value.ColdProtectionPreparation,Cold protection preparation,Value
+value.Costume,Costume,Value
+value.DriverSeat,Driver seat,Value
+value.Ears,Ears,Value
+value.Eyes,Eyes,Value
+value.Eyewear,Eyewear,Value
+value.Face,Face,Value
+value.FacialHair,Facial hair,Value
+value.Feet,Feet,Value
+value.Footwear,Footwear,Value
+value.FullBody,Full body,Value
+value.Grass,Grass,Value
+value.Hair,Hair,Value
+value.HandProtection,Hand protection,Value
+value.Hands,Hands,Value
+value.Handwear,Handwear,Value
+value.HappyExpression,Happy expression,Value
+value.Head,Head,Value
+value.Headwear,Headwear,Value
+value.Help,Help,Value
+value.Ice,Ice,Value
+value.Inspect,Inspect,Value
+value.LowerBody,Lower body,Value
+value.Mascot,Mascot,Value
+value.NeutralExpression,Neutral expression,Value
+value.Outerwear,Outerwear,Value
+value.Outfit,Outfit,Value
+value.Pacifier,Pacifier,Value
+value.RightHand,Right hand,Value
+value.Shorts,Shorts,Value
+value.SkinSurface,Skin surface,Value
+value.Slippers,Slippers,Value
+value.Socks,Socks,Value
+value.Stick,Stick,Value
+value.StoneAxe,Stone axe,Value
+value.SwampProtectionPreparation,Swamp protection preparation,Value
+value.SwampResistance,Swamp resistance,Value
+value.Talk,Talk,Value
+value.Torso,Torso,Value
+value.UpperBody,Upper body,Value
+value.Waist,Waist,Value
+value.Warmth,Warmth,Value
+value.HeavySinking,Heavy sinking,Value
+value.LightBuoyant,Light buoyant,Value
+value.StaticAnchored,Static anchored,Value
+value.HeavyBuoyant,Heavy buoyant,Value
+value.BackCarry,Back carry,Value
+value.DriverSeatMount,Driver seat mount,Value
+value.RightHandCarry,Right-hand carry,Value
+value.WaistInflatableRing,Waist inflatable ring,Value
+entity.Player,Player,Entity
+entity.Goblin,Goblin,Entity
+entity.FireSword,Fire sword,Entity
+entity.Village,Village,Entity
+entity.VillageOutskirts,Village outskirts,Entity
+entity.BeachZone,Beach zone,Entity
+entity.GoblinClan,Goblin clan,Entity
+entity.Tree,Tree,Entity
+entity.Bush,Bush,Entity
+entity.Reed,Reed,Entity
+entity.Torch,Torch,Entity
+action.attack,Attack {target} with {tool},Action label
+action.inspect,Inspect {target},Action label
+action.talk,Talk to {target},Action label
+action.help,Help {target},Action label
+action.equip_part,Equip {target},Action label
+action.unequip_part,Unequip {target},Action label
+action.unequip_wearable,Unequip {target},Action label
+physical_profile.HeavySinking,Heavy sinking,Physical profile
+physical_profile.LightBuoyant,Light buoyant,Physical profile
+physical_profile.StaticAnchored,Static anchored,Physical profile
+physical_profile.HeavyBuoyant,Heavy buoyant,Physical profile
+attachment_profile.BackCarry,Back carry,Attachment profile
+attachment_profile.DriverSeatMount,Driver seat mount,Attachment profile
+attachment_profile.RightHandCarry,Right-hand carry,Attachment profile
+attachment_profile.WaistInflatableRing,Waist inflatable ring,Attachment profile
+character_part.Part_Body_Base,Body 010,Character part
+character_part.Part_Face_Base,Usual expression,Character part
+character_part.Part_Male_Emotion_Happy_002,Happy expression,Character part
+character_part.Part_Male_Emotion_Angry_003,Angry expression,Character part
+character_part.Part_Hairstyle_Base,Hairstyle male 001,Character part
+character_part.Part_Hairstyle_Male_005,Hairstyle male 005,Character part
+character_part.Part_Hairstyle_Male_Single_006,Hairstyle male single 006,Character part
+character_part.Part_TShirt_Base,T-shirt base,Character part
+character_part.Part_Pants_Base,Pants 009,Character part
+character_part.Part_Pants_010,Pants 010,Character part
+character_part.Part_Shorts_003,Shorts 003,Character part
+character_part.Part_Shoes_Base,Sneakers 009,Character part
+character_part.Part_Shoe_Slippers_002,Slippers 002,Character part
+character_part.Part_Shoe_Slippers_005,Slippers 005,Character part
+character_part.Part_Socks_008,Socks 008,Character part
+character_part.Part_Outerwear_Base,Outerwear 004,Character part
+character_part.Part_Outwear_043,Outerwear 043,Character part
+character_part.Part_Outwear_050,Outerwear 050,Character part
+character_part.Part_Mascot_002,Mascot 002,Character part
+character_part.Part_Outfit_010,Outfit 010,Character part
+character_part.Part_FullBody_Base,Costume 13,Character part
+character_part.Part_Hat_Base,Hat 010,Character part
+character_part.Part_Hat_Single_008,Hat single 008,Character part
+character_part.Part_Hat_Single_013,Hat single 013,Character part
+character_part.Part_Hat_Single_016,Hat single 016,Character part
+character_part.Part_Costume_13_002,Costume 13 hat,Character part
+character_part.Part_Glasses_Base,Glasses 006,Character part
+character_part.Part_Glasses_004,Glasses 004,Character part
+character_part.Part_Gloves_Base,Gloves 006,Character part
+character_part.Part_Gloves_014,Gloves 014,Character part
+character_part.Part_Mustache_Base,Mustache 011,Character part
+character_part.Part_Mustache_003,Mustache 003,Character part
+character_part.Part_Accessories_Base,Headphones 002,Character part
+character_part.Part_Clown_Nose_001,Clown nose 001,Character part
+character_part.Part_Pacifier_001,Pacifier 001,Character part
+rule.BurnEvent.name,Burn event,Rule
+rule.BurnEvent.description,A dry plant hit by a fire object starts burning.,Rule description
+rule.SmokeEvent.name,Smoke event,Rule
+rule.SmokeEvent.description,A burning object emits smoke and creates a visible world signal.,Rule description
+rule.FleeEvent.name,Flee event,Rule
+rule.FleeEvent.description,A creature that fears fire flees when a nearby object emits fire.,Rule description
+rule.DisturbanceEvent.name,Disturbance event,Rule
+rule.DisturbanceEvent.description,A fleeing creature near a village creates a local disturbance.,Rule description
+rule.QuestHookEvent.name,Investigation quest hook,Rule
+rule.QuestHookEvent.description,A disturbed place and visible smoke expose an investigation quest hook.,Rule description
+rule.NpcFearMoodEvent.name,NPC fear mood,Rule
+rule.NpcFearMoodEvent.description,A fleeing NPC becomes afraid.,Rule description
+rule.NpcDistrustEvent.name,NPC distrust,Rule
+rule.NpcDistrustEvent.description,Talking to an afraid NPC makes them distrust the player.,Rule description
+rule.NpcRespectEvent.name,NPC respect,Rule
+rule.NpcRespectEvent.description,Helping the village earns respect from nearby NPCs.,Rule description
+rule.QuestConsequenceEvent.name,Quest consequence,Rule
+rule.QuestConsequenceEvent.description,Completing the smoke investigation helps the disturbed village recover.,Rule description
+rule.CraftStoneAxeRule.name,Craft stone axe,Rule
+rule.CraftStoneAxeRule.description,The player crafts a stone axe.,Rule description
+rule.TileWaterStatusWetRule.name,Water tile makes wet,Rule
+rule.TileWaterStatusWetRule.description,An actor standing on a water tile becomes wet.,Rule description
+rule.TileFreezingColdExposureRule.name,Freezing tile cold exposure,Rule
+rule.TileFreezingColdExposureRule.description,An actor standing on a freezing tile is exposed to a cold environment.,Rule description
+rule.SwampResistanceCapabilityRule.name,Swamp resistance capability,Rule
+rule.SwampResistanceCapabilityRule.description,Swamp-resistance equipment protects an actor's movement in a swamp.,Rule description
+rule.TileSwampMovementSlowRule.name,Swamp movement slowdown,Rule
+rule.TileSwampMovementSlowRule.description,An actor standing on a swamp tile becomes slowed unless protected by swamp resistance.,Rule description
+rule.ColdProtectionWarmthRule.name,Cold protection warmth,Rule
+rule.ColdProtectionWarmthRule.description,Cold-protection equipment keeps a cold-exposed actor warm.,Rule description
+rule.ColdExposureVitalityTickRule.name,Cold exposure vitality damage,Rule
+rule.ColdExposureVitalityTickRule.description,Cold exposure lowers core vitality once per simulation tick unless the actor is warm.,Rule description
+rule.SlowedAnimationIntentRule.name,Slowed animation intent,Rule
+rule.SlowedAnimationIntentRule.description,Slowed actors prefer an impaired-movement animation intent.,Rule description
+rule.ColdAnimationIntentRule.name,Cold animation intent,Rule
+rule.ColdAnimationIntentRule.description,Cold exposure prefers a discomfort animation intent.,Rule description
+rule.LowVitalityAnimationIntentRule3.name,Low vitality reaction 3,Rule
+rule.LowVitalityAnimationIntentRule3.description,Core vitality 3 creates a severe-damage animation intent.,Rule description
+rule.LowVitalityAnimationIntentRule2.name,Low vitality reaction 2,Rule
+rule.LowVitalityAnimationIntentRule2.description,Core vitality 2 creates a severe-damage animation intent.,Rule description
+rule.LowVitalityAnimationIntentRule1.name,Low vitality reaction 1,Rule
+rule.LowVitalityAnimationIntentRule1.description,Core vitality 1 creates a severe-damage animation intent.,Rule description
+rule.DeathAnimationIntentRule.name,Death animation intent,Rule
+rule.DeathAnimationIntentRule.description,Core vitality 0 creates a death-reaction animation intent.,Rule description
+rule.ColdProtectionQuestHook.name,Cold protection quest,Rule
+rule.ColdProtectionQuestHook.description,Cold exposure offers a quest to equip protective clothing.,Rule description
+rule.SwampProtectionQuestHook.name,Swamp protection quest,Rule
+rule.SwampProtectionQuestHook.description,Entering a swamp without resistance offers a protective-equipment quest.,Rule description
+rule.DeepWaterOccupancySwimming.name,Deep-water swimming,Rule
+rule.DeepWaterOccupancySwimming.description,An actor deeply immersed in a water region uses swimming movement.,Rule description
+rule.DeepWaterWithoutSwimmingBlockDrowning.name,Deep-water drowning,Rule
+rule.DeepWaterWithoutSwimmingBlockDrowning.description,An actor in deep water drowns when no swimming rule applies and the actor cannot use the swimming skill.,Rule description
+rule.SwimmingMovementAnimationIntent.name,Swimming movement animation,Rule
+rule.SwimmingMovementAnimationIntent.description,Swimming movement expresses the swimming animation intent unless the actor is idle.,Rule description
+rule.SwimmingIntentRequiresSwimmingMovement.name,Swimming intent cleanup,Rule
+rule.SwimmingIntentRequiresSwimmingMovement.description,Swimming animation intent exists only while swimming movement is inferred.,Rule description
+rule.ShallowWaterOccupancyWading.name,Shallow-water wading,Rule
+rule.ShallowWaterOccupancyWading.description,An actor shallowly immersed in a water region uses wading movement.,Rule description
+rule.SwimmingIdleTreadingWaterIntent.name,Idle treading water,Rule
+rule.SwimmingIdleTreadingWaterIntent.description,Idle swimming activity expresses the treading-water animation intent.,Rule description
+rule.TreadingWaterIntentRequiresSwimmingMode.name,Treading-water swimming requirement,Rule
+rule.TreadingWaterIntentRequiresSwimmingMode.description,Treading-water intent is removed when swimming movement ends.,Rule description
+rule.TreadingWaterIntentRequiresMovingCleanup.name,Treading-water movement cleanup,Rule
+rule.TreadingWaterIntentRequiresMovingCleanup.description,Treading-water intent is removed when the swimming actor starts moving.,Rule description
+rule.BuoyantWhenInWater.name,Floatable object in water,Rule
+rule.BuoyantWhenInWater.description,A floatable object occupying a water region enters the floating physical state.,Rule description
+rule.AutoEquipNearbyWearable.name,Equip nearby wearable,Rule
+rule.AutoEquipNearbyWearable.description,A selected wearable reserves an empty equipment slot when an actor approaches it.,Rule description
+rule.EquippedItemGrantsTemporarySkill.name,Floating equipment grants skill,Rule
+rule.EquippedItemGrantsTemporarySkill.description,An equipped floating item grants its skill temporarily while it remains afloat.,Rule description
+rule.LearnedSkillBecomesUsable.name,Learned skill becomes usable,Rule
+rule.LearnedSkillBecomesUsable.description,A skill owned by an actor becomes usable.,Rule description
+rule.TemporarySkillBecomesUsable.name,Temporary skill becomes usable,Rule
+rule.TemporarySkillBecomesUsable.description,A temporary equipment skill becomes usable while the granting relation exists.,Rule description
+rule.UsableSwimmingSkillEnablesDeepWaterMovement.name,Swimming skill enables movement,Rule
+rule.UsableSwimmingSkillEnablesDeepWaterMovement.description,An actor who can use swimming moves by swimming while deeply immersed in a water region.,Rule description
+rule.UsableSwimmingSkillCancelsDrowning.name,Swimming skill cancels drowning,Rule
+rule.UsableSwimmingSkillCancelsDrowning.description,A usable swimming skill removes a stale drowning movement state.,Rule description
+rule.EquippedSlotItemAttaches.name,Attach equipped item,Rule
+rule.EquippedSlotItemAttaches.description,The item reserved by an actor's equipment slot attaches to that actor.,Rule description
+rule.AutoCarryNearbyCarryable.name,Carry nearby object,Rule
+rule.AutoCarryNearbyCarryable.description,A selected carryable reserves an empty carry slot when an actor approaches it.,Rule description
+rule.CarriedSlotItemAttaches.name,Attach carried item,Rule
+rule.CarriedSlotItemAttaches.description,A carried item is presented at the actor anchor defined by its profile.,Rule description
+rule.AutoMountNearbyMountable.name,Mount nearby object,Rule
+rule.AutoMountNearbyMountable.description,A selected mountable reserves its profile-defined seat when an actor approaches it.,Rule description
+rule.MountedActorUsesMount.name,Present mounted actor,Rule
+rule.MountedActorUsesMount.description,The actor reserved by a mountable seat is presented at that mount point.,Rule description
+rule.SupportedObjectRestsOnSupport.name,Object rests on support,Rule
+rule.SupportedObjectRestsOnSupport.description,A physical support observation means the object is resting on the supporting ontology entity.,Rule description
+labels.characterPartsTitle,Character Parts,Shared UI label
+labels.debugTitle,Ontology Debug,Shared UI label
+labels.actionButtonsTitle,Action Buttons,Shared UI label
+labels.runSimulation,Run Simulation,Shared UI label
+labels.attackTree,Attack Tree,Shared UI label
+labels.resetWorld,Reset World,Shared UI label
+labels.saveSnapshot,Save,Shared UI label
+labels.loadSnapshot,Load,Shared UI label
+labels.equip,Equip,Shared UI label
+labels.unequip,Unequip,Shared UI label
+labels.equippedState,ON,Shared UI label
+labels.unequippedState,OFF,Shared UI label
+labels.meshState,mesh,Shared UI label
+labels.factState,fact,Shared UI label
+labels.equippedCountFormat,Equipped parts: {0} / {1},Shared UI label
+labels.equippedActionFormat,Equipped: {0},Shared UI label
+labels.unequippedActionFormat,Unequipped: {0},Shared UI label
+labels.equipFailedFormat,Equip failed: {0},Shared UI label
+labels.unequipFailedFormat,Unequip failed: {0},Shared UI label
+labels.partFailureDefinitionMissing,part definition is missing,Shared UI label
+labels.partFailureRendererMissing,renderer is missing,Shared UI label
+labels.partFailureWorldMissing,ontology world is not ready,Shared UI label
+labels.partFailureAlreadyEquipped,already equipped,Shared UI label
+labels.partFailureAlreadyUnequipped,already unequipped,Shared UI label
+labels.missingReferences,Character part UI is missing references.,Shared UI label
+labels.noPartAdapter,No character part adapter.,Shared UI label
+labels.noBootstrap,No OntologyWorldBootstrap found.,Shared UI label
+labels.noSaveController,No OntologySaveController found.,Shared UI label
+labels.questActionPrefix,[Quest] ,Shared UI label
+labels.allActionsFilter,All,Shared UI label
+labels.questActionsFilter,Quest,Shared UI label
+labels.partActionsFilter,Parts,Shared UI label
+labels.worldActionsFilter,World,Shared UI label
+labels.filterStatusFormat,Filter: {0} | Actions: {1},Shared UI label
+labels.selectedPartFormat,"Selected: {0}\nSlot: {1}\nState: {2} | Fact: {3}",Shared UI label
+labels.selectedPartPreviewFormat,"{0}\nCapabilities: {1}\nConflicts: {2}\nOn Equip: {3}",Shared UI label
+labels.conflictWarningFormat,Will unequip: {0},Shared UI label
+labels.capabilitySwampResistance,Swamp Resistance,Shared UI label
+labels.capabilityColdProtection,Cold Protection,Shared UI label
+labels.capabilitySwampResistanceEffect,prevents Slowed on swamp,Shared UI label
+labels.capabilityColdProtectionEffect,grants Warm in cold,Shared UI label
+labels.noCapabilities,none,Shared UI label
+labels.noConflicts,none,Shared UI label
+labels.noDiff,no change,Shared UI label
+labels.partSearchPlaceholder,Search parts...,Shared UI label
+labels.partStateAll,All,Shared UI label
+labels.partStateEquipped,Equipped,Shared UI label
+labels.partStateAvailable,Available,Shared UI label
+labels.partSlotAll,All Slots,Shared UI label
+labels.partStateFilterFormat,State: {0},Shared UI label
+labels.partSlotFilterFormat,Slot: {0},Shared UI label
+labels.graphSummaryFormat,Graph: {0} facts | {1} subjects | {2} predicates,Shared UI label
+labels.questSummaryFormat,Quest actions: {0},Shared UI label
+labels.toastSaved,Snapshot saved.,Shared UI label
+labels.toastLoaded,Snapshot loaded.,Shared UI label
+labels.toastReset,World reset.,Shared UI label
+labels.toastRan,Simulation ran.,Shared UI label
+labels.actorToastFactFormat,{0}: {1},Shared UI label
+labels.actorToastRemovedFactFormat,Lost {0}: {1},Shared UI label
+labels.actorToastStatus,Status,Shared UI label
+labels.actorToastMovementState,Movement,Shared UI label
+labels.actorToastExposure,Exposure,Shared UI label
+labels.actorToastCapability,Capability,Shared UI label
+labels.actorToastEquippedPart,Equipped,Shared UI label
+labels.actorToastAnimationIntent,Intent,Shared UI label
+labels.actorToastStandingOn,Tile,Shared UI label
+labels.hudTitle,[ONTOLOGY RUNTIME HUD],Shared UI label
+labels.hudWorldNotReady,World is not ready.,Shared UI label
+labels.hudDivider,--------------------------------,Shared UI label
+labels.hudCurrentTick,Current Tick,Shared UI label
+labels.hudStandingOn,Standing On,Shared UI label
+labels.hudCoreVitality,Core Vitality,Shared UI label
+labels.hudStatusWet,Status Wet,Shared UI label
+labels.hudStateSlowed,State Slowed,Shared UI label
+labels.hudExposedCold,Exposed Cold,Shared UI label
+labels.hudEquippedParts,Equipped Parts,Shared UI label
+labels.hudPartCapabilities,Part Capabilities,Shared UI label
+labels.hudAnimationIntent,Animation Intent,Shared UI label
+labels.hudSelectedIntent,Selected Intent,Shared UI label
+labels.hudSelectedAnimation,Selected Animation,Shared UI label
+labels.hudSelectedClip,Selected Clip,Shared UI label
+labels.trueText,TRUE,Shared UI label
+labels.falseText,FALSE,Shared UI label
+labels.noneText,None,Shared UI label
+ui.button.selected,Selected,Physical behavior
+ui.button.choose,Choose,Physical behavior
+ui.button.details,Details,Physical behavior
+ui.button.apply,Apply,Physical behavior
+ui.button.close,Close,Physical behavior
+ui.title.physical_details,Physical behavior details,Physical behavior
+result.no_physical_profile,No physical behavior is registered.,Physical behavior
+result.no_physical_behavior,No physical behavior is selected.,Physical behavior
+result.expected_behavior,Expected result: {0},Physical behavior
+physical_choice.HeavySinking,Sink when it enters the water,Physical behavior
+physical_choice.LightBuoyant,Float lightly on the water,Physical behavior
+physical_choice.HeavyBuoyant,Float strongly on the water,Physical behavior
+physical_choice.StaticAnchored,Stay fixed in place,Physical behavior
+physical_result.HeavySinking,This object falls under gravity and sinks when it enters water.,Physical behavior
+physical_result.LightBuoyant,This object rises gently and floats near the water surface.,Physical behavior
+physical_result.HeavyBuoyant,This heavy object rises with strong buoyancy and floats on the water.,Physical behavior
+physical_result.StaticAnchored,This object stays fixed and is not moved by gravity or buoyancy.,Physical behavior
+physical_detail.format,"Expected result
+{0}
+
+Automatically configured ontology
+Concept: {1}
+Physical profile: {2}
+Rule block: {3}
+
+Physical tuning
+Mass: {4:0.##}
+Buoyancy strength: {5:0.##}
+Water damping: {6:0.##}
+Submerged ratio: {7:0%}
+Surface offset: {8:0.##}",Physical behavior
+ui.rule_block.quick_action,Quick action,Rule blocks
+ui.title.rule_block_details,Rule block details,Rule blocks
+rule_preset.water_buoyancy,Apply buoyancy in water,Rule blocks
+rule_preset.auto_equip,Equip when selected nearby,Rule blocks
+rule_preset.temporary_skill,Grant equipment skill temporarily,Rule blocks
+rule_preset.water_buoyancy.description,This object becomes buoyant while it occupies a water region.,Rule blocks
+rule_preset.auto_equip.description,This object can be equipped after the player intentionally selects and approaches it.,Rule blocks
+rule_preset.temporary_skill.description,An equipped item grants its authored skill only while its enabling rule block remains attached.,Rule blocks
+rule_preset.temporary_skill_setup.title,Equipment skill setup,Rule blocks
+rule_preset.temporary_skill_setup.body,Choose the skill this equipment grants and the rule block that keeps it active. The required triples are authored before the temporary-skill rule is added.,Rule blocks
+rule_preset.temporary_skill_setup.apply,Set and apply,Rule blocks
+rule_preset.temporary_skill_setup.choose,Choose a skill and rule condition,Rule blocks
+rule_preset.temporary_skill_setup.no_choice,Choose the skill and rule condition to apply first.,Rule blocks
+rule_preset.temporary_skill_setup.no_rule,Add the rule block that should keep this equipment skill active first.,Rule blocks
+rule_preset.temporary_skill_setup.no_skill,No selectable skill is defined by the current ontology catalog.,Rule blocks
+rule_preset.detail.format,"{0}\n\nApplied to this placed object only.\n\nRule block: {1}\nBinding: {2}\nPhysical behavior: {3}\nConcepts: {4}\nFacts:\n{5}\nRequired existing data: {6}\n\nTemplates provide defaults only. Editing here never changes the source template.",Rule blocks

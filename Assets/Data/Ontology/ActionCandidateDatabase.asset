@@ -121,3 +121,13 @@ MonoBehaviour:
       subject: ?actor
       predicate: equipped_part
       obj: ?part
+  - actionVerb: unequip_wearable
+    targetPattern: ?target
+    toolPattern:
+    labelFormat: Unequip {target}
+    reasonFormat: '{target} is equipped by {actor}'
+    conditions:
+    - kind: 0
+      subject: ?target
+      predicate: equipped_by
+      obj: ?actor

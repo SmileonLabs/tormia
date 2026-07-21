@@ -8,6 +8,10 @@ namespace Tormia.Ontology.Core
     {
         private readonly Dictionary<OntologyId, OntologyEntityState> entities = new();
         private readonly HashSet<OntologyFact> facts = new();
+        // Predicate index keeps ontology semantics unchanged while avoiding a full fact scan
+        // for the common "subject -> predicate -> object" rule condition.
+        private readonly Dictionary<OntologyId, HashSet<OntologyFact>> factsByPredicate = new();
+        private readonly HashSet<OntologyId> changedPredicates = new();
 
         public IEnumerable<OntologyEntityState> Entities => entities.Values;
         public IEnumerable<OntologyFact> Facts => facts;
@@ -28,7 +32,7 @@ namespace Tormia.Ontology.Core
             var added = GetOrCreateEntity(entityId).AddConcept(concept);
             if (added)
             {
-                AddFact(entityId, "has_concept", concept);
+                AddFact(entityId, OntologyPredicates.HasConcept, concept);
             }
 
             return added;
@@ -48,6 +52,12 @@ namespace Tormia.Ontology.Core
             }
 
             var added = facts.Add(fact);
+            if (added)
+            {
+                AddToPredicateIndex(fact);
+                changedPredicates.Add(fact.Predicate);
+            }
+
             if (fact.Predicate.Equals(OntologyPredicates.HasConcept))
             {
                 GetOrCreateEntity(fact.Subject).AddConcept(fact.Object);
@@ -60,6 +70,12 @@ namespace Tormia.Ontology.Core
         {
             var fact = new OntologyFact(subject, predicate, obj);
             var removed = facts.Remove(fact);
+            if (removed)
+            {
+                RemoveFromPredicateIndex(fact);
+                changedPredicates.Add(fact.Predicate);
+            }
+
             if (removed && fact.Predicate.Equals(OntologyPredicates.HasConcept) && entities.TryGetValue(fact.Subject, out var entity))
             {
                 entity.RemoveConcept(fact.Object);
@@ -120,13 +136,8 @@ namespace Tormia.Ontology.Core
 
             foreach (var fact in targets)
             {
-                if (facts.Remove(fact))
+                if (RemoveFact(fact.Subject, fact.Predicate, fact.Object))
                 {
-                    if (fact.Predicate.Equals(OntologyPredicates.HasConcept) && entities.TryGetValue(fact.Subject, out var entity))
-                    {
-                        entity.RemoveConcept(fact.Object);
-                    }
-
                     removed++;
                 }
             }
@@ -159,7 +170,7 @@ namespace Tormia.Ontology.Core
                     return false;
                 }
 
-                facts.Remove(fact);
+                RemoveFact(fact.Subject, fact.Predicate, fact.Object);
                 return AddFact(subject, predicate, nextValue.ToString(CultureInfo.InvariantCulture));
             }
 
@@ -169,6 +180,13 @@ namespace Tormia.Ontology.Core
         public bool HasFact(OntologyId subject, OntologyId predicate, OntologyId obj)
         {
             return facts.Contains(new OntologyFact(subject, predicate, obj));
+        }
+
+        public OntologyWorldChangeSet ConsumeChanges()
+        {
+            var changes = new OntologyWorldChangeSet(changedPredicates);
+            changedPredicates.Clear();
+            return changes;
         }
 
         public List<OntologyId> FindEntitiesWithConcept(OntologyId concept)
@@ -211,22 +229,15 @@ namespace Tormia.Ontology.Core
 
         public List<OntologyFact> FindFacts(OntologyId predicate)
         {
-            var results = new List<OntologyFact>();
-            foreach (var fact in facts)
-            {
-                if (fact.Predicate.Equals(predicate))
-                {
-                    results.Add(fact);
-                }
-            }
-
-            return results;
+            return factsByPredicate.TryGetValue(predicate, out var indexed)
+                ? new List<OntologyFact>(indexed)
+                : new List<OntologyFact>();
         }
 
         public List<OntologyFact> FindFacts(OntologyId predicate, OntologyId obj)
         {
             var results = new List<OntologyFact>();
-            foreach (var fact in facts)
+            foreach (var fact in GetFactsForPredicate(predicate))
             {
                 if (fact.Predicate.Equals(predicate) && fact.Object.Equals(obj))
                 {
@@ -235,6 +246,17 @@ namespace Tormia.Ontology.Core
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Returns the candidate facts for a known predicate without copying them. Consumers
+        /// must not mutate the world while enumerating this collection.
+        /// </summary>
+        public IEnumerable<OntologyFact> GetFactsForPredicate(OntologyId predicate)
+        {
+            return factsByPredicate.TryGetValue(predicate, out var indexed)
+                ? indexed
+                : EmptyFacts;
         }
 
         public List<OntologyId> FindSubjects(OntologyId predicate, OntologyId obj)
@@ -260,5 +282,52 @@ namespace Tormia.Ontology.Core
             return builder.ToString().TrimEnd();
         }
 
+        private static readonly OntologyFact[] EmptyFacts = new OntologyFact[0];
+
+        private void AddToPredicateIndex(OntologyFact fact)
+        {
+            if (!factsByPredicate.TryGetValue(fact.Predicate, out var indexed))
+            {
+                indexed = new HashSet<OntologyFact>();
+                factsByPredicate.Add(fact.Predicate, indexed);
+            }
+
+            indexed.Add(fact);
+        }
+
+        private void RemoveFromPredicateIndex(OntologyFact fact)
+        {
+            if (!factsByPredicate.TryGetValue(fact.Predicate, out var indexed))
+            {
+                return;
+            }
+
+            indexed.Remove(fact);
+            if (indexed.Count == 0)
+            {
+                factsByPredicate.Remove(fact.Predicate);
+            }
+        }
+
+    }
+
+    public sealed class OntologyWorldChangeSet
+    {
+        private readonly HashSet<OntologyId> predicates;
+
+        public OntologyWorldChangeSet(IEnumerable<OntologyId> predicates)
+        {
+            this.predicates = predicates != null
+                ? new HashSet<OntologyId>(predicates)
+                : new HashSet<OntologyId>();
+        }
+
+        public bool IsEmpty => predicates.Count == 0;
+        public IEnumerable<OntologyId> Predicates => predicates;
+
+        public bool ContainsPredicate(OntologyId predicate)
+        {
+            return predicates.Contains(predicate);
+        }
     }
 }

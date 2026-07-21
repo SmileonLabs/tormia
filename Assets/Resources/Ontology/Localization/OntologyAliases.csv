@@ -1,0 +1,56 @@
+locale,alias,canonical_id
+en,type,has_concept
+en,concept,has_concept
+ko,종류,has_concept
+ko,개념,has_concept
+ko,분류,has_concept
+en,location,located_in
+ko,위치,located_in
+ko,장소,located_in
+ko,배치 지역,located_in
+en,status,state
+ko,상태,state
+ko,현재 상태,state
+en,plant,Plant
+en,vegetation,Plant
+ko,식물,Plant
+ko,나무,Plant
+en,rock,Rock
+en,stone,Rock
+ko,바위,Rock
+ko,돌,Rock
+en,landmark,Landmark
+ko,랜드마크,Landmark
+en,water region,WaterRegion
+ko,물 영역,WaterRegion
+ko,수역,WaterRegion
+en,floatable object,FloatableObject
+ko,물에 뜨는 오브젝트,FloatableObject
+ko,부유 오브젝트,FloatableObject
+en,wearable,Wearable
+ko,착용 가능,Wearable
+en,flotation device,FlotationDevice
+ko,부력 장비,FlotationDevice
+ko,튜브,FlotationDevice
+en,deep,Deep
+ko,깊음,Deep
+ko,깊은 물,Deep
+en,shallow,Shallow
+ko,얕음,Shallow
+ko,얕은 물,Shallow
+en,swimming,Swimming
+ko,수영,Swimming
+ko,수영 중,Swimming
+en,wading,Wading
+ko,얕은 물 걷기,Wading
+en,floating,Floating
+ko,떠 있음,Floating
+ko,부유,Floating
+en,water,Water
+ko,물,Water
+en,wood,Wood
+ko,나무 재질,Wood
+en,polymer,Polymer
+ko,폴리머,Polymer
+en,water float,WaterFloat
+ko,물에 뜨기,WaterFloat

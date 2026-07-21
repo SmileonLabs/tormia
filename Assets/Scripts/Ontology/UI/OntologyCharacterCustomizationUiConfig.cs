@@ -35,22 +35,24 @@ namespace Tormia.Ontology.Core
         public const string LabelName = "Label";
         public const string StateName = "State";
 
-        public const string Title = "Character Parts";
+        public static string Title => L("character.ui.title", "Character Parts");
         public const string CloseLabel = "X";
-        public const string ToggleHint = "Press C to customize";
-        public const string SelectPartTitle = "Select a part";
-        public const string SelectPartDescription = "Choose a category and part to preview ontology effects.";
-        public const string NoIconLabel = "NO ICON";
-        public const string CategoryTemplateLabel = "Category";
-        public const string PartTemplateLabel = "Part";
-        public const string SlotTemplateLabel = "Slot";
-        public const string EquipLabel = "Equip";
-        public const string UnequipLabel = "Unequip";
-        public const string EquippedLabel = "Equipped";
-        public const string FactsHeader = "Ontology Facts";
-        public const string OnBadge = "ON";
-        public const string CapabilityBadge = "CAP";
-        public const string ConflictBadge = "CONFLICT";
+        public static string ToggleHint => L("character.ui.toggle_hint", "Press C to customize");
+        public static string SelectPartTitle => L("character.ui.select_part", "Select a part");
+        public static string SelectPartDescription => L(
+            "character.ui.select_part_description",
+            "Choose a category and part to preview ontology effects.");
+        public static string NoIconLabel => L("character.ui.no_icon", "NO ICON");
+        public static string CategoryTemplateLabel => L("character.ui.category", "Category");
+        public static string PartTemplateLabel => L("character.ui.part", "Part");
+        public static string SlotTemplateLabel => L("character.ui.slot", "Slot");
+        public static string EquipLabel => L("character.ui.equip", "Equip");
+        public static string UnequipLabel => L("character.ui.unequip", "Unequip");
+        public static string EquippedLabel => L("character.ui.equipped", "Equipped");
+        public static string FactsHeader => L("character.ui.ontology_facts", "Ontology Facts");
+        public static string OnBadge => L("character.ui.badge.on", "ON");
+        public static string CapabilityBadge => L("character.ui.badge.capability", "CAP");
+        public static string ConflictBadge => L("character.ui.badge.conflict", "CONFLICT");
 
         public const string SlotBody = "Body";
         public const string SlotFace = "Face";
@@ -100,5 +102,11 @@ namespace Tormia.Ontology.Core
         public static readonly Color EquippedTextColor = new(0.72f, 1f, 0.66f, 1f);
         public static readonly Color EquipButtonColor = new(0.56f, 0.92f, 0.66f, 1f);
         public static readonly Color SecondaryButtonColor = new(0.18f, 0.22f, 0.3f, 1f);
+
+        public static string SlotLabel(string slot) =>
+            OntologyLanguagePackService.Term(slot);
+
+        private static string L(string key, string fallback) =>
+            OntologyLanguagePackService.Text(key, fallback);
     }
 }

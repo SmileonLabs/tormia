@@ -15,6 +15,8 @@ namespace Tormia.Ontology.Core
         [SerializeField] private OntologyAnimationAdapter animationAdapter;
 
         private readonly StringBuilder builder = new StringBuilder(512);
+        private TMP_Text tmpText;
+        private string lastRenderedText;
 
         private void Awake()
         {
@@ -28,10 +30,34 @@ namespace Tormia.Ontology.Core
                 animationAdapter = FindAnyObjectByType<OntologyAnimationAdapter>();
             }
 
+            tmpText = textMeshProText as TMP_Text;
             ApplyTheme();
         }
 
-        private void Update()
+        private void OnEnable()
+        {
+            if (bootstrap == null)
+            {
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
+            }
+
+            if (bootstrap != null)
+            {
+                bootstrap.WorldChanged += Refresh;
+            }
+
+            Refresh();
+        }
+
+        private void OnDisable()
+        {
+            if (bootstrap != null)
+            {
+                bootstrap.WorldChanged -= Refresh;
+            }
+        }
+
+        private void Refresh()
         {
             if (bootstrap == null || bootstrap.World == null)
             {
@@ -78,26 +104,14 @@ namespace Tormia.Ontology.Core
                 background.color = Theme.hudBackground;
             }
 
-            var rect = transform as RectTransform;
-            if (rect != null)
-            {
-                rect.sizeDelta = Theme.hudPanelSize;
-                rect.anchoredPosition = Theme.hudPanelAnchoredPosition;
-            }
-
-            var tmpText = textMeshProText as TMP_Text;
             if (tmpText != null)
             {
-                tmpText.fontSize = Theme.hudFontSize;
                 tmpText.color = Theme.hudText;
-                tmpText.alignment = TextAlignmentOptions.TopLeft;
             }
 
             if (uiText != null)
             {
-                uiText.fontSize = Mathf.RoundToInt(Theme.hudFontSize);
                 uiText.color = Theme.hudText;
-                uiText.alignment = TextAnchor.UpperLeft;
             }
         }
 
@@ -108,7 +122,9 @@ namespace Tormia.Ontology.Core
 
         private string FormatOptional(string value)
         {
-            return string.IsNullOrWhiteSpace(value) ? Labels.noneText : value;
+            return string.IsNullOrWhiteSpace(value)
+                ? Labels.noneText
+                : OntologyLanguagePackService.DisplaySemanticObject(value);
         }
 
         private bool HasFact(string subject, string predicate, string obj)
@@ -122,7 +138,8 @@ namespace Tormia.Ontology.Core
             {
                 if (fact.Subject.ToString() == subject && fact.Predicate.ToString() == predicate)
                 {
-                    return fact.Object.ToString();
+                    return OntologyLanguagePackService.DisplaySemanticObject(
+                        fact.Object.ToString());
                 }
             }
 
@@ -146,7 +163,9 @@ namespace Tormia.Ontology.Core
                     result.Append(", ");
                 }
 
-                result.Append(fact.Object.ToString());
+                result.Append(
+                    OntologyLanguagePackService.DisplaySemanticObject(
+                        fact.Object.ToString()));
                 first = false;
                 found = true;
             }
@@ -156,21 +175,21 @@ namespace Tormia.Ontology.Core
 
         private void SetText(string value)
         {
+            if (string.Equals(lastRenderedText, value, System.StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            lastRenderedText = value;
             if (uiText != null)
             {
                 uiText.text = value;
                 return;
             }
 
-            if (textMeshProText == null)
+            if (tmpText != null)
             {
-                return;
-            }
-
-            var property = textMeshProText.GetType().GetProperty("text", BindingFlags.Instance | BindingFlags.Public);
-            if (property != null && property.CanWrite)
-            {
-                property.SetValue(textMeshProText, value, null);
+                tmpText.text = value;
             }
         }
     }

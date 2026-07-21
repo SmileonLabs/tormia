@@ -1,0 +1,88 @@
+name: tormia-local
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tormia}
+      POSTGRES_USER: ${POSTGRES_USER:-tormia_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infrastructure/.env}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-54329}:5432"
+    volumes:
+      - tormia_postgres_data:/var/lib/postgresql/data
+      - ./postgres/bootstrap:/docker-entrypoint-initdb.d:ro
+      - ./postgres/migrations:/migrations:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks: [tormia_backend]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in infrastructure/.env}
+    command: >-
+      redis-server --appendonly yes --save 60 1000
+      --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in infrastructure/.env}
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-56379}:6379"
+    volumes:
+      - tormia_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a $$REDIS_PASSWORD ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    networks: [tormia_backend]
+
+  migrate:
+    image: postgres:16-alpine
+    profiles: ["tools"]
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:-tormia}
+      PGUSER: ${POSTGRES_USER:-tormia_app}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infrastructure/.env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./postgres/migrations:/migrations:ro
+      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/sh", "/scripts/apply-migrations.sh"]
+    networks: [tormia_backend]
+
+  world-authority:
+    build:
+      context: ..
+      dockerfile: server/Tormia.WorldAuthority/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Platform: Host=postgres;Port=5432;Database=${POSTGRES_DB:-tormia};Username=${POSTGRES_USER:-tormia_app};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infrastructure/.env};Pooling=true;Maximum Pool Size=100
+      ConnectionStrings__RealtimeRedis: redis:6379,password=${REDIS_PASSWORD:?Set REDIS_PASSWORD in infrastructure/.env},abortConnect=false
+    ports:
+      - "127.0.0.1:${WORLD_AUTHORITY_PORT:-5272}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [tormia_backend]
+
+volumes:
+  tormia_postgres_data:
+  tormia_redis_data:
+
+networks:
+  tormia_backend:
+    name: tormia_local_backend

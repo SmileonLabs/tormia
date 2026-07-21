@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ef19a8e397e4574da13f0251a857468, type: 3}
+  m_Name: RuleBlockPresetDatabase
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyRuleBlockPresetDatabase
+  presets:
+  - presetId: water_buoyancy
+    displayNameKey: rule_preset.water_buoyancy
+    descriptionKey: rule_preset.water_buoyancy.description
+    primaryRuleId: BuoyantWhenInWater
+    bindingVariable: ?object
+    physicalProfileId: LightBuoyant
+    additionalRuleBlocks: []
+    requiredConcepts:
+    - FloatableObject
+    requiredFacts: []
+    requiredExistingConcepts: []
+    requiredExistingPredicates: []
+  - presetId: auto_equip
+    displayNameKey: rule_preset.auto_equip
+    descriptionKey: rule_preset.auto_equip.description
+    primaryRuleId: AutoEquipNearbyWearable
+    bindingVariable: ?object
+    physicalProfileId: 
+    additionalRuleBlocks: []
+    requiredConcepts: []
+    requiredFacts: []
+    requiredExistingConcepts:
+    - Wearable
+    requiredExistingPredicates:
+    - has_slot
+    - pickup_behavior
+    - attachment_profile
+  - presetId: temporary_skill
+    displayNameKey: rule_preset.temporary_skill
+    descriptionKey: rule_preset.temporary_skill.description
+    primaryRuleId: EquippedItemGrantsTemporarySkill
+    bindingVariable: ?item
+    physicalProfileId: 
+    additionalRuleBlocks: []
+    requiredConcepts: []
+    requiredFacts: []
+    requiredExistingConcepts: []
+    requiredExistingPredicates:
+    - grants_skill
+    - skill_grant_requires_rule

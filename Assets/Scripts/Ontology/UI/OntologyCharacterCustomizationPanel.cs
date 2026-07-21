@@ -38,8 +38,26 @@ namespace Tormia.Ontology.Core
         {
             EnsureReferences();
             BindHierarchyReferences();
+            ApplyLocalizedStaticLabels();
             HookButtons();
             SetVisible(startsVisible);
+        }
+
+        private void OnEnable()
+        {
+            OntologyLanguagePackService.LanguageChanged += HandleLanguageChanged;
+        }
+
+        private void OnDisable()
+        {
+            OntologyLanguagePackService.LanguageChanged -= HandleLanguageChanged;
+        }
+
+        private void HandleLanguageChanged()
+        {
+            BindHierarchyReferences();
+            ApplyLocalizedStaticLabels();
+            Rebuild();
         }
 
         private void Start()
@@ -86,7 +104,9 @@ namespace Tormia.Ontology.Core
             EnsureReferences();
             if (partDatabase == null || partGridContainer == null || categoryContainer == null)
             {
-                SetStatus("Character customization data is missing.");
+                SetStatus(L(
+                    "character.status.missing_data",
+                    "Character customization data is missing."));
                 return;
             }
 
@@ -200,19 +220,26 @@ namespace Tormia.Ontology.Core
             var definition = FindDefinition(selectedPartId);
             if (partAdapter == null || definition == null)
             {
-                SetStatus("Select a valid part first.");
+                SetStatus(L(
+                    "character.status.select_valid_part",
+                    "Select a valid part first."));
                 return;
             }
 
             if (!partAdapter.EquipPart(definition.partId))
             {
                 partAdapter.CanEquipPart(definition.partId, out var reason);
-                SetStatus("Equip failed: " + GetDisplayName(definition) + " (" + FormatReason(reason) + ")");
+                SetStatus(string.Format(
+                    L("character.status.equip_failed", "Equip failed: {0} ({1})"),
+                    GetDisplayName(definition),
+                    FormatReason(reason)));
                 RefreshSelectedDetails();
                 return;
             }
 
-            SetStatus("Equipped: " + GetDisplayName(definition));
+            SetStatus(string.Format(
+                L("character.status.equipped", "Equipped: {0}"),
+                GetDisplayName(definition)));
             Rebuild();
         }
 
@@ -221,30 +248,43 @@ namespace Tormia.Ontology.Core
             var definition = FindDefinition(selectedPartId);
             if (partAdapter == null || definition == null)
             {
-                SetStatus("Select a valid part first.");
+                SetStatus(L(
+                    "character.status.select_valid_part",
+                    "Select a valid part first."));
                 return;
             }
 
             if (!partAdapter.UnequipPart(definition.partId))
             {
                 partAdapter.CanUnequipPart(definition.partId, out var reason);
-                SetStatus("Unequip failed: " + GetDisplayName(definition) + " (" + FormatReason(reason) + ")");
+                SetStatus(string.Format(
+                    L("character.status.unequip_failed", "Unequip failed: {0} ({1})"),
+                    GetDisplayName(definition),
+                    FormatReason(reason)));
                 RefreshSelectedDetails();
                 return;
             }
 
-            SetStatus("Unequipped: " + GetDisplayName(definition));
+            SetStatus(string.Format(
+                L("character.status.unequipped", "Unequipped: {0}"),
+                GetDisplayName(definition)));
             Rebuild();
         }
 
         private void CreateCategoryButton(string category)
         {
-            var button = categoryButtonTemplate != null
-                ? Instantiate(categoryButtonTemplate, categoryContainer)
-                : CreateButton(categoryContainer, "Category_" + category, category, category == selectedCategory ? OntologyCharacterCustomizationUiConfig.ActiveColor : OntologyCharacterCustomizationUiConfig.SurfaceColor);
+            if (categoryButtonTemplate == null)
+            {
+                Debug.LogError("[OntologyCharacterCustomizationPanel] CategoryButtonTemplate is not assigned in the hierarchy.", this);
+                return;
+            }
+
+            var button = Instantiate(categoryButtonTemplate, categoryContainer);
             button.name = "Category_" + category;
             button.gameObject.SetActive(true);
-            SetButtonLabel(button, category);
+            SetButtonLabel(
+                button,
+                OntologyCharacterCustomizationUiConfig.SlotLabel(category));
             SetButtonColor(button, category == selectedCategory ? OntologyCharacterCustomizationUiConfig.ActiveColor : OntologyCharacterCustomizationUiConfig.SurfaceColor);
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() =>
@@ -261,63 +301,51 @@ namespace Tormia.Ontology.Core
             var hasConflict = HasConflictFact(definition);
             var hasCapability = HasCapabilityFact(definition);
             var background = isEquipped ? OntologyCharacterCustomizationUiConfig.EquippedColor : definition.partId == selectedPartId ? OntologyCharacterCustomizationUiConfig.ActiveColor : hasConflict ? OntologyCharacterCustomizationUiConfig.ConflictColor : OntologyCharacterCustomizationUiConfig.SurfaceColor;
-            var button = partCardTemplate != null
-                ? Instantiate(partCardTemplate, partGridContainer)
-                : CreateButton(partGridContainer, "Part_" + definition.partId, string.Empty, background);
+            if (partCardTemplate == null)
+            {
+                Debug.LogError("[OntologyCharacterCustomizationPanel] PartCardTemplate is not assigned in the hierarchy.", this);
+                return;
+            }
+
+            var button = Instantiate(partCardTemplate, partGridContainer);
             button.name = "Part_" + definition.partId;
             button.gameObject.SetActive(true);
             var rect = (RectTransform)button.transform;
-            if (partCardTemplate == null)
-            {
-                rect.sizeDelta = new Vector2(128f, 150f);
-            }
 
             SetButtonColor(button, background);
             var icon = rect.Find(OntologyCharacterCustomizationUiConfig.IconName)?.GetComponent<Image>();
-            if (icon == null)
+            if (icon != null)
             {
-                icon = CreateImage(rect, OntologyCharacterCustomizationUiConfig.IconName, definition.icon);
-                SetStretch(icon.rectTransform, new Vector2(14f, -88f), new Vector2(-14f, -14f));
+                icon.sprite = definition.icon;
+                icon.enabled = definition.icon != null;
             }
-            icon.sprite = definition.icon;
-            icon.enabled = definition.icon != null;
 
             var fallback = rect.Find(OntologyCharacterCustomizationUiConfig.NoIconName)?.GetComponent<TextMeshProUGUI>();
-            if (fallback == null)
+            if (fallback != null)
             {
-                fallback = CreateText(rect, OntologyCharacterCustomizationUiConfig.NoIconName, OntologyCharacterCustomizationUiConfig.NoIconLabel, 14f, OntologyCharacterCustomizationUiConfig.MutedTextColor, TextAlignmentOptions.Center);
-                SetStretch(fallback.rectTransform, new Vector2(10f, 54f), new Vector2(-10f, -10f));
+                fallback.text = OntologyCharacterCustomizationUiConfig.NoIconLabel;
+                fallback.gameObject.SetActive(definition.icon == null);
             }
-            fallback.gameObject.SetActive(definition.icon == null);
 
             var label = rect.Find(OntologyCharacterCustomizationUiConfig.LabelName)?.GetComponent<TextMeshProUGUI>();
-            if (label == null)
-            {
-                label = CreateText(rect, OntologyCharacterCustomizationUiConfig.LabelName, GetDisplayName(definition), 14f, OntologyCharacterCustomizationUiConfig.TextColor, TextAlignmentOptions.Center);
-                SetStretch(label.rectTransform, new Vector2(8f, -126f), new Vector2(-8f, -92f));
-            }
-            label.text = GetDisplayName(definition);
-            label.fontSize = 14f;
+            if (label != null)
+                label.text = GetDisplayName(definition);
 
             var state = rect.Find(OntologyCharacterCustomizationUiConfig.StateName)?.GetComponent<TextMeshProUGUI>();
-            if (state == null)
+            if (state != null)
             {
-                state = CreateText(rect, OntologyCharacterCustomizationUiConfig.StateName, isEquipped ? OntologyCharacterCustomizationUiConfig.EquippedLabel : definition.slot, 12f, isEquipped ? OntologyCharacterCustomizationUiConfig.EquippedTextColor : OntologyCharacterCustomizationUiConfig.MutedTextColor, TextAlignmentOptions.Center);
-                SetStretch(state.rectTransform, new Vector2(8f, -144f), new Vector2(-8f, -126f));
+                state.text = isEquipped
+                    ? OntologyCharacterCustomizationUiConfig.EquippedLabel
+                    : OntologyCharacterCustomizationUiConfig.SlotLabel(definition.slot);
+                state.color = isEquipped ? OntologyCharacterCustomizationUiConfig.EquippedTextColor : OntologyCharacterCustomizationUiConfig.MutedTextColor;
             }
-            state.text = isEquipped ? OntologyCharacterCustomizationUiConfig.EquippedLabel : definition.slot;
-            state.fontSize = 12f;
-            state.color = isEquipped ? OntologyCharacterCustomizationUiConfig.EquippedTextColor : OntologyCharacterCustomizationUiConfig.MutedTextColor;
 
             var badge = rect.Find(OntologyCharacterCustomizationUiConfig.BadgeName)?.GetComponent<TextMeshProUGUI>();
-            if (badge == null)
+            if (badge != null)
             {
-                badge = CreateText(rect, OntologyCharacterCustomizationUiConfig.BadgeName, string.Empty, 11f, OntologyCharacterCustomizationUiConfig.TextColor, TextAlignmentOptions.Center);
-                SetStretch(badge.rectTransform, new Vector2(64f, -26f), new Vector2(-6f, -4f));
+                badge.text = GetBadgeText(isEquipped, hasCapability, hasConflict);
+                badge.gameObject.SetActive(!string.IsNullOrWhiteSpace(badge.text));
             }
-            badge.text = GetBadgeText(isEquipped, hasCapability, hasConflict);
-            badge.fontSize = 11f;
-            badge.gameObject.SetActive(!string.IsNullOrWhiteSpace(badge.text));
 
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() =>
@@ -433,7 +461,12 @@ namespace Tormia.Ontology.Core
         {
             var builder = new System.Text.StringBuilder();
             builder.Append(OntologyCharacterCustomizationUiConfig.FactsHeader).Append('\n');
-            builder.Append("Player ").Append(OntologyPredicates.EquippedPart).Append(' ').Append(definition.partId);
+            builder.Append(L("entity.Player", "Player"))
+                .Append(' ')
+                .Append(OntologyLanguagePackService.Term(
+                    OntologyPredicates.EquippedPart))
+                .Append(' ')
+                .Append(GetDisplayName(definition));
             if (definition.facts != null)
             {
                 foreach (var fact in definition.facts)
@@ -443,7 +476,12 @@ namespace Tormia.Ontology.Core
                         continue;
                     }
 
-                    builder.Append('\n').Append(definition.partId).Append(' ').Append(fact.predicate).Append(' ').Append(fact.obj);
+                    builder.Append('\n')
+                        .Append(GetDisplayName(definition))
+                        .Append(' ')
+                        .Append(OntologyLanguagePackService.Term(fact.predicate))
+                        .Append(' ')
+                        .Append(OntologyLanguagePackService.Term(fact.obj));
                 }
             }
 
@@ -453,8 +491,14 @@ namespace Tormia.Ontology.Core
         private string BuildPlayerSummary(OntologyCharacterPartDefinition definition)
         {
             var builder = new System.Text.StringBuilder();
-            builder.Append("Category: ").Append(definition.slot);
-            builder.Append("\nStatus: ").Append(GetEquipPreview(definition));
+            builder.Append(L("character.detail.category", "Category"))
+                .Append(": ")
+                .Append(OntologyCharacterCustomizationUiConfig.SlotLabel(
+                    definition.slot));
+            builder.Append("\n")
+                .Append(L("character.detail.status", "Status"))
+                .Append(": ")
+                .Append(GetEquipPreview(definition));
 
             var effects = GetEffectSummary(definition);
             if (!string.IsNullOrWhiteSpace(effects))
@@ -469,21 +513,29 @@ namespace Tormia.Ontology.Core
         {
             if (partAdapter == null)
             {
-                return "No runtime adapter.";
+                return L(
+                    "character.preview.no_adapter",
+                    "No runtime adapter.");
             }
 
             if (partAdapter.IsPartEquipped(definition.partId))
             {
-                return "Already equipped.";
+                return L(
+                    "character.preview.already_equipped",
+                    "Already equipped.");
             }
 
             var replacement = FindEquippedInSlot(definition.slot);
             if (replacement != null)
             {
-                return "Will replace " + GetDisplayName(replacement) + ".";
+                return string.Format(
+                    L("character.preview.will_replace", "Will replace {0}."),
+                    GetDisplayName(replacement));
             }
 
-            return "Available to equip.";
+            return L(
+                "character.preview.available",
+                "Available to equip.");
         }
 
         private string GetEffectSummary(OntologyCharacterPartDefinition definition)
@@ -506,17 +558,22 @@ namespace Tormia.Ontology.Core
                 if (fact.predicate == OntologyPredicates.ConflictsWithSlot)
                 {
                     var equipped = FindEquippedInSlot(fact.obj);
-                    conflicts.Add(equipped != null ? GetDisplayName(equipped) : fact.obj);
+                    conflicts.Add(equipped != null
+                        ? GetDisplayName(equipped)
+                        : OntologyLanguagePackService.Term(fact.obj));
                 }
                 else if (fact.predicate == OntologyPredicates.GrantsCapability)
                 {
-                    capabilities.Add(fact.obj);
+                    capabilities.Add(OntologyLanguagePackService.Term(fact.obj));
                 }
             }
 
             if (conflicts.Count > 0)
             {
-                builder.Append("Effects: will unequip ").Append(string.Join(", ", conflicts));
+                builder.Append(L(
+                        "character.detail.effects_will_unequip",
+                        "Effects: will unequip "))
+                    .Append(string.Join(", ", conflicts));
             }
 
             if (capabilities.Count > 0)
@@ -525,7 +582,9 @@ namespace Tormia.Ontology.Core
                 {
                     builder.Append("\n");
                 }
-                builder.Append("Grants: ").Append(string.Join(", ", capabilities));
+                builder.Append(L("character.detail.grants", "Grants"))
+                    .Append(": ")
+                    .Append(string.Join(", ", capabilities));
             }
 
             return builder.ToString();
@@ -569,19 +628,31 @@ namespace Tormia.Ontology.Core
 
         private static string GetDisplayName(OntologyCharacterPartDefinition definition)
         {
-            return string.IsNullOrWhiteSpace(definition.displayName) ? definition.partId : definition.displayName;
+            return OntologyLanguagePackService.CharacterPartName(
+                definition.partId,
+                string.IsNullOrWhiteSpace(definition.displayName)
+                    ? definition.partId
+                    : definition.displayName);
         }
 
         private static string FormatReason(string reason)
         {
             switch (reason)
             {
-                case OntologyCharacterPartAdapter.FailureDefinitionMissing: return "part definition is missing";
-                case OntologyCharacterPartAdapter.FailureRendererMissing: return "target renderer is missing";
-                case OntologyCharacterPartAdapter.FailureWorldMissing: return "ontology world is not ready";
-                case OntologyCharacterPartAdapter.FailureAlreadyEquipped: return "already equipped";
-                case OntologyCharacterPartAdapter.FailureAlreadyUnequipped: return "already unequipped";
-                default: return string.IsNullOrWhiteSpace(reason) ? "unknown reason" : reason;
+                case OntologyCharacterPartAdapter.FailureDefinitionMissing:
+                    return L("character.failure.definition_missing", "part definition is missing");
+                case OntologyCharacterPartAdapter.FailureRendererMissing:
+                    return L("character.failure.renderer_missing", "target renderer is missing");
+                case OntologyCharacterPartAdapter.FailureWorldMissing:
+                    return L("character.failure.world_missing", "ontology world is not ready");
+                case OntologyCharacterPartAdapter.FailureAlreadyEquipped:
+                    return L("character.failure.already_equipped", "already equipped");
+                case OntologyCharacterPartAdapter.FailureAlreadyUnequipped:
+                    return L("character.failure.already_unequipped", "already unequipped");
+                default:
+                    return string.IsNullOrWhiteSpace(reason)
+                        ? L("character.failure.unknown", "unknown reason")
+                        : reason;
             }
         }
 
@@ -606,12 +677,6 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            var image = GetComponent<Image>();
-            if (image == null)
-            {
-                image = gameObject.AddComponent<Image>();
-            }
-            image.color = OntologyCharacterCustomizationUiConfig.PanelColor;
             panelCanvasGroup ??= GetComponent<CanvasGroup>();
 
             categoryContainer ??= rect.Find(OntologyCharacterCustomizationUiConfig.CategoryAreaName + "/" + OntologyCharacterCustomizationUiConfig.CategoryScrollViewName + "/" + OntologyCharacterCustomizationUiConfig.CategoryViewportName + "/" + OntologyCharacterCustomizationUiConfig.CategoryContentName) as RectTransform;
@@ -633,25 +698,50 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            selectedIcon = detail.Find(OntologyCharacterCustomizationUiConfig.SelectedIconName)?.GetComponent<Image>() ?? CreateImage(detail, OntologyCharacterCustomizationUiConfig.SelectedIconName, null);
+            selectedIcon = detail.Find(OntologyCharacterCustomizationUiConfig.SelectedIconName)?.GetComponent<Image>();
 
             selectedTitle = detail.Find(OntologyCharacterCustomizationUiConfig.SelectedTitleName)?.GetComponent<TextMeshProUGUI>()
-                ?? CreateText(detail, OntologyCharacterCustomizationUiConfig.SelectedTitleName, OntologyCharacterCustomizationUiConfig.SelectPartTitle, 18f, OntologyCharacterCustomizationUiConfig.TextColor, TextAlignmentOptions.MidlineLeft);
+                ;
 
             selectedDescription = detail.Find(OntologyCharacterCustomizationUiConfig.SelectedDescriptionName)?.GetComponent<TextMeshProUGUI>()
-                ?? CreateText(detail, OntologyCharacterCustomizationUiConfig.SelectedDescriptionName, string.Empty, 13f, OntologyCharacterCustomizationUiConfig.MutedTextColor, TextAlignmentOptions.TopLeft);
-            selectedDescription.textWrappingMode = TextWrappingModes.Normal;
+                ;
 
             factPreview = detail.Find(OntologyCharacterCustomizationUiConfig.FactPreviewName)?.GetComponent<TextMeshProUGUI>()
-                ?? CreateText(detail, OntologyCharacterCustomizationUiConfig.FactPreviewName, string.Empty, 12f, OntologyCharacterCustomizationUiConfig.FactTextColor, TextAlignmentOptions.TopLeft);
-            factPreview.textWrappingMode = TextWrappingModes.Normal;
+                ;
 
-            equipButton = detail.Find(OntologyCharacterCustomizationUiConfig.EquipButtonName)?.GetComponent<Button>() ?? CreateButton(detail, OntologyCharacterCustomizationUiConfig.EquipButtonName, OntologyCharacterCustomizationUiConfig.EquipLabel, OntologyCharacterCustomizationUiConfig.EquipButtonColor);
-            unequipButton = detail.Find(OntologyCharacterCustomizationUiConfig.UnequipButtonName)?.GetComponent<Button>() ?? CreateButton(detail, OntologyCharacterCustomizationUiConfig.UnequipButtonName, OntologyCharacterCustomizationUiConfig.UnequipLabel, OntologyCharacterCustomizationUiConfig.SecondaryButtonColor);
+            equipButton = detail.Find(OntologyCharacterCustomizationUiConfig.EquipButtonName)?.GetComponent<Button>();
+            unequipButton = detail.Find(OntologyCharacterCustomizationUiConfig.UnequipButtonName)?.GetComponent<Button>();
 
             statusText = rect.Find(OntologyCharacterCustomizationUiConfig.StatusName)?.GetComponent<TextMeshProUGUI>()
-                ?? CreateText(rect, OntologyCharacterCustomizationUiConfig.StatusName, string.Empty, 13f, OntologyCharacterCustomizationUiConfig.MutedTextColor, TextAlignmentOptions.MidlineLeft);
+                ;
+
+            ApplyLocalizedStaticLabels();
         }
+
+        private void ApplyLocalizedStaticLabels()
+        {
+            OntologyLanguagePackService.EnsureKoreanFontFallback(transform);
+            var title = transform.Find(
+                    OntologyCharacterCustomizationUiConfig.HeaderName + "/" +
+                    OntologyCharacterCustomizationUiConfig.TitleTextName)
+                ?.GetComponent<TMP_Text>();
+            if (title != null)
+                title.text = OntologyCharacterCustomizationUiConfig.Title;
+            if (toggleHintText != null)
+                toggleHintText.text = OntologyCharacterCustomizationUiConfig.ToggleHint;
+            SetButtonLabel(equipButton, OntologyCharacterCustomizationUiConfig.EquipLabel);
+            SetButtonLabel(
+                unequipButton,
+                OntologyCharacterCustomizationUiConfig.UnequipLabel);
+            if (selectedTitle != null && string.IsNullOrWhiteSpace(selectedPartId))
+                selectedTitle.text = OntologyCharacterCustomizationUiConfig.SelectPartTitle;
+            if (selectedDescription != null && string.IsNullOrWhiteSpace(selectedPartId))
+                selectedDescription.text =
+                    OntologyCharacterCustomizationUiConfig.SelectPartDescription;
+        }
+
+        private static string L(string key, string fallback) =>
+            OntologyLanguagePackService.Text(key, fallback);
 
         private void HookButtons()
         {
@@ -733,23 +823,6 @@ namespace Tormia.Ontology.Core
             }
         }
 
-        private Button CreateButton(Transform parent, string name, string label, Color background)
-        {
-            var buttonObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
-            buttonObject.transform.SetParent(parent, false);
-
-            var image = buttonObject.GetComponent<Image>();
-            image.color = background;
-
-            if (!string.IsNullOrWhiteSpace(label))
-            {
-                var text = CreateText(buttonObject.transform, "Text", label, 13f, OntologyCharacterCustomizationUiConfig.TextColor, TextAlignmentOptions.Center);
-                SetStretch(text.rectTransform, Vector2.zero, Vector2.zero);
-            }
-
-            return buttonObject.GetComponent<Button>();
-        }
-
         private static void SetButtonLabel(Button button, string label)
         {
             var text = button.GetComponentInChildren<TextMeshProUGUI>(true);
@@ -768,55 +841,5 @@ namespace Tormia.Ontology.Core
             }
         }
 
-        private static RectTransform CreatePanel(Transform parent, string name, Color color)
-        {
-            var panelObject = new GameObject(name, typeof(RectTransform), typeof(Image));
-            panelObject.transform.SetParent(parent, false);
-            panelObject.GetComponent<Image>().color = color;
-            return (RectTransform)panelObject.transform;
-        }
-
-        private static Image CreateImage(Transform parent, string name, Sprite sprite)
-        {
-            var imageObject = new GameObject(name, typeof(RectTransform), typeof(Image));
-            imageObject.transform.SetParent(parent, false);
-            var image = imageObject.GetComponent<Image>();
-            image.sprite = sprite;
-            image.preserveAspect = true;
-            image.enabled = sprite != null;
-            return image;
-        }
-
-        private static TextMeshProUGUI CreateText(Transform parent, string name, string text, float fontSize, Color color, TextAlignmentOptions alignment)
-        {
-            var textObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
-            textObject.transform.SetParent(parent, false);
-            var label = textObject.GetComponent<TextMeshProUGUI>();
-            label.text = text;
-            label.fontSize = fontSize;
-            label.color = color;
-            label.alignment = alignment;
-            label.textWrappingMode = TextWrappingModes.NoWrap;
-            label.overflowMode = TextOverflowModes.Ellipsis;
-            label.raycastTarget = false;
-            return label;
-        }
-
-        private static void SetStretch(RectTransform rect, Vector2 offsetMin, Vector2 offsetMax)
-        {
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = offsetMin;
-            rect.offsetMax = offsetMax;
-        }
-
-        private static void SetTopLeft(RectTransform rect, float x, float y, float width, float height)
-        {
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(x, -y);
-            rect.sizeDelta = new Vector2(width, height);
-        }
     }
 }

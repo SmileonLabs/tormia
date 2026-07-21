@@ -69,19 +69,37 @@ namespace Tormia.Ontology.Core
                     warnings.Add($"ActionEffect[{i}] has an empty action verb.");
                 }
 
-                if (string.IsNullOrWhiteSpace(definition.subjectPattern))
+                var hasStructuredEffects =
+                    definition.effects != null && definition.effects.Count > 0;
+                if (!hasStructuredEffects && string.IsNullOrWhiteSpace(definition.subjectPattern))
                 {
                     warnings.Add($"ActionEffect '{definition.actionVerb}' has an empty subject pattern.");
                 }
 
-                if (string.IsNullOrWhiteSpace(definition.predicate))
+                if (!hasStructuredEffects && string.IsNullOrWhiteSpace(definition.predicate))
                 {
                     warnings.Add($"ActionEffect '{definition.actionVerb}' has an empty predicate.");
                 }
 
-                if (string.IsNullOrWhiteSpace(definition.objectPattern))
+                if (!hasStructuredEffects && string.IsNullOrWhiteSpace(definition.objectPattern))
                 {
                     warnings.Add($"ActionEffect '{definition.actionVerb}' has an empty object pattern.");
+                }
+
+                if (hasStructuredEffects)
+                {
+                    for (var effectIndex = 0; effectIndex < definition.effects.Count; effectIndex++)
+                    {
+                        var effect = definition.effects[effectIndex];
+                        if (effect == null ||
+                            string.IsNullOrWhiteSpace(effect.subject) ||
+                            string.IsNullOrWhiteSpace(effect.predicate) ||
+                            string.IsNullOrWhiteSpace(effect.obj))
+                        {
+                            warnings.Add(
+                                $"ActionEffect '{definition.actionVerb}' effect[{effectIndex}] is incomplete.");
+                        }
+                    }
                 }
             }
 

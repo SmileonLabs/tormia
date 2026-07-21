@@ -1,0 +1,101 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4318fd031bb80eb44bb4be3bf0201419, type: 3}
+  m_Name: ConceptPolicyDatabase
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyConceptPolicyDatabase
+  strictMode: 0
+  concepts:
+  - id: Actor
+    description: An entity that can perform actions.
+    selectable: 1
+  - id: Agent
+    description: An entity that can make autonomous decisions.
+    selectable: 1
+  - id: Creature
+    description: A living creature.
+    selectable: 1
+  - id: NPC
+    description: A non-player character.
+    selectable: 1
+  - id: PlayerControlled
+    description: An entity controlled by the player.
+    selectable: 1
+  - id: Humanoid
+    description: A humanoid entity.
+    selectable: 1
+  - id: Plant
+    description: A plant or vegetation object.
+    selectable: 1
+  - id: Dry
+    description: A dry object that may participate in fire rules.
+    selectable: 1
+  - id: Fire
+    description: An entity or element representing fire.
+    selectable: 1
+  - id: Rock
+    description: A rock or mineral object.
+    selectable: 1
+  - id: Resource
+    description: An object that can be treated as a resource.
+    selectable: 1
+  - id: Landmark
+    description: A notable world landmark.
+    selectable: 1
+  - id: TerrainTile
+    description: A terrain tile.
+    selectable: 1
+  - id: WaterRegion
+    description: A region containing water.
+    selectable: 1
+  - id: QuestBoard
+    description: A quest board.
+    selectable: 1
+  - id: Relation
+    description: An entity representing a relationship.
+    selectable: 1
+  - id: Reputation
+    description: An entity representing reputation.
+    selectable: 1
+  - id: CharacterPart
+    description: A character body or equipment part.
+    selectable: 1
+  - id: TerrainZone
+    description: A semantic terrain zone.
+    selectable: 1
+  - id: QuestState
+    description: An entity representing quest progress.
+    selectable: 1
+  - id: FloatableObject
+    description: An object that may participate in ontology-driven buoyancy.
+    selectable: 1
+  - id: Wearable
+    description: An object that can be attached to an actor slot.
+    selectable: 1
+  - id: Mountable
+    description: An object that an actor can mount instead of wearing.
+    selectable: 1
+  - id: FlotationDevice
+    description: An object that can provide water traversal capability.
+    selectable: 1
+  relations:
+  - subject: Plant
+    predicate: incompatible_with
+    obj: Rock
+    message: Plant conflicts with Rock.
+  - subject: FlotationDevice
+    predicate: requires_concept
+    obj: FloatableObject
+    message: FlotationDevice normally requires FloatableObject.
+  - subject: Wearable
+    predicate: requires_concept
+    obj: CharacterPart
+    message: Wearable normally requires CharacterPart.

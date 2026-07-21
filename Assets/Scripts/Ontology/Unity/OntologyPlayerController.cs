@@ -17,15 +17,22 @@ namespace Tormia.Ontology.Core
         [SerializeField] private float slowedRunSpeed = 2.0f;
 
         [Header("Ontology")]
-        [SerializeField] private string actorId = "Player";
+        [SerializeField] private OntologyObject actorObject;
+        [SerializeField, Tooltip("Legacy fallback only. Leave empty; OntologyObject.EntityId is authoritative.")]
+        private string actorId;
 
         private CharacterMover characterMover;
         private bool lastSlowed;
         private bool appliedInitialSpeed;
 
+        private string ActorId => actorObject != null && !string.IsNullOrWhiteSpace(actorObject.EntityId)
+            ? actorObject.EntityId
+            : actorId;
+
         private void Awake()
         {
             characterMover = GetComponent<CharacterMover>();
+            if (actorObject == null) actorObject = GetComponent<OntologyObject>();
             if (bootstrap == null)
             {
                 bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
@@ -39,7 +46,7 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            var isSlowed = bootstrap.World.HasFact(actorId, "movement_state", "Slowed");
+            var isSlowed = bootstrap.World.HasFact(ActorId, "movement_state", "Slowed");
             if (!appliedInitialSpeed || isSlowed != lastSlowed)
             {
                 ApplyMoveSpeed(isSlowed);

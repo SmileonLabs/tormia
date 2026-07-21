@@ -142,67 +142,44 @@ namespace Tormia.Ontology.Core
             canvas = GetComponentInChildren<Canvas>(true);
             if (canvas == null)
             {
-                var canvasObject = new GameObject("ActorToastCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasGroup));
-                canvasObject.transform.SetParent(transform, false);
-                canvas = canvasObject.GetComponent<Canvas>();
+                Debug.LogError("[OntologyActorToast] ActorToastCanvas is missing from the hierarchy.", this);
+                return;
             }
 
             canvas.renderMode = RenderMode.WorldSpace;
             canvasGroup = canvas.GetComponent<CanvasGroup>();
             if (canvasGroup == null)
             {
-                canvasGroup = canvas.gameObject.AddComponent<CanvasGroup>();
+                Debug.LogError("[OntologyActorToast] CanvasGroup is missing from ActorToastCanvas.", this);
+                return;
             }
 
             rectTransform = canvas.GetComponent<RectTransform>();
             background = canvas.GetComponentInChildren<Image>(true);
             if (background == null)
             {
-                var backgroundObject = new GameObject("Background", typeof(RectTransform), typeof(Image));
-                backgroundObject.transform.SetParent(canvas.transform, false);
-                background = backgroundObject.GetComponent<Image>();
+                Debug.LogError("[OntologyActorToast] Background Image is missing from the hierarchy.", this);
+                return;
             }
 
             label = canvas.GetComponentInChildren<TextMeshProUGUI>(true);
             if (label == null)
             {
-                var labelObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
-                labelObject.transform.SetParent(background.transform, false);
-                label = labelObject.GetComponent<TextMeshProUGUI>();
+                Debug.LogError("[OntologyActorToast] Text label is missing from the hierarchy.", this);
             }
         }
 
         private void ApplyTheme()
         {
-            if (rectTransform != null)
-            {
-                rectTransform.sizeDelta = Theme.actorToastSize;
-                rectTransform.localScale = Vector3.one * Theme.actorToastWorldScale;
-            }
-
             if (background != null)
             {
                 background.color = Theme.actorToastBackground;
-                var backgroundRect = background.GetComponent<RectTransform>();
-                backgroundRect.anchorMin = Vector2.zero;
-                backgroundRect.anchorMax = Vector2.one;
-                backgroundRect.offsetMin = Vector2.zero;
-                backgroundRect.offsetMax = Vector2.zero;
             }
 
             if (label != null)
             {
-                label.fontSize = Theme.actorToastFontSize;
                 label.color = Theme.actorToastText;
-                label.alignment = TextAlignmentOptions.Center;
-                label.textWrappingMode = TextWrappingModes.NoWrap;
-                label.overflowMode = TextOverflowModes.Ellipsis;
                 label.raycastTarget = false;
-                var labelRect = label.GetComponent<RectTransform>();
-                labelRect.anchorMin = Vector2.zero;
-                labelRect.anchorMax = Vector2.one;
-                labelRect.offsetMin = new Vector2(10f, 0f);
-                labelRect.offsetMax = new Vector2(-10f, 0f);
             }
         }
 

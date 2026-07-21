@@ -8,7 +8,9 @@ namespace Tormia.Ontology.Core
         [SerializeField] private Transform player;
         [SerializeField] private Transform gridOrigin;
         [SerializeField] private float tileSize = 1f;
-        [SerializeField] private string actorId = "Player";
+        [SerializeField] private OntologyObject actorObject;
+        [SerializeField, Tooltip("Legacy fallback only. Leave empty; OntologyObject.EntityId is authoritative.")]
+        private string actorId;
         [SerializeField] private string tileIdPrefix = "Tile";
         [SerializeField] private float updateInterval = 0.1f;
         [SerializeField] private bool runSimulationOnTileChanged = true;
@@ -23,6 +25,10 @@ namespace Tormia.Ontology.Core
 
         private string currentTileId;
         private float nextUpdateTime;
+
+        private string ActorId => actorObject != null && !string.IsNullOrWhiteSpace(actorObject.EntityId)
+            ? actorObject.EntityId
+            : actorId;
 
         private void Awake()
         {
@@ -75,18 +81,18 @@ namespace Tormia.Ontology.Core
             var previousTileId = currentTileId;
             if (!string.IsNullOrWhiteSpace(previousTileId))
             {
-                bootstrap.World.RemoveFact(actorId, "standing_on", previousTileId);
+                bootstrap.World.RemoveFact(ActorId, "standing_on", previousTileId);
             }
 
             CleanupTransientFacts();
 
-            if (bootstrap.World.AddFact(actorId, "standing_on", nextTileId) || force)
+            if (bootstrap.World.AddFact(ActorId, "standing_on", nextTileId) || force)
             {
                 currentTileId = nextTileId;
                 RecordStandingOnChanged(previousTileId, nextTileId);
                 if (runSimulationOnTileChanged)
                 {
-                    bootstrap.RunSimulation();
+                    bootstrap.RequestSimulation();
                 }
             }
         }
@@ -105,7 +111,7 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                bootstrap.World.RemoveFact(actorId, fact.predicate, fact.obj);
+                bootstrap.World.RemoveFact(ActorId, fact.predicate, fact.obj);
             }
         }
 
@@ -130,15 +136,15 @@ namespace Tormia.Ontology.Core
             var from = string.IsNullOrWhiteSpace(previousTileId) ? "None" : previousTileId;
             var ontologyEvent = new OntologyEvent(
                 "PlayerStandingOnChanged",
-                actorId + " moved from " + from + " to " + nextTileId);
+                ActorId + " moved from " + from + " to " + nextTileId);
 
             if (!string.IsNullOrWhiteSpace(previousTileId))
             {
-                ontologyEvent.RemovedFacts.Add(new OntologyFact(actorId, "standing_on", previousTileId));
+                ontologyEvent.RemovedFacts.Add(new OntologyFact(ActorId, "standing_on", previousTileId));
             }
 
-            ontologyEvent.AddedFacts.Add(new OntologyFact(actorId, "standing_on", nextTileId));
-            bootstrap.Session.EventHistory.Add(ontologyEvent);
+            ontologyEvent.AddedFacts.Add(new OntologyFact(ActorId, "standing_on", nextTileId));
+            bootstrap.Session.RecordEvent(ontologyEvent);
         }
 
         private void EnsureReferences()
@@ -146,6 +152,11 @@ namespace Tormia.Ontology.Core
             if (bootstrap == null)
             {
                 bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
+            }
+
+            if (actorObject == null)
+            {
+                actorObject = GetComponentInParent<OntologyObject>();
             }
 
             if (player == null)

@@ -1,0 +1,6 @@
+# Large third-party and project assets migrated to Git LFS from this revision forward.
+"Assets/maanetorn/Farm Game UI - Simple 2D UI/Font/LilitaOne-(for 'greater than' symbol).asset" filter=lfs diff=lfs merge=lfs -text
+"Assets/maanetorn/Farm Game UI - Simple 2D UI/Font/LilitaOne-with outline.asset" filter=lfs diff=lfs merge=lfs -text
+"Assets/maanetorn/Farm Game UI - Simple 2D UI/Font/LilitaOne-RegularSDF.asset" filter=lfs diff=lfs merge=lfs -text
+Assets/UI/Fonts/malgun.ttf filter=lfs diff=lfs merge=lfs -text
+Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx filter=lfs diff=lfs merge=lfs -text

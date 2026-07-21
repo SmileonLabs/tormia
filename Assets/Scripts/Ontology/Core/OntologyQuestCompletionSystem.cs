@@ -25,7 +25,10 @@ namespace Tormia.Ontology.Core
                 }
 
                 var questStateId = new OntologyId($"QuestState_{actorId}_{quest.Id}");
-                if (world.AddFact(questStateId, "has_concept", "QuestState"))
+                if (world.AddFact(
+                        questStateId,
+                        OntologyPredicates.HasConcept,
+                        "QuestState"))
                 {
                     added++;
                 }

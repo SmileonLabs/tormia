@@ -1,0 +1,16 @@
+scope,old_id,new_id
+Term,plant,Plant
+Term,rock,Rock
+Term,waterregion,WaterRegion
+Term,floatableobject,FloatableObject
+Term,flotationdevice,FlotationDevice
+Term,swimming,Swimming
+Term,deep,Deep
+Term,shallow,Shallow
+Term,InflatableLight,LightBuoyant
+Term,StoneFloat,HeavyBuoyant
+Term,HeavyFalling,HeavySinking
+Definition,polystyle_stone_1,PolyStyle_Stone_1
+Definition,polystyle_stone_2,PolyStyle_Stone_2
+Definition,polystyle_stone_3,PolyStyle_Stone_3
+Definition,inflatable_rings,Inflatable_Rings

@@ -4,7 +4,9 @@
     "references": [
         "Tormia.Ontology.Core",
         "ithappy.Creative_Characters_FREE",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "Unity.ugui"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

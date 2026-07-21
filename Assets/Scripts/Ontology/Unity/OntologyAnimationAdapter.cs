@@ -13,20 +13,15 @@ namespace Tormia.Ontology.Core
         [SerializeField] private OntologyAnimationDatabase animationDatabase;
         [SerializeField] private OntologyActorProfile actorProfile;
         [SerializeField] private Animator targetAnimator;
-        [SerializeField] private string actorId = "Player";
+        [SerializeField] private OntologyObject actorObject;
+        [SerializeField, Tooltip("Legacy fallback only. Leave empty; the OntologyObject id is authoritative.")]
+        private string actorId;
         [SerializeField] private bool useAnimatorSpeed = true;
         [SerializeField] private float normalAnimatorSpeed = 1.0f;
         [SerializeField] private float slowedAnimatorSpeed = 0.75f;
         [SerializeField] private bool playSelectedClip;
         [SerializeField] private bool loopBlendableClips = true;
-        [SerializeField] private string[] playableIntents =
-        {
-            "SevereDamageReaction",
-            "DeathReaction",
-            "Attack",
-            "Defense",
-            "Evasion"
-        };
+        [SerializeField, Min(0f)] private float transitionBlendDuration = 0.25f;
         [SerializeField] private bool useDefaultIntentWhenNoFact = true;
         [SerializeField] private string defaultIdleIntent = "Idle";
         [SerializeField] private string defaultMoveIntent = "Locomotion";
@@ -53,6 +48,7 @@ namespace Tormia.Ontology.Core
         [SerializeField] private string selectedClipName;
         [SerializeField] private string selectedIntent;
         [SerializeField] private bool selectedCanBlend;
+        [SerializeField] private bool selectedFromOntologyIntent;
 
         public string SelectedAnimationId => selectedAnimationId;
         public string SelectedClipName => selectedClipName;
@@ -62,9 +58,31 @@ namespace Tormia.Ontology.Core
 
         private AnimationClip selectedClip;
         private CharacterMover characterMover;
+        private OntologyInputSystemPlayerInput ontologyInput;
         private PlayableGraph playableGraph;
         private AnimationClipPlayable clipPlayable;
+        private AnimatorControllerPlayable controllerPlayable;
+        private AnimationMixerPlayable animationMixer;
         private string playingAnimationId;
+        private int activeClipInput = -1;
+        private int transitionFromInput = -1;
+        private int transitionToInput = -1;
+        private AnimationTransitionMode transitionMode;
+        private float transitionElapsed;
+        private bool lastDefaultMovementState;
+        private bool hasDefaultMovementState;
+        private string ActorId => actorObject != null &&
+                                  !string.IsNullOrWhiteSpace(actorObject.EntityId)
+            ? actorObject.EntityId
+            : actorId;
+
+        private enum AnimationTransitionMode
+        {
+            None,
+            ControllerToClip,
+            ClipToClip,
+            ClipToController
+        }
 
         private void Awake()
         {
@@ -80,6 +98,8 @@ namespace Tormia.Ontology.Core
             }
 
             characterMover = GetComponent<CharacterMover>();
+            ontologyInput = GetComponent<OntologyInputSystemPlayerInput>();
+            if (actorObject == null) actorObject = GetComponentInParent<OntologyObject>();
             if (bootstrap == null)
             {
                 bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
@@ -92,6 +112,7 @@ namespace Tormia.Ontology.Core
         {
             normalAnimatorSpeed = Mathf.Max(0f, normalAnimatorSpeed);
             slowedAnimatorSpeed = Mathf.Max(0f, slowedAnimatorSpeed);
+            transitionBlendDuration = Mathf.Max(0f, transitionBlendDuration);
         }
 
         private Animator FindBestAnimatorTarget()
@@ -108,14 +129,46 @@ namespace Tormia.Ontology.Core
             return GetComponent<Animator>();
         }
 
+        private void OnEnable()
+        {
+            if (bootstrap == null)
+            {
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
+            }
+
+            if (bootstrap != null)
+            {
+                bootstrap.WorldChanged += RefreshFromWorld;
+            }
+        }
+
+        private void Start()
+        {
+            RefreshFromWorld();
+        }
+
         private void Update()
+        {
+            // Only the Animator-controller fallback depends on direct movement input.
+            // Ontology-driven intents are refreshed by WorldChanged instead of rescanning
+            // every fact and animation definition on every frame.
+            var currentMovementState = IsMoving();
+            if (!hasDefaultMovementState || currentMovementState != lastDefaultMovementState)
+            {
+                lastDefaultMovementState = currentMovementState;
+                hasDefaultMovementState = true;
+                RefreshFromWorld();
+            }
+        }
+
+        private void RefreshFromWorld()
         {
             if (bootstrap == null || bootstrap.World == null || animator == null)
             {
                 return;
             }
 
-            var isSlowed = bootstrap.World.HasFact(actorId, "movement_state", "Slowed");
+            var isSlowed = bootstrap.World.HasFact(ActorId, "movement_state", "Slowed");
             if (useAnimatorSpeed)
             {
                 animator.speed = isSlowed ? slowedAnimatorSpeed : normalAnimatorSpeed;
@@ -128,6 +181,10 @@ namespace Tormia.Ontology.Core
 
         private void OnDisable()
         {
+            if (bootstrap != null)
+            {
+                bootstrap.WorldChanged -= RefreshFromWorld;
+            }
             StopSelectedClipPlayback();
         }
 
@@ -137,6 +194,7 @@ namespace Tormia.Ontology.Core
             selectedClipName = string.Empty;
             selectedIntent = string.Empty;
             selectedCanBlend = false;
+            selectedFromOntologyIntent = false;
             selectedClip = null;
 
             if (animationDatabase == null || animationDatabase.Definitions == null)
@@ -149,7 +207,7 @@ namespace Tormia.Ontology.Core
             var foundFactIntent = false;
             foreach (var fact in bootstrap.World.Facts)
             {
-                if (fact.Subject.ToString() != actorId || fact.Predicate.ToString() != "animation_intent")
+                if (fact.Subject.ToString() != ActorId || fact.Predicate.ToString() != "animation_intent")
                 {
                     continue;
                 }
@@ -198,11 +256,17 @@ namespace Tormia.Ontology.Core
             selectedClipName = bestDefinition.clip.name;
             selectedIntent = bestIntent;
             selectedCanBlend = bestDefinition.canBlend;
+            selectedFromOntologyIntent = foundFactIntent;
             selectedClip = bestDefinition.clip;
         }
 
         private bool IsMoving()
         {
+            if (ontologyInput != null)
+            {
+                return ontologyInput.IsMovingIntent;
+            }
+
             if (characterMover != null)
             {
                 return characterMover.Axis.sqrMagnitude > movementIntentThreshold * movementIntentThreshold;
@@ -213,29 +277,97 @@ namespace Tormia.Ontology.Core
 
         private void ApplySelectedClipPlayback()
         {
-            if (!playSelectedClip || selectedClip == null || !IsPlayableIntent(selectedIntent))
+            // Explicit ontology intent + actor repertoire is the only per-animation permission.
+            // Default Idle/Locomotion remains under the Animator controller.
+            if (!playSelectedClip || selectedClip == null || !selectedFromOntologyIntent)
             {
-                StopSelectedClipPlayback();
+                BeginReturnToController();
                 return;
             }
 
             if (playingAnimationId == selectedAnimationId && playableGraph.IsValid())
             {
+                if (transitionMode == AnimationTransitionMode.ClipToController)
+                {
+                    transitionMode = AnimationTransitionMode.ControllerToClip;
+                    transitionElapsed = 0f;
+                }
+                return;
+            }
+
+            if (playableGraph.IsValid() && animationMixer.IsValid() && activeClipInput >= 1)
+            {
+                BeginClipToClipBlend();
                 return;
             }
 
             StopSelectedClipPlayback();
-            playableGraph = PlayableGraph.Create("OntologyAnimationAdapter_" + actorId);
+            playableGraph = PlayableGraph.Create("OntologyAnimationAdapter_" + ActorId);
             var output = AnimationPlayableOutput.Create(playableGraph, "OntologyAnimation", animator);
+            controllerPlayable = AnimatorControllerPlayable.Create(playableGraph, animator.runtimeAnimatorController);
             clipPlayable = AnimationClipPlayable.Create(playableGraph, selectedClip);
             clipPlayable.SetApplyFootIK(false);
             clipPlayable.SetApplyPlayableIK(false);
             clipPlayable.SetDuration(selectedClip.length);
             clipPlayable.SetTime(0d);
             clipPlayable.SetSpeed(1d);
-            output.SetSourcePlayable(clipPlayable);
+            animationMixer = AnimationMixerPlayable.Create(playableGraph, 3, true);
+            playableGraph.Connect(controllerPlayable, 0, animationMixer, 0);
+            playableGraph.Connect(clipPlayable, 0, animationMixer, 1);
+            animationMixer.SetInputWeight(0, 1f);
+            animationMixer.SetInputWeight(1, 0f);
+            output.SetSourcePlayable(animationMixer);
             playableGraph.Play();
             playingAnimationId = selectedAnimationId;
+            activeClipInput = 1;
+            transitionFromInput = 0;
+            transitionToInput = activeClipInput;
+            transitionMode = AnimationTransitionMode.ControllerToClip;
+            transitionElapsed = 0f;
+        }
+
+        private void BeginClipToClipBlend()
+        {
+            var nextInput = activeClipInput == 1 ? 2 : 1;
+            playableGraph.Disconnect(animationMixer, nextInput);
+            var nextClip = AnimationClipPlayable.Create(playableGraph, selectedClip);
+            nextClip.SetApplyFootIK(false);
+            nextClip.SetApplyPlayableIK(false);
+            nextClip.SetDuration(selectedClip.length);
+            nextClip.SetTime(0d);
+            nextClip.SetSpeed(1d);
+            playableGraph.Connect(nextClip, 0, animationMixer, nextInput);
+            animationMixer.SetInputWeight(0, 0f);
+            animationMixer.SetInputWeight(activeClipInput, 1f);
+            animationMixer.SetInputWeight(nextInput, 0f);
+            clipPlayable = nextClip;
+            playingAnimationId = selectedAnimationId;
+            transitionFromInput = activeClipInput;
+            transitionToInput = nextInput;
+            transitionMode = AnimationTransitionMode.ClipToClip;
+            transitionElapsed = 0f;
+        }
+
+        private void BeginReturnToController()
+        {
+            if (!playableGraph.IsValid())
+            {
+                return;
+            }
+
+            if (!animationMixer.IsValid() || !controllerPlayable.IsValid())
+            {
+                StopSelectedClipPlayback();
+                return;
+            }
+
+            if (transitionMode != AnimationTransitionMode.ClipToController)
+            {
+                transitionFromInput = activeClipInput;
+                transitionToInput = 0;
+                transitionMode = AnimationTransitionMode.ClipToController;
+                transitionElapsed = 0f;
+            }
         }
 
         private void StopSelectedClipPlayback()
@@ -246,6 +378,14 @@ namespace Tormia.Ontology.Core
             }
 
             playingAnimationId = string.Empty;
+            activeClipInput = -1;
+            transitionFromInput = -1;
+            transitionToInput = -1;
+            transitionMode = AnimationTransitionMode.None;
+            transitionElapsed = 0f;
+            animationMixer = default;
+            controllerPlayable = default;
+            clipPlayable = default;
         }
 
         private void LateUpdate()
@@ -255,32 +395,69 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
+            UpdateTransitionBlend();
+
             if (selectedCanBlend && loopBlendableClips && selectedClip != null && selectedClip.length > 0f)
             {
-                var time = clipPlayable.GetTime();
-                if (time >= selectedClip.length)
+                // A graph can be torn down during an intent change between frames.
+                // Treat an invalid native playable as a completed transition instead
+                // of allowing GetTime() to raise and interrupt the player loop.
+                try
                 {
-                    clipPlayable.SetTime(0d);
+                    if (!clipPlayable.IsValid()) return;
+                    var time = clipPlayable.GetTime();
+                    if (time >= selectedClip.length) clipPlayable.SetTime(0d);
+                }
+                catch (ArgumentNullException)
+                {
+                    StopSelectedClipPlayback();
+                }
+                catch (InvalidOperationException)
+                {
+                    StopSelectedClipPlayback();
                 }
             }
         }
 
-        private bool IsPlayableIntent(string intent)
+        private void UpdateTransitionBlend()
         {
-            if (string.IsNullOrWhiteSpace(intent) || playableIntents == null)
+            if (!animationMixer.IsValid())
             {
-                return false;
+                return;
             }
 
-            foreach (var playableIntent in playableIntents)
+            var duration = Mathf.Max(0f, transitionBlendDuration);
+            transitionElapsed = duration <= 0f ? duration : transitionElapsed + Time.deltaTime;
+            var weight = duration <= 0f ? 1f : Mathf.Clamp01(transitionElapsed / duration);
+            if (transitionMode == AnimationTransitionMode.ClipToController)
             {
-                if (playableIntent == intent)
+                animationMixer.SetInputWeight(0, weight);
+                if (transitionFromInput >= 1) animationMixer.SetInputWeight(transitionFromInput, 1f - weight);
+                if (weight >= 1f)
                 {
-                    return true;
+                    StopSelectedClipPlayback();
                 }
             }
-
-            return false;
+            else if (transitionMode == AnimationTransitionMode.ClipToClip)
+            {
+                animationMixer.SetInputWeight(0, 0f);
+                animationMixer.SetInputWeight(transitionFromInput, 1f - weight);
+                animationMixer.SetInputWeight(transitionToInput, weight);
+                if (weight >= 1f)
+                {
+                    activeClipInput = transitionToInput;
+                    transitionMode = AnimationTransitionMode.None;
+                }
+            }
+            else if (transitionMode == AnimationTransitionMode.ControllerToClip)
+            {
+                animationMixer.SetInputWeight(0, 1f - weight);
+                animationMixer.SetInputWeight(activeClipInput, weight);
+                if (weight >= 1f)
+                {
+                    transitionMode = AnimationTransitionMode.None;
+                }
+            }
         }
 
         private static bool HasIntent(OntologyAnimationDefinition definition, string intent)
@@ -308,43 +485,31 @@ namespace Tormia.Ontology.Core
                 return false;
             }
 
-            if (actorProfile == null)
+            // Profile selection defines the actor's repertoire; ontology rules decide intent.
+            if (HasRegisteredAnimationsInWorld())
             {
-                return true;
+                return bootstrap.World.HasFact(ActorId, OntologyPredicates.HasAnimation, definition.animationId);
             }
 
-            if (!Matches(definition.actorTypes, actorProfile.actorType) ||
-                !Matches(definition.rigTypes, actorProfile.rigType))
+            if (actorProfile != null)
             {
-                return false;
-            }
-
-            if (definition.requiredCapabilities == null)
-            {
-                return true;
-            }
-
-            foreach (var capability in definition.requiredCapabilities)
-            {
-                if (!actorProfile.HasCapability(capability))
-                {
-                    return false;
-                }
+                return actorProfile.HasAnimation(definition.animationId);
             }
 
             return true;
         }
 
-        private static bool Matches(string[] candidates, string value)
+        private bool HasRegisteredAnimationsInWorld()
         {
-            if (candidates == null || candidates.Length == 0)
+            if (bootstrap == null || bootstrap.World == null)
             {
-                return true;
+                return false;
             }
 
-            foreach (var candidate in candidates)
+            foreach (var fact in bootstrap.World.Facts)
             {
-                if (string.Equals(candidate, value, StringComparison.Ordinal))
+                if (fact.Subject.ToString() == ActorId &&
+                    fact.Predicate.ToString() == OntologyPredicates.HasAnimation)
                 {
                     return true;
                 }
@@ -373,7 +538,7 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                var value = bootstrap.World.HasFact(actorId, binding.predicate, binding.obj);
+                var value = bootstrap.World.HasFact(ActorId, binding.predicate, binding.obj);
                 animator.SetBool(boolParameterHashes[i], value);
             }
         }

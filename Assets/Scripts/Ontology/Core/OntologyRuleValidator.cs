@@ -38,10 +38,15 @@ namespace Tormia.Ontology.Core
                 }
                 else
                 {
+                    var boundVariables = new HashSet<string>();
                     for (var conditionIndex = 0; conditionIndex < definition.conditions.Count; conditionIndex++)
                     {
-                        ValidateCondition(definition.id, conditionIndex, definition.conditions[conditionIndex], warnings);
+                        var condition = definition.conditions[conditionIndex];
+                        ValidateCondition(definition.id, conditionIndex, condition, warnings);
+                        ValidateVariableBindings(definition.id, conditionIndex, condition, boundVariables, warnings);
                     }
+
+                    ValidateEffectVariableBindings(definition.id, definition.effects, boundVariables, warnings);
                 }
 
                 if (definition.effects == null || definition.effects.Count == 0)
@@ -117,6 +122,54 @@ namespace Tormia.Ontology.Core
             if (string.IsNullOrWhiteSpace(effect.obj))
             {
                 warnings.Add($"Rule '{ruleId}' effect[{index}] has an empty object.");
+            }
+        }
+
+        private static void ValidateVariableBindings(string ruleId, int index, OntologyCondition condition, HashSet<string> boundVariables, List<string> warnings)
+        {
+            if (condition == null) return;
+            var variables = GetVariables(condition.subject, condition.predicate, condition.obj);
+            var introducesBindings = condition.kind == OntologyConditionKind.Fact || condition.kind == OntologyConditionKind.HasConcept;
+            if (!introducesBindings)
+            {
+                var allowsUnboundWildcard =
+                    condition.kind == OntologyConditionKind.NotFact ||
+                    condition.kind == OntologyConditionKind.NotConcept;
+                foreach (var variable in variables)
+                {
+                    if (!boundVariables.Contains(variable) && !allowsUnboundWildcard)
+                    {
+                        warnings.Add($"Rule '{ruleId}' condition[{index}] uses '{variable}' before it is observed by a relation.");
+                    }
+                }
+                return;
+            }
+
+            foreach (var variable in variables) boundVariables.Add(variable);
+        }
+
+        private static void ValidateEffectVariableBindings(string ruleId, List<OntologyEffect> effects, HashSet<string> boundVariables, List<string> warnings)
+        {
+            if (effects == null) return;
+            for (var index = 0; index < effects.Count; index++)
+            {
+                var effect = effects[index];
+                if (effect == null) continue;
+                foreach (var variable in GetVariables(effect.subject, effect.predicate, effect.obj))
+                {
+                    if (!boundVariables.Contains(variable))
+                    {
+                        warnings.Add($"Rule '{ruleId}' inferred relation[{index}] uses unbound variable '{variable}'.");
+                    }
+                }
+            }
+        }
+
+        private static IEnumerable<string> GetVariables(params string[] values)
+        {
+            foreach (var value in values)
+            {
+                if (!string.IsNullOrWhiteSpace(value) && value[0] == '?') yield return value;
             }
         }
     }

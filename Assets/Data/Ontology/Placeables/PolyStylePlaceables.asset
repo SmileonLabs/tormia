@@ -1,0 +1,190 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a7f695221ab2de4cb6b4f11b56b9647, type: 3}
+  m_Name: PolyStylePlaceables
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyPlaceableCatalog
+  defaultPhysicalProfile: {fileID: 11400000, guid: 5846d380c3d64a97857d57b7b3b048b8, type: 2}
+  definitions:
+  - definitionId: PolyStyle_Stone_1
+    displayNameKey: object.stone_1
+    displayName: Stone 1
+    category: Nature
+    description: A POLY STYLE stone.
+    prefab: {fileID: 7791139297814344391, guid: bcb10245bb4ddb7418832f3d0ed06c3b, type: 3}
+    previewPrefab: {fileID: 0}
+    useAuthoredPreviewTransform: 1
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: -0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: d6552835728a984408ee3cee609861d2, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 5
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 0.5
+      requiredSurface: 0
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 11400000, guid: 5846d380c3d64a97857d57b7b3b048b8, type: 2}
+    attachmentProfile: {fileID: 0}
+    defaultRuleBlocks: []
+  - definitionId: PolyStyle_Stone_2
+    displayNameKey: object.stone_2
+    displayName: Stone 2
+    category: Nature
+    description: A POLY STYLE stone.
+    prefab: {fileID: 2539916881142258049, guid: c887ec34e8e7921418ad4553cddda9eb, type: 3}
+    previewPrefab: {fileID: 0}
+    useAuthoredPreviewTransform: 0
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: 0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: 481f4a4f5ad12a84fabb9c3614df7603, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 5
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 0.5
+      requiredSurface: 0
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 11400000, guid: 5846d380c3d64a97857d57b7b3b048b8, type: 2}
+    attachmentProfile: {fileID: 0}
+    defaultRuleBlocks: []
+  - definitionId: PolyStyle_Stone_3
+    displayNameKey: object.stone_3
+    displayName: Stone 3
+    category: Nature
+    description: A POLY STYLE stone.
+    prefab: {fileID: 7942079219766403584, guid: dfa70e92edd5d9e448c96ac5c82b0cbd, type: 3}
+    previewPrefab: {fileID: 0}
+    useAuthoredPreviewTransform: 0
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: 0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: 71e0295ca29ce594392b0a54e72f9a50, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 5
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 0.5
+      requiredSurface: 0
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 11400000, guid: 5846d380c3d64a97857d57b7b3b048b8, type: 2}
+    attachmentProfile: {fileID: 0}
+    defaultRuleBlocks: []
+  - definitionId: PolyStyle_Grass_1
+    displayNameKey: object.grass_1
+    displayName: Grass 1
+    category: Nature
+    description: A POLY STYLE vegetation group.
+    prefab: {fileID: 5778923916939052829, guid: 2bcf53d24179fa5409ec6abcbd32b880, type: 3}
+    previewPrefab: {fileID: 0}
+    useAuthoredPreviewTransform: 0
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: 0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: e7be2a096f9ef154d912819d1d9f6673, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 5
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 0.5
+      requiredSurface: 0
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 0}
+    attachmentProfile: {fileID: 0}
+    defaultRuleBlocks: []
+  - definitionId: PolyStyle_Grass_2
+    displayNameKey: object.grass_2
+    displayName: Grass 2
+    category: Nature
+    description: A POLY STYLE vegetation group.
+    prefab: {fileID: 3808018057939014806, guid: e1165b0705c502547adca52ba573c1d3, type: 3}
+    previewPrefab: {fileID: 0}
+    useAuthoredPreviewTransform: 0
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: 0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: a9d1d8bbde46cc6419ed65391dd708ac, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 5
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 0.5
+      requiredSurface: 0
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 0}
+    attachmentProfile: {fileID: 0}
+    defaultRuleBlocks: []
+  - definitionId: PolyStyle_Environment_1
+    displayNameKey: object.landmark_cluster
+    displayName: Environment 1
+    category: Landmark
+    description: A POLY STYLE environment cluster.
+    prefab: {fileID: 2210834982315410453, guid: b8d0fc9068ba7b04693a2494de26f19c, type: 3}
+    previewPrefab: {fileID: 0}
+    useAuthoredPreviewTransform: 0
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: 0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: 93537c8426b74984d9136dd3b8a98041, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 5
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 0.5
+      requiredSurface: 0
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 0}
+    attachmentProfile: {fileID: 0}
+    defaultRuleBlocks: []
+  - definitionId: Inflatable_Ring_A_Simple
+    displayNameKey: object.inflatable_ring
+    displayName: Inflatable Ring
+    category: Water
+    description: A light inflatable ring configured by ontology data.
+    prefab: {fileID: 1048234374912673852, guid: e77be5f422cd2224aa017914268a838a, type: 3}
+    previewPrefab: {fileID: 0}
+    useAuthoredPreviewTransform: 0
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: 0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: 7e85974a3484d63469accf8f21a2e18f, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 5
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 0.5
+      requiredSurface: 0
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 11400000, guid: 96ebaf3007414a34db02ba22e973038f, type: 2}
+    attachmentProfile: {fileID: 11400000, guid: f640c493d0840a045827f30d94615524, type: 2}
+    defaultRuleBlocks:
+    - ruleId: BuoyantWhenInWater
+      bindingVariable: ?object
+    - ruleId: AutoEquipNearbyWearable
+      bindingVariable: ?object
+    - ruleId: EquippedItemGrantsTemporarySkill
+      bindingVariable: ?item

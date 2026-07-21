@@ -156,6 +156,20 @@ namespace Tormia.Ontology.Core
                     {
                         OntologyCondition.Fact("?actor", OntologyPredicates.EquippedPart, "?part")
                     }
+                },
+                new OntologyActionCandidateDefinition
+                {
+                    actionVerb = OntologyActions.UnequipWearable,
+                    targetPattern = "?target",
+                    labelFormat = "Unequip {target}",
+                    reasonFormat = "{target} is currently equipped",
+                    conditions =
+                    {
+                        OntologyCondition.Fact(
+                            "?target",
+                            OntologyPredicates.EquippedBy,
+                            "?actor")
+                    }
                 }
             };
         }

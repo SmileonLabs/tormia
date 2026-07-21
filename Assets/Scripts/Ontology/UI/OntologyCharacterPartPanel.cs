@@ -37,6 +37,22 @@ namespace Tormia.Ontology.Core
             HookControls();
         }
 
+        private void OnEnable()
+        {
+            OntologyLanguagePackService.LanguageChanged += HandleLanguageChanged;
+        }
+
+        private void OnDisable()
+        {
+            OntologyLanguagePackService.LanguageChanged -= HandleLanguageChanged;
+        }
+
+        private void HandleLanguageChanged()
+        {
+            OntologyLanguagePackService.EnsureKoreanFontFallback(transform);
+            Rebuild();
+        }
+
         private void Start()
         {
             Rebuild();
@@ -90,7 +106,7 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                var displayName = string.IsNullOrWhiteSpace(definition.displayName) ? definition.partId : definition.displayName;
+                var displayName = LocalizedPartName(definition);
                 label.text = FormatPartLabel(displayName, isEquipped, hasFact);
                 label.color = isConflictAffected ? Theme.rowConflictText : isEquipped ? Theme.rowEquippedText : Theme.rowText;
             }
@@ -325,7 +341,7 @@ namespace Tormia.Ontology.Core
         {
             if (!string.IsNullOrWhiteSpace(searchQuery))
             {
-                var displayName = string.IsNullOrWhiteSpace(definition.displayName) ? definition.partId : definition.displayName;
+                var displayName = LocalizedPartName(definition);
                 if (displayName.IndexOf(searchQuery, System.StringComparison.OrdinalIgnoreCase) < 0
                     && definition.partId.IndexOf(searchQuery, System.StringComparison.OrdinalIgnoreCase) < 0)
                 {
@@ -369,7 +385,17 @@ namespace Tormia.Ontology.Core
             background.raycastTarget = false;
             background.color = Theme.rowEven;
 
-            var label = CreateText(header.transform, "Label", string.IsNullOrWhiteSpace(slot) ? "Unknown Slot" : slot, Theme.rowFontSize, Theme.statusText, TextAlignmentOptions.MidlineLeft);
+            var label = CreateText(
+                header.transform,
+                "Label",
+                string.IsNullOrWhiteSpace(slot)
+                    ? OntologyLanguagePackService.Text(
+                        "character.ui.unknown_slot",
+                        "Unknown Slot")
+                    : OntologyLanguagePackService.Term(slot),
+                Theme.rowFontSize,
+                Theme.statusText,
+                TextAlignmentOptions.MidlineLeft);
             var labelRect = label.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
@@ -421,7 +447,7 @@ namespace Tormia.Ontology.Core
             rect.offsetMin = Theme.rowLabelOffsetMin;
             rect.offsetMax = Theme.rowLabelOffsetMax;
 
-            var displayName = string.IsNullOrWhiteSpace(definition.displayName) ? definition.partId : definition.displayName;
+            var displayName = LocalizedPartName(definition);
             label.text = FormatPartLabel(displayName, isEquipped, hasFact);
         }
 
@@ -563,7 +589,19 @@ namespace Tormia.Ontology.Core
                 return partId;
             }
 
-            return string.IsNullOrWhiteSpace(definition.displayName) ? definition.partId : definition.displayName;
+            return LocalizedPartName(definition);
+        }
+
+        private static string LocalizedPartName(
+            OntologyCharacterPartDefinition definition)
+        {
+            if (definition == null)
+                return string.Empty;
+            return OntologyLanguagePackService.CharacterPartName(
+                definition.partId,
+                string.IsNullOrWhiteSpace(definition.displayName)
+                    ? definition.partId
+                    : definition.displayName);
         }
 
         private void ClearRows()
@@ -612,13 +650,13 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                var displayName = string.IsNullOrWhiteSpace(definition.displayName) ? definition.partId : definition.displayName;
+                var displayName = LocalizedPartName(definition);
                 var isEquipped = partAdapter != null && partAdapter.IsPartEquipped(definition.partId);
                 var hasFact = partAdapter != null && partAdapter.HasEquippedPartFact(definition.partId);
                 detailText.text = string.Format(
                     Labels.selectedPartFormat,
                     displayName,
-                    definition.slot,
+                    OntologyLanguagePackService.Term(definition.slot),
                     isEquipped ? Labels.equippedState : Labels.unequippedState,
                     hasFact ? Labels.equippedState : Labels.unequippedState);
                 if (previewText != null)
@@ -654,7 +692,7 @@ namespace Tormia.Ontology.Core
                         continue;
                     }
 
-                    AppendValue(result, string.IsNullOrWhiteSpace(other.displayName) ? other.partId : other.displayName);
+                    AppendValue(result, LocalizedPartName(other));
                 }
             }
 
@@ -681,7 +719,7 @@ namespace Tormia.Ontology.Core
 
                     if (other.slot == definition.slot || HasFact(definition, OntologyPredicates.ConflictsWithSlot, other.slot) || HasFact(other, OntologyPredicates.ConflictsWithSlot, definition.slot))
                     {
-                        AppendValue(conflicts, string.IsNullOrWhiteSpace(other.displayName) ? other.partId : other.displayName);
+                        AppendValue(conflicts, LocalizedPartName(other));
                     }
                 }
             }
@@ -691,7 +729,11 @@ namespace Tormia.Ontology.Core
                 AppendValue(result, string.Format(Labels.conflictWarningFormat, conflicts));
             }
 
-            AppendValue(result, "Equip " + (string.IsNullOrWhiteSpace(definition.displayName) ? definition.partId : definition.displayName));
+            AppendValue(
+                result,
+                OntologyLanguagePackService.Text("character.ui.equip", "Equip") +
+                " " +
+                LocalizedPartName(definition));
             return result.Length == 0 ? Labels.noDiff : result.ToString();
         }
 
@@ -761,13 +803,13 @@ namespace Tormia.Ontology.Core
                 case "ColdProtection":
                     return Labels.capabilityColdProtection + " (" + Labels.capabilityColdProtectionEffect + ")";
                 default:
-                    return SplitPascalCase(capability);
+                    return OntologyLanguagePackService.Term(capability);
             }
         }
 
         private string FormatSlotName(string slot)
         {
-            return SplitPascalCase(slot);
+            return OntologyLanguagePackService.Term(slot);
         }
 
         private static string SplitPascalCase(string value)
