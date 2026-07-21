@@ -23,7 +23,10 @@
 | 오래된 리비전 | 명령이 거부되고 현재 리비전을 반환 | 서버 `stale_revision` 분기 |
 | 재전송된 명령 ID | 월드 이벤트를 중복 생성하지 않고 기존 결과 반환 | `FindCommandResult` 재생 경로 |
 
-## 후속 작업
+## UI 완료
 
-다음 UI 단계에서 편집 버튼 활성화와 읽기 전용 안내를
-`CanEditCurrentWorld`에 연결합니다. 패널마다 권한 규칙을 복제하지 않습니다.
+계정 UI는 선택된 역할을 현지화하고 `viewer`에는 읽기 전용 표시를 덧붙입니다.
+월드 편집기의 편집 버튼, 드롭다운, 입력 필드는 브리지의 단일
+`CanEditAuthorityWorld` 계약을 따릅니다. Authority 월드가 선택되지 않은 로컬
+씬은 계속 편집할 수 있고, 선택된 Authority 월드는 `owner` 또는 `editor`만
+편집할 수 있습니다.

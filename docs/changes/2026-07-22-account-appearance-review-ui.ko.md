@@ -27,6 +27,9 @@ Unity에서 직접 배치와 디자인을 조정할 수 있습니다.
 - `OntologyAccountFlowNavigatorTests.AppearanceStepOpensOnlyWhenPanelIsPresent`
   Play Mode 테스트가 통과했으며 패널이 있는 경우와 제거된 경우를 모두
   검증합니다.
+- `CompleteReviewSequenceKeepsExactlyOneStepVisible`가 계정, 캐릭터, 외형,
+  월드, 프로필, 입장 완료 패널 전환을 검증합니다.
+- `TormiaMain`의 캐릭터 카드 3개와 월드 카드 3개 모두 카드, 버튼, 기본
+  라벨 참조를 직렬화했습니다.
 - `scripts/verify-development.ps1 -SkipServerBuild`가 통과했습니다.
 - 패널과 navigator 코드 컴파일 직후 Unity Console에 오류가 없었습니다.
-  이후 MCP 재연결 이슈는 별도로 추적하며 게임플레이 또는 계정 데이터에는 영향을 주지 않습니다.

@@ -27,7 +27,10 @@ so designers can adjust its layout directly in Unity.
   runtime discovery is no longer required for this step in `TormiaMain`.
 - `OntologyAccountFlowNavigatorTests.AppearanceStepOpensOnlyWhenPanelIsPresent`
   passed in Play Mode, covering both the present and removed-panel cases.
+- `CompleteReviewSequenceKeepsExactlyOneStepVisible` covers account, character,
+  appearance, world, profile, and completed-entry panel transitions.
+- All three character cards and all three world cards now serialize their card,
+  button, and primary-label bindings in `TormiaMain`.
 - `scripts/verify-development.ps1 -SkipServerBuild` passed.
 - Unity Console was clean immediately after compiling the panel and navigator
-  changes. A later MCP reconnect issue is tracked separately and does not
-  change gameplay or account data.
+  changes.

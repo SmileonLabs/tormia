@@ -32,6 +32,7 @@ namespace Tormia.Ontology.Core
         {
             ResolveDependencies();
             if (entryFlow != null) entryFlow.StateChanged += Refresh;
+            OntologyLanguagePackService.LanguageChanged += Refresh;
             Refresh();
         }
 
@@ -40,6 +41,7 @@ namespace Tormia.Ontology.Core
         private void OnDisable()
         {
             if (entryFlow != null) entryFlow.StateChanged -= Refresh;
+            OntologyLanguagePackService.LanguageChanged -= Refresh;
         }
 
         public void Open()
@@ -57,17 +59,20 @@ namespace Tormia.Ontology.Core
             {
                 var parts = character?.equippedPartIds;
                 var appearance = parts == null || parts.Length == 0
-                    ? "Default appearance"
+                    ? L("ui.account.default_appearance", "Default appearance")
                     : string.Join(", ", parts);
-                summaryLabel.text = "APPEARANCE REVIEW\n\n" +
-                                    "Character: " + (character?.displayName ?? "-") + "\n" +
-                                    "Template: " + (character?.templateId ?? "-") + "\n" +
-                                    "Equipped parts: " + appearance;
+                summaryLabel.text = L("ui.account.appearance_review", "APPEARANCE REVIEW") + "\n\n" +
+                                    L("ui.account.character", "Character: {0}").Replace("{0}", character?.displayName ?? "-") + "\n" +
+                                    L("ui.account.template", "Template: {0}").Replace("{0}", character?.templateId ?? "-") + "\n" +
+                                    L("ui.account.equipped_parts", "Equipped parts: {0}").Replace("{0}", appearance);
             }
 
             if (continueButton != null)
                 continueButton.interactable = character != null;
         }
+
+        private static string L(string key, string fallback) =>
+            OntologyLanguagePackService.Text(key, fallback);
 
         private void BindButtons()
         {

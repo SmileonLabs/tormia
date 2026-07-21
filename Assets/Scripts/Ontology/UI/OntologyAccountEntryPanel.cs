@@ -46,12 +46,14 @@ namespace Tormia.Ontology.Core
         {
             ResolveDependencies();
             if (entryFlow != null) entryFlow.StateChanged += Refresh;
+            OntologyLanguagePackService.LanguageChanged += Refresh;
             Refresh();
         }
 
         private void OnDisable()
         {
             if (entryFlow != null) entryFlow.StateChanged -= Refresh;
+            OntologyLanguagePackService.LanguageChanged -= Refresh;
         }
 
         public void Open()
@@ -79,16 +81,14 @@ namespace Tormia.Ontology.Core
                 var character = entryFlow.CurrentCharacter;
                 var parts = character?.equippedPartIds;
                 var appearance = parts == null || parts.Length == 0
-                    ? "Appearance: default profile"
-                    : "Appearance: " + string.Join(", ", parts);
+                    ? L("ui.account.appearance_default", "Appearance: default profile")
+                    : L("ui.account.appearance", "Appearance: {0}").Replace("{0}", string.Join(", ", parts));
                 statusLabel.text = string.IsNullOrWhiteSpace(status)
                     ? appearance + "\n" + BuildPlayerOntologySummary()
                     : status + "\n" + appearance + "\n" + BuildPlayerOntologySummary();
             }
             if (permissionLabel != null)
-                permissionLabel.text = string.IsNullOrWhiteSpace(entryFlow.SelectedWorldRole)
-                    ? ""
-                    : entryFlow.SelectedWorldRole;
+                permissionLabel.text = BuildPermissionLabel();
             if (appearanceLabel != null)
             {
                 var character = entryFlow.CurrentAccount == null
@@ -98,8 +98,8 @@ namespace Tormia.Ontology.Core
                         : FindCharacter(entryFlow.CurrentAccount.characters, entryFlow.SelectedCharacterId);
                 var parts = character?.equippedPartIds;
                 appearanceLabel.text = parts == null || parts.Length == 0
-                    ? "Appearance: default profile"
-                    : "Appearance: " + string.Join(", ", parts);
+                    ? L("ui.account.appearance_default", "Appearance: default profile")
+                    : L("ui.account.appearance", "Appearance: {0}").Replace("{0}", string.Join(", ", parts));
             }
             if (playerOntologyLabel != null)
                 playerOntologyLabel.text = BuildPlayerOntologySummary();
@@ -235,9 +235,24 @@ namespace Tormia.Ontology.Core
                 }
             }
             return ontologyObject == null
-                ? "Player ontology: not available"
-                : "Player ontology: " + ontologyObject.EntityId + " (" + factCount + " facts)";
+                ? L("ui.account.player_ontology_unavailable", "Player ontology: not available")
+                : L("ui.account.player_ontology", "Player ontology: {0} ({1} facts)")
+                    .Replace("{0}", ontologyObject.EntityId)
+                    .Replace("{1}", factCount.ToString());
         }
+
+        private string BuildPermissionLabel()
+        {
+            var role = entryFlow.SelectedWorldRole;
+            if (string.IsNullOrWhiteSpace(role)) return string.Empty;
+            var localizedRole = L("ui.account.role_" + role.ToLowerInvariant(), role);
+            return entryFlow.CanEditSelectedWorld
+                ? localizedRole
+                : localizedRole + " · " + L("ui.account.read_only", "Read only");
+        }
+
+        private static string L(string key, string fallback) =>
+            OntologyLanguagePackService.Text(key, fallback);
 
         private void ResolveDependencies()
         {

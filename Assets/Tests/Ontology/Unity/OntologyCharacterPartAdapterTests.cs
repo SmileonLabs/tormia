@@ -160,6 +160,11 @@ namespace Tormia.Ontology.Tests
         private Setup CreateSetup(params OntologyCharacterPartDefinition[] definitions)
         {
             var root = Track(new GameObject("PartAdapterTestRoot"));
+            var actorObject = root.AddComponent<OntologyObject>();
+            actorObject.ConfigureOntologyData(
+                "Player",
+                new[] { OntologyConcepts.Actor },
+                System.Array.Empty<OntologyFactEntry>());
             var bootstrap = root.AddComponent<OntologyWorldBootstrap>();
             bootstrap.ResetWorld(logReport: false);
 
@@ -187,6 +192,7 @@ namespace Tormia.Ontology.Tests
             SetField(adapter, "bootstrap", bootstrap);
             SetField(adapter, "partDatabase", database);
             SetField(adapter, "visualRoot", visualRoot.transform);
+            SetField(adapter, "actorObject", actorObject);
 
             return new Setup(bootstrap, adapter, renderers);
         }

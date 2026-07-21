@@ -1,4 +1,24 @@
 key,text,description
+ui.account.appearance_default,외형: 기본 프로필,계정 진입
+ui.account.appearance,외형: {0},계정 진입
+ui.account.default_appearance,기본 외형,계정 진입
+ui.account.player_ontology_unavailable,플레이어 온톨로지: 사용할 수 없음,계정 진입
+ui.account.player_ontology,플레이어 온톨로지: {0} (팩트 {1}개),계정 진입
+ui.account.role_owner,소유자,계정 진입
+ui.account.role_editor,편집자,계정 진입
+ui.account.role_viewer,열람자,계정 진입
+ui.account.read_only,읽기 전용,계정 진입
+ui.account.no_profile_relations,저장된 프로필 관계 없음,계정 진입
+ui.account.no_account_profile_relations,저장된 계정 프로필 관계 없음,계정 진입
+ui.account.profile_relation_count,저장된 프로필 관계 {0}개,계정 진입
+ui.account.appearance_review,외형 확인,계정 진입
+ui.account.profile_review,프로필 확인,계정 진입
+ui.account.character,캐릭터: {0},계정 진입
+ui.account.template,템플릿: {0},계정 진입
+ui.account.equipped_parts,장착 파츠: {0},계정 진입
+ui.account.world,월드: {0},계정 진입
+ui.account.revision,리비전 {0},계정 진입
+ui.authority.read_only,열람자 권한: 월드 편집은 읽기 전용입니다.,월드 편집기
 ui.quest_panel.title,퀘스트와 행동,플레이어 퀘스트 패널
 ui.quest_panel.empty_quests,진행 중인 퀘스트가 없습니다,플레이어 퀘스트 패널
 ui.quest_panel.empty_actions,현재 가능한 행동이 없습니다,플레이어 퀘스트 패널

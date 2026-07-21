@@ -31,6 +31,7 @@ namespace Tormia.Ontology.Tests
                 };
                 physical.profileId = "LightBuoyant";
                 physical.supportsBuoyancy = true;
+                physical.buoyancyRuleId = "BuoyantWhenInWater";
                 attachment.profileId = "WaistInflatableRing";
                 attachment.kind = OntologyAttachmentKind.Wearable;
                 attachment.slotId = "Waist";
@@ -111,6 +112,7 @@ namespace Tormia.Ontology.Tests
                 };
                 physical.profileId = "WoodMedium";
                 physical.supportsBuoyancy = true;
+                physical.buoyancyRuleId = "BuoyantWhenInWater";
 
                 var definition = new OntologyPlaceableDefinition
                 {
@@ -118,6 +120,11 @@ namespace Tormia.Ontology.Tests
                     ontologyTemplate = template,
                     physicalProfile = physical
                 };
+                definition.defaultRuleBlocks.Add(new OntologyRuleBlockBinding
+                {
+                    ruleId = "BuoyantWhenInWater",
+                    bindingVariable = "?object"
+                });
 
                 Assert.That(OntologyPlaceableSemanticValidator.Validate(definition), Is.Empty);
             }

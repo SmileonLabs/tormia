@@ -24,8 +24,10 @@ and idempotent command ID before applying a command.
 | stale revision | Command is rejected and current revision is returned | Server `stale_revision` branch |
 | replayed command ID | Existing result is returned without a second world event | `FindCommandResult` replay path |
 
-## Follow-up
+## UI completion
 
-The next UI slice should bind edit-button interactability and a localized
-read-only message to `CanEditCurrentWorld`; it must not duplicate permission
-logic in individual panels.
+The account UI now localizes the selected role and appends a read-only marker
+for `viewer`. The world editor derives edit-button, dropdown, and input
+interactivity from the bridge's single `CanEditAuthorityWorld` contract. An
+offline local scene remains editable; a selected authority world is read-only
+unless its role is `owner` or `editor`.

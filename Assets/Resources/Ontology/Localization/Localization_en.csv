@@ -1,4 +1,24 @@
 key,text,description
+ui.account.appearance_default,Appearance: default profile,Account entry
+ui.account.appearance,Appearance: {0},Account entry
+ui.account.default_appearance,Default appearance,Account entry
+ui.account.player_ontology_unavailable,Player ontology: not available,Account entry
+ui.account.player_ontology,Player ontology: {0} ({1} facts),Account entry
+ui.account.role_owner,Owner,Account entry
+ui.account.role_editor,Editor,Account entry
+ui.account.role_viewer,Viewer,Account entry
+ui.account.read_only,Read only,Account entry
+ui.account.no_profile_relations,No saved profile relations,Account entry
+ui.account.no_account_profile_relations,No saved account profile relations,Account entry
+ui.account.profile_relation_count,{0} saved profile relation(s),Account entry
+ui.account.appearance_review,APPEARANCE REVIEW,Account entry
+ui.account.profile_review,PROFILE REVIEW,Account entry
+ui.account.character,Character: {0},Account entry
+ui.account.template,Template: {0},Account entry
+ui.account.equipped_parts,Equipped parts: {0},Account entry
+ui.account.world,World: {0},Account entry
+ui.account.revision,Revision {0},Account entry
+ui.authority.read_only,Viewer role: world editing is read only.,World editor
 ui.quest_panel.title,Quests & Actions,Player quest panel
 ui.quest_panel.empty_quests,No active quests,Player quest panel
 ui.quest_panel.empty_actions,No available actions,Player quest panel

@@ -26,6 +26,7 @@ namespace Tormia.Ontology.Core
         private bool suppressOutgoingChanges;
 
         public string LastPublishStatus => lastPublishStatus;
+        public bool HasSelectedAuthorityWorld => authorityClient != null && authorityClient.IsReady;
         public bool CanEditAuthorityWorld => authorityClient != null && authorityClient.CanEditCurrentWorld;
         public event Action StatusChanged;
 

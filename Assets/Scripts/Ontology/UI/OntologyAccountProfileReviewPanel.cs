@@ -39,6 +39,7 @@ namespace Tormia.Ontology.Core
         {
             ResolveDependencies();
             if (entryFlow != null) entryFlow.StateChanged += Refresh;
+            OntologyLanguagePackService.LanguageChanged += Refresh;
             Refresh();
         }
 
@@ -48,6 +49,7 @@ namespace Tormia.Ontology.Core
         private void OnDisable()
         {
             if (entryFlow != null) entryFlow.StateChanged -= Refresh;
+            OntologyLanguagePackService.LanguageChanged -= Refresh;
         }
 
         public void Open()
@@ -67,14 +69,14 @@ namespace Tormia.Ontology.Core
             if (appearanceLabel != null)
             {
                 appearanceLabel.text = character?.equippedPartIds == null || character.equippedPartIds.Length == 0
-                    ? "Default appearance"
+                    ? L("ui.account.default_appearance", "Default appearance")
                     : string.Join(", ", character.equippedPartIds);
             }
             if (profileRelationsLabel != null)
             {
                 if (character?.profileRelations == null || character.profileRelations.Length == 0)
                 {
-                    profileRelationsLabel.text = "No saved profile relations";
+                    profileRelationsLabel.text = L("ui.account.no_profile_relations", "No saved profile relations");
                 }
                 else
                 {
@@ -97,21 +99,25 @@ namespace Tormia.Ontology.Core
             {
                 var relations = character?.profileRelations;
                 var relationSummary = relations == null || relations.Length == 0
-                    ? "No saved account profile relations"
-                    : relations.Length + " saved account profile relation(s)";
+                    ? L("ui.account.no_account_profile_relations", "No saved account profile relations")
+                    : L("ui.account.profile_relation_count", "{0} saved account profile relation(s)")
+                        .Replace("{0}", relations.Length.ToString());
                 var appearance = character?.equippedPartIds == null || character.equippedPartIds.Length == 0
-                    ? "Default appearance"
+                    ? L("ui.account.default_appearance", "Default appearance")
                     : string.Join(", ", character.equippedPartIds);
-                summaryLabel.text = "PROFILE REVIEW\n\n" +
-                                    "Character: " + (character?.displayName ?? "-") + "\n" +
-                                    "Template: " + (character?.templateId ?? "-") + "\n" +
-                                    "Appearance: " + appearance + "\n" +
-                                    "World: " + (entryFlow.SelectedWorldId ?? "-") + "\n\n" +
+                summaryLabel.text = L("ui.account.profile_review", "PROFILE REVIEW") + "\n\n" +
+                                    L("ui.account.character", "Character: {0}").Replace("{0}", character?.displayName ?? "-") + "\n" +
+                                    L("ui.account.template", "Template: {0}").Replace("{0}", character?.templateId ?? "-") + "\n" +
+                                    L("ui.account.appearance", "Appearance: {0}").Replace("{0}", appearance) + "\n" +
+                                    L("ui.account.world", "World: {0}").Replace("{0}", entryFlow.SelectedWorldId ?? "-") + "\n\n" +
                                     relationSummary;
             }
             if (enterWorldButton != null)
                 enterWorldButton.interactable = character != null && !string.IsNullOrWhiteSpace(entryFlow.SelectedWorldId);
         }
+
+        private static string L(string key, string fallback) =>
+            OntologyLanguagePackService.Text(key, fallback);
 
         private void BindButtons()
         {

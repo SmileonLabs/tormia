@@ -114,6 +114,8 @@ namespace Tormia.Ontology.Tests
             profile.proximityExitPadding = 0.1f;
             profile.disableWorldPhysicsWhileAttached = true;
             profile.disableWorldCollidersWhileAttached = true;
+            profile.detachInteractionLocalCenter = new Vector3(0f, 0.75f, 0f);
+            profile.detachInteractionLocalSize = Vector3.one;
 
             var proximity = item.AddComponent<OntologyProximityObservationSensor>();
             proximity.Configure(bootstrap, actorOntology, 1f, 0.1f);

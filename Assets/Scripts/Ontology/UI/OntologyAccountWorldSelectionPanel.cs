@@ -38,6 +38,7 @@ namespace Tormia.Ontology.Core
         {
             ResolveDependencies();
             if (entryFlow != null) entryFlow.StateChanged += Refresh;
+            OntologyLanguagePackService.LanguageChanged += Refresh;
             Refresh();
         }
 
@@ -47,6 +48,7 @@ namespace Tormia.Ontology.Core
         private void OnDisable()
         {
             if (entryFlow != null) entryFlow.StateChanged -= Refresh;
+            OntologyLanguagePackService.LanguageChanged -= Refresh;
         }
 
         public void Open()
@@ -113,15 +115,15 @@ namespace Tormia.Ontology.Core
         {
             if (entryFlow == null) entryFlow = FindAnyObjectByType<OntologyWorldAuthorityAccountEntryFlow>();
             if (panelGroup == null) panelGroup = GetComponent<CanvasGroup>();
-            if (worldCards == null || worldCards.Length == 0 || AllCardsMissing())
+            if (worldCards == null || worldCards.Length == 0 || AnyCardMissing())
                 worldCards = GetComponentsInChildren<OntologyAccountWorldCard>(true);
         }
 
-        private bool AllCardsMissing()
+        private bool AnyCardMissing()
         {
             foreach (var card in worldCards)
-                if (card != null) return false;
-            return true;
+                if (card == null) return true;
+            return false;
         }
 
         private void SetVisible(bool visible)
@@ -143,16 +145,19 @@ namespace Tormia.Ontology.Core
         [SerializeField] private TMP_Text revisionLabel;
         private string worldId;
 
+        private void Awake() => ResolveBindings();
+
         public void Bind(OntologyAuthorityAccountWorld world, bool selected, Action<string> select)
         {
+            ResolveBindings();
             var available = world != null;
             worldId = available ? world.worldId : null;
             gameObject.SetActive(available);
             if (!available) return;
 
             if (titleLabel != null) titleLabel.text = world.title ?? world.worldId;
-            if (roleLabel != null) roleLabel.text = world.role ?? string.Empty;
-            if (revisionLabel != null) revisionLabel.text = "Revision " + world.revision;
+            if (roleLabel != null) roleLabel.text = L("ui.account.role_" + (world.role ?? string.Empty).ToLowerInvariant(), world.role ?? string.Empty);
+            if (revisionLabel != null) revisionLabel.text = L("ui.account.revision", "Revision {0}").Replace("{0}", world.revision.ToString());
             if (selectedIndicator != null) selectedIndicator.SetActive(selected);
             if (selectButton != null)
             {
@@ -160,5 +165,15 @@ namespace Tormia.Ontology.Core
                 selectButton.onClick.AddListener(() => select?.Invoke(worldId));
             }
         }
+
+        private void ResolveBindings()
+        {
+            if (selectButton == null) selectButton = GetComponent<Button>();
+            var labels = GetComponentsInChildren<TMP_Text>(true);
+            if (titleLabel == null && labels.Length > 0) titleLabel = labels[0];
+        }
+
+        private static string L(string key, string fallback) =>
+            OntologyLanguagePackService.Text(key, fallback);
     }
 }

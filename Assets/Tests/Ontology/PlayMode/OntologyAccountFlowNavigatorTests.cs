@@ -10,6 +10,46 @@ namespace Tormia.Ontology.Tests
     public sealed class OntologyAccountFlowNavigatorTests
     {
         [UnityTest]
+        public IEnumerator CompleteReviewSequenceKeepsExactlyOneStepVisible()
+        {
+            var account = CreatePanel<OntologyAccountEntryPanel>("Account");
+            var character = CreatePanel<OntologyAccountCharacterSelectionPanel>("Character");
+            var appearance = CreatePanel<OntologyAccountAppearanceReviewPanel>("Appearance");
+            var world = CreatePanel<OntologyAccountWorldSelectionPanel>("World");
+            var profile = CreatePanel<OntologyAccountProfileReviewPanel>("Profile");
+            var navigatorObject = new GameObject("Navigator");
+            navigatorObject.SetActive(false);
+            var navigator = navigatorObject.AddComponent<OntologyAccountFlowNavigator>();
+
+            SetPrivateField(navigator, "accountEntryPanel", account.Panel);
+            SetPrivateField(navigator, "characterSelectionPanel", character.Panel);
+            SetPrivateField(navigator, "appearanceReviewPanel", appearance.Panel);
+            SetPrivateField(navigator, "worldSelectionPanel", world.Panel);
+            SetPrivateField(navigator, "profileReviewPanel", profile.Panel);
+
+            navigator.ShowAccountEntry();
+            AssertOnlyVisible(account.Group, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+            navigator.ShowCharacterSelection();
+            AssertOnlyVisible(character.Group, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+            navigator.ShowAppearanceReview();
+            AssertOnlyVisible(appearance.Group, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+            navigator.ShowWorldSelection();
+            AssertOnlyVisible(world.Group, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+            navigator.ShowProfileReview();
+            AssertOnlyVisible(profile.Group, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+            navigator.CloseAll();
+            AssertOnlyVisible(null, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+
+            Object.Destroy(account.Panel.gameObject);
+            Object.Destroy(character.Panel.gameObject);
+            Object.Destroy(appearance.Panel.gameObject);
+            Object.Destroy(world.Panel.gameObject);
+            Object.Destroy(profile.Panel.gameObject);
+            Object.Destroy(navigatorObject);
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator AppearanceStepOpensOnlyWhenPanelIsPresent()
         {
             var account = CreatePanel<OntologyAccountEntryPanel>("Account");
@@ -73,6 +113,14 @@ namespace Tormia.Ontology.Tests
             Assert.That(group.alpha, Is.EqualTo(expected ? 1f : 0f));
             Assert.That(group.interactable, Is.EqualTo(expected));
             Assert.That(group.blocksRaycasts, Is.EqualTo(expected));
+        }
+
+        private static void AssertOnlyVisible(
+            CanvasGroup expected,
+            params CanvasGroup[] groups)
+        {
+            foreach (var group in groups)
+                AssertVisible(group, group == expected);
         }
 
         private static void SetPrivateField(

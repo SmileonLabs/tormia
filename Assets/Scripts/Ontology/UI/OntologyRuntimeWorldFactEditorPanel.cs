@@ -83,6 +83,10 @@ namespace Tormia.Ontology.Core
         private string footerStatus;
         private bool changingLanguage;
         private readonly List<string> physicalDetailProfileIds = new();
+        private bool CanAuthorCurrentWorld =>
+            authorityBridge == null ||
+            !authorityBridge.HasSelectedAuthorityWorld ||
+            authorityBridge.CanEditAuthorityWorld;
 
         public void Configure(OntologyRuntimeWorldEditorController value)
         {
@@ -443,12 +447,14 @@ namespace Tormia.Ontology.Core
             if (mode == EditorMode.RuleBlocks)
             {
                 ShowRuleBlocks();
+                ApplyCurrentAuthoringPermission();
                 return;
             }
 
             if (mode == EditorMode.PhysicalBehavior)
             {
                 ShowPhysicalBehavior();
+                ApplyCurrentAuthoringPermission();
                 return;
             }
 
@@ -466,17 +472,24 @@ namespace Tormia.Ontology.Core
                          !string.IsNullOrWhiteSpace(value.predicate) &&
                          !string.IsNullOrWhiteSpace(value.obj)))
                 AddRow(fact.predicate, fact.obj, false, false);
+            ApplyCurrentAuthoringPermission();
         }
 
         private void RefreshFooter()
         {
             if (addTripleButton == null) return;
+            var canAuthor = CanAuthorCurrentWorld;
             addTripleButton.gameObject.SetActive(
                 mode == EditorMode.Triples ||
                 mode == EditorMode.RuleBlocks);
+            addTripleButton.interactable = canAuthor;
+            if (saveWorldButton != null) saveWorldButton.interactable = canAuthor;
+            if (physicalDetailApplyButton != null) physicalDetailApplyButton.interactable = canAuthor;
             if (footerHint != null)
             {
-                footerHint.text = !string.IsNullOrWhiteSpace(footerStatus)
+                footerHint.text = !canAuthor
+                    ? L("ui.authority.read_only", "Viewer role: world editing is read only.")
+                    : !string.IsNullOrWhiteSpace(footerStatus)
                     ? footerStatus
                     : mode == EditorMode.RuleBlocks
                     ? L(
@@ -493,6 +506,33 @@ namespace Tormia.Ontology.Core
                         : L(
                             "ui.footer.triples",
                             "The subject is fixed. Edit the relation and value.");
+            }
+
+            ApplyCurrentAuthoringPermission();
+        }
+
+        private void ApplyCurrentAuthoringPermission()
+        {
+            var canAuthor = CanAuthorCurrentWorld;
+            ApplyRuntimeAuthoringPermission(tripleContent, canAuthor);
+            ApplyRuntimeAuthoringPermission(physicalContent, canAuthor);
+        }
+
+        private static void ApplyRuntimeAuthoringPermission(
+            Transform content,
+            bool canAuthor)
+        {
+            if (content == null) return;
+            foreach (var dropdown in content.GetComponentsInChildren<TMP_Dropdown>(true))
+                dropdown.interactable = canAuthor;
+            foreach (var input in content.GetComponentsInChildren<TMP_InputField>(true))
+                input.interactable = canAuthor;
+            foreach (var button in content.GetComponentsInChildren<Button>(true))
+            {
+                var controlName = button.gameObject.name;
+                if (controlName.Contains("Apply") || controlName.Contains("Save") ||
+                    controlName.Contains("Delete") || controlName.Contains("Remove"))
+                    button.interactable = canAuthor;
             }
         }
 

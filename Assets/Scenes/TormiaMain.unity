@@ -4375,9 +4375,9 @@ MonoBehaviour:
   entryFlow: {fileID: 657970471}
   panelGroup: {fileID: 267447080}
   characterCards:
-  - {fileID: 556155527}
-  - {fileID: 1677483914}
-  - {fileID: 805372567}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   accountLabel: {fileID: 0}
   statusLabel: {fileID: 0}
   continueButton: {fileID: 1024617817}
@@ -10441,11 +10441,33 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 8335698631609814283, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
   m_PrefabInstance: {fileID: 556155522}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &556155524 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1465884157289556692, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
+  m_PrefabInstance: {fileID: 556155522}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &556155525 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2476776012604968550, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
   m_PrefabInstance: {fileID: 556155522}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &556155526 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3067196312505493971, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
+  m_PrefabInstance: {fileID: 556155522}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 556155525}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c645a687879a2124a95915c7e5bd035f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &556155527
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10458,9 +10480,9 @@ MonoBehaviour:
   m_Script: {fileID: 1303343413}
   m_Name: 
   m_EditorClassIdentifier: Tormia.Ontology.UI::Tormia.Ontology.Core.OntologyAccountCharacterCard
-  selectButton: {fileID: 0}
+  selectButton: {fileID: 556155526}
   selectedIndicator: {fileID: 0}
-  nameLabel: {fileID: 0}
+  nameLabel: {fileID: 556155524}
   templateLabel: {fileID: 0}
   appearanceLabel: {fileID: 0}
   profileSummaryLabel: {fileID: 0}
@@ -12161,6 +12183,7 @@ Transform:
   - {fileID: 847338981}
   - {fileID: 1832426153}
   - {fileID: 1463632082}
+  - {fileID: 1779165518}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &657970461
@@ -12305,7 +12328,7 @@ MonoBehaviour:
   zoneStreamer: {fileID: 657970467}
   playerInput: {fileID: 472011345}
   avatarIdentity: {fileID: 472011358}
-  submitRuntimeIntents: 0
+  submitRuntimeIntents: 1
   submissionsPerSecond: 15
   lastStatus: 
   avatarRegistered: 0
@@ -12323,14 +12346,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyWorldAuthorityRemoteAvatarPresenter
   authorityClient: {fileID: 657970465}
-  realtimeClient: {fileID: 0}
+  realtimeClient: {fileID: 657970466}
   zoneStreamer: {fileID: 657970467}
   localAvatarIdentity: {fileID: 472011358}
-  remoteAvatarRoot: {fileID: 0}
+  remoteAvatarRoot: {fileID: 1779165518}
   remoteAvatarPrefab: {fileID: 7312575046814370627, guid: 602b521cccd640c3870c75c254938a10, type: 3}
   remoteAnimatorSource: {fileID: 1970004211}
   characterPartDatabase: {fileID: 11400000, guid: c48b8bc417cad9040a94fcbf50efb522, type: 2}
-  replicateRemoteAvatars: 0
+  replicateRemoteAvatars: 1
   pollIntervalSeconds: 0.2
   realtimeRecoveryPollIntervalSeconds: 2
   maximumVisualSpeed: 8
@@ -12350,10 +12373,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9d220889bc70a3489370f7c26d15ab3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyWorldAuthorityAccountEntryFlow
-  authorityClient: {fileID: 0}
-  intentSender: {fileID: 0}
-  avatarIdentity: {fileID: 0}
-  characterPartAdapter: {fileID: 0}
+  authorityClient: {fileID: 657970465}
+  intentSender: {fileID: 657970469}
+  avatarIdentity: {fileID: 472011358}
+  characterPartAdapter: {fileID: 472011347}
   lastStatus: 
   enteredCurrentWorld: 0
 --- !u!1 &659002368
@@ -15268,11 +15291,33 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 8335698631609814283, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
   m_PrefabInstance: {fileID: 774453749}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &774453751 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1465884157289556692, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
+  m_PrefabInstance: {fileID: 774453749}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &774453752 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2476776012604968550, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
   m_PrefabInstance: {fileID: 774453749}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &774453753 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3067196312505493971, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
+  m_PrefabInstance: {fileID: 774453749}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 774453752}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c645a687879a2124a95915c7e5bd035f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &774453754
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15285,9 +15330,9 @@ MonoBehaviour:
   m_Script: {fileID: 912002243}
   m_Name: 
   m_EditorClassIdentifier: Tormia.Ontology.UI::Tormia.Ontology.Core.OntologyAccountWorldCard
-  selectButton: {fileID: 0}
+  selectButton: {fileID: 774453753}
   selectedIndicator: {fileID: 0}
-  titleLabel: {fileID: 0}
+  titleLabel: {fileID: 774453751}
   roleLabel: {fileID: 0}
   revisionLabel: {fileID: 0}
 --- !u!1 &781574542
@@ -16119,11 +16164,33 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 8335698631609814283, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
   m_PrefabInstance: {fileID: 805372562}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &805372564 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1465884157289556692, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
+  m_PrefabInstance: {fileID: 805372562}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &805372565 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2476776012604968550, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
   m_PrefabInstance: {fileID: 805372562}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &805372566 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3067196312505493971, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
+  m_PrefabInstance: {fileID: 805372562}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 805372565}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c645a687879a2124a95915c7e5bd035f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &805372567
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16136,9 +16203,9 @@ MonoBehaviour:
   m_Script: {fileID: 1303343413}
   m_Name: 
   m_EditorClassIdentifier: Tormia.Ontology.UI::Tormia.Ontology.Core.OntologyAccountCharacterCard
-  selectButton: {fileID: 0}
+  selectButton: {fileID: 805372566}
   selectedIndicator: {fileID: 0}
-  nameLabel: {fileID: 0}
+  nameLabel: {fileID: 805372564}
   templateLabel: {fileID: 0}
   appearanceLabel: {fileID: 0}
   profileSummaryLabel: {fileID: 0}
@@ -17143,8 +17210,6 @@ GameObject:
   - component: {fileID: 847338981}
   - component: {fileID: 847338982}
   - component: {fileID: 847338985}
-  - component: {fileID: 847338984}
-  - component: {fileID: 847338983}
   m_Layer: 0
   m_Name: Ontology_Player
   m_TagString: Untagged
@@ -17199,63 +17264,6 @@ MonoBehaviour:
     obj: Help
   - predicate: has_skill
     obj: Talk
---- !u!114 &847338983
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 847338980}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2a6f4d8c1e9b4f7a8c3d5e0b6a2f9c44, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyActorProfileFactSynchronizer
-  bootstrap: {fileID: 657970459}
-  profile: {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
-  actorObject: {fileID: 0}
-  actorId: Player
-  runSimulationAfterSync: 1
---- !u!114 &847338984
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 847338980}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7210c4f3aae759643950143c0d0c9fa5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyAnimationAdapter
-  bootstrap: {fileID: 657970459}
-  animationDatabase: {fileID: 11400000, guid: 8fca97aac22318b47bb98b2feffe1903, type: 2}
-  actorProfile: {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
-  targetAnimator: {fileID: 0}
-  actorObject: {fileID: 0}
-  actorId: Player
-  useAnimatorSpeed: 1
-  normalAnimatorSpeed: 1
-  slowedAnimatorSpeed: 0.75
-  playSelectedClip: 0
-  loopBlendableClips: 1
-  transitionBlendDuration: 0.25
-  useDefaultIntentWhenNoFact: 1
-  defaultIdleIntent: Idle
-  defaultMoveIntent: Locomotion
-  movementIntentThreshold: 0.01
-  boolBindings:
-  - predicate: movement_state
-    obj: Slowed
-    parameter: isSlowed
-  - predicate: exposed_to
-    obj: ColdEnvironment
-    parameter: isFreezing
-  selectedAnimationId: 
-  selectedClipName: 
-  selectedIntent: 
-  selectedCanBlend: 0
-  selectedFromOntologyIntent: 0
 --- !u!95 &847338985
 Animator:
   serializedVersion: 7
@@ -26883,9 +26891,9 @@ MonoBehaviour:
   entryFlow: {fileID: 657970471}
   panelGroup: {fileID: 1476490742}
   worldCards:
-  - {fileID: 1584037526}
-  - {fileID: 774453754}
-  - {fileID: 1584111473}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   selectedCharacterLabel: {fileID: 0}
   statusLabel: {fileID: 0}
   continueButton: {fileID: 1036477781}
@@ -31037,11 +31045,33 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 8335698631609814283, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
   m_PrefabInstance: {fileID: 1677483909}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1677483911 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1465884157289556692, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
+  m_PrefabInstance: {fileID: 1677483909}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1677483912 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2476776012604968550, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
   m_PrefabInstance: {fileID: 1677483909}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1677483913 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3067196312505493971, guid: 665d8bbd7df08864c9c6271fadfc49ae, type: 3}
+  m_PrefabInstance: {fileID: 1677483909}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1677483912}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c645a687879a2124a95915c7e5bd035f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &1677483914
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -31054,9 +31084,9 @@ MonoBehaviour:
   m_Script: {fileID: 1303343413}
   m_Name: 
   m_EditorClassIdentifier: Tormia.Ontology.UI::Tormia.Ontology.Core.OntologyAccountCharacterCard
-  selectButton: {fileID: 0}
+  selectButton: {fileID: 1677483913}
   selectedIndicator: {fileID: 0}
-  nameLabel: {fileID: 0}
+  nameLabel: {fileID: 1677483911}
   templateLabel: {fileID: 0}
   appearanceLabel: {fileID: 0}
   profileSummaryLabel: {fileID: 0}
@@ -32862,6 +32892,37 @@ Material:
     - _UnderlayColor: {r: 0.13843165, g: 0.05448028, b: 0.016807375, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
+--- !u!1 &1779165517
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1779165518}
+  m_Layer: 0
+  m_Name: RemoteAvatars
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1779165518
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1779165517}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 657970460}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1783781311 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 797102753406230286, guid: 09a52802b14eb00478d85795e82b608c, type: 3}

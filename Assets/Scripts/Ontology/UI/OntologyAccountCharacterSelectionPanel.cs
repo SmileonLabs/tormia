@@ -42,6 +42,7 @@ namespace Tormia.Ontology.Core
         {
             ResolveDependencies();
             if (entryFlow != null) entryFlow.StateChanged += Refresh;
+            OntologyLanguagePackService.LanguageChanged += Refresh;
             Refresh();
         }
 
@@ -52,6 +53,7 @@ namespace Tormia.Ontology.Core
         private void OnDisable()
         {
             if (entryFlow != null) entryFlow.StateChanged -= Refresh;
+            OntologyLanguagePackService.LanguageChanged -= Refresh;
         }
 
         public void Open()
@@ -123,15 +125,15 @@ namespace Tormia.Ontology.Core
         {
             if (entryFlow == null) entryFlow = FindAnyObjectByType<OntologyWorldAuthorityAccountEntryFlow>();
             if (panelGroup == null) panelGroup = GetComponent<CanvasGroup>();
-            if (characterCards == null || characterCards.Length == 0 || AllCardsMissing())
+            if (characterCards == null || characterCards.Length == 0 || AnyCardMissing())
                 characterCards = GetComponentsInChildren<OntologyAccountCharacterCard>(true);
         }
 
-        private bool AllCardsMissing()
+        private bool AnyCardMissing()
         {
             foreach (var card in characterCards)
-                if (card != null) return false;
-            return true;
+                if (card == null) return true;
+            return false;
         }
 
         private void SetVisible(bool visible)
@@ -159,8 +161,11 @@ namespace Tormia.Ontology.Core
 
         private string characterId;
 
+        private void Awake() => ResolveBindings();
+
         public void Bind(OntologyAuthorityPlayerCharacter character, bool selected, Action<string> select)
         {
+            ResolveBindings();
             var available = character != null;
             characterId = available ? character.characterId : null;
             gameObject.SetActive(available);
@@ -171,15 +176,16 @@ namespace Tormia.Ontology.Core
             if (appearanceLabel != null)
             {
                 appearanceLabel.text = character.equippedPartIds == null || character.equippedPartIds.Length == 0
-                    ? "Default appearance"
+                    ? L("ui.account.default_appearance", "Default appearance")
                     : string.Join(", ", character.equippedPartIds);
             }
             if (profileSummaryLabel != null)
             {
                 var relationCount = character.profileRelations == null ? 0 : character.profileRelations.Length;
                 profileSummaryLabel.text = relationCount == 0
-                    ? "No saved profile relations"
-                    : relationCount + " saved profile relation(s)";
+                    ? L("ui.account.no_profile_relations", "No saved profile relations")
+                    : L("ui.account.profile_relation_count", "{0} saved profile relation(s)")
+                        .Replace("{0}", relationCount.ToString());
             }
             if (selectedIndicator != null) selectedIndicator.SetActive(selected);
             if (selectButton != null)
@@ -188,5 +194,15 @@ namespace Tormia.Ontology.Core
                 selectButton.onClick.AddListener(() => select?.Invoke(characterId));
             }
         }
+
+        private void ResolveBindings()
+        {
+            if (selectButton == null) selectButton = GetComponent<Button>();
+            var labels = GetComponentsInChildren<TMP_Text>(true);
+            if (nameLabel == null && labels.Length > 0) nameLabel = labels[0];
+        }
+
+        private static string L(string key, string fallback) =>
+            OntologyLanguagePackService.Text(key, fallback);
     }
 }
