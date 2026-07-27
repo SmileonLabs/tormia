@@ -320,8 +320,7 @@ namespace Tormia.Ontology.Core
             var origin = nearbySelectionOrigin.position;
             var maximumDistance = Mathf.Max(0.1f, nearbySelectionRadius);
             var candidates = FindObjectsByType<OntologyPlaceableInstance>(
-                    FindObjectsInactive.Exclude,
-                    FindObjectsSortMode.None)
+                    FindObjectsInactive.Exclude)
                 .Where(IsWorldEditableCandidate)
                 .Select(candidate => new NearbySelectionCandidate(
                     candidate,
@@ -567,11 +566,11 @@ namespace Tormia.Ontology.Core
             var copyInstance = copy.GetComponent<OntologyPlaceableInstance>();
             var sourceOntology = selected.GetComponent<OntologyObject>();
             var copyOntology = copy.GetComponent<OntologyObject>();
-            if (sourceOntology != null && copyOntology != null)
-                copyOntology.ConfigureOntologyData(copy.name, sourceOntology.Concepts.ToArray(), sourceOntology.Facts.Where(f => f != null).Select(f => new OntologyFactEntry { predicate = f.predicate, obj = f.obj }).ToArray());
             var authorityIdentity = copy.GetComponent<OntologyAuthorityEntityIdentity>() ??
                                     copy.AddComponent<OntologyAuthorityEntityIdentity>();
-            authorityIdentity.RegenerateGuid();
+            var copyEntityId = authorityIdentity.RegenerateGuid().ToString("D");
+            if (sourceOntology != null && copyOntology != null)
+                copyOntology.ConfigureOntologyData(copyEntityId, sourceOntology.Concepts.ToArray(), sourceOntology.Facts.Where(f => f != null).Select(f => new OntologyFactEntry { predicate = f.predicate, obj = f.obj }).ToArray());
             Select(copyInstance);
             // A copy is normally created to be placed somewhere else, so immediately
             // enter the same live mouse-placement mode as the MOVE command.
@@ -811,7 +810,7 @@ namespace Tormia.Ontology.Core
                 });
             }
             ontology.ConfigureOntologyData(
-                selected.name,
+                ontology.EntityId,
                 ontology.Concepts.Where(value => !string.IsNullOrWhiteSpace(value)).ToArray(),
                 facts.ToArray());
 
@@ -968,7 +967,7 @@ namespace Tormia.Ontology.Core
                 }
             }
 
-            ontology.ConfigureOntologyData(selected.name, concepts.ToArray(), facts.ToArray());
+            ontology.ConfigureOntologyData(ontology.EntityId, concepts.ToArray(), facts.ToArray());
             var applied = AddSelectedRuleBlock(
                 preset.primaryRuleId,
                 preset.bindingVariable);
@@ -1205,7 +1204,7 @@ namespace Tormia.Ontology.Core
             }
 
             ontology.ConfigureOntologyData(
-                selected.name,
+                ontology.EntityId,
                 concepts.ToArray(),
                 facts.ToArray());
         }
@@ -1248,7 +1247,7 @@ namespace Tormia.Ontology.Core
                 if (add) { if (index >= 0) return false; facts.Add(new OntologyFactEntry { predicate = predicate, obj = obj }); }
                 else { if (index < 0) return false; facts.RemoveAt(index); }
             }
-            ontology.ConfigureOntologyData(selected.name, concepts.ToArray(), facts.ToArray());
+            ontology.ConfigureOntologyData(ontology.EntityId, concepts.ToArray(), facts.ToArray());
             if (bootstrap == null) bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             OntologySemanticAdapterSynchronizer.SynchronizeAll(
                 selected.gameObject,
@@ -1375,7 +1374,7 @@ namespace Tormia.Ontology.Core
                 predicate = OntologyPredicates.PickupBehavior,
                 obj = pickupBehavior
             });
-            ontology.ConfigureOntologyData(selected.name, concepts.ToArray(), facts.ToArray());
+            ontology.ConfigureOntologyData(ontology.EntityId, concepts.ToArray(), facts.ToArray());
             OntologySemanticAdapterSynchronizer.SynchronizeAll(selected.gameObject, bootstrap);
             RefreshWorld(runSimulation: true);
             StateChanged?.Invoke();
@@ -1442,7 +1441,7 @@ namespace Tormia.Ontology.Core
                 effect.activationRuleId,
                 true);
             ontology.ConfigureOntologyData(
-                selected.name,
+                ontology.EntityId,
                 concepts,
                 facts.ToArray());
             OntologySemanticAdapterSynchronizer.SynchronizeAll(
@@ -1486,7 +1485,7 @@ namespace Tormia.Ontology.Core
                 effect,
                 facts);
             ontology.ConfigureOntologyData(
-                selected.name,
+                ontology.EntityId,
                 ontology.Concepts.ToArray(),
                 facts.ToArray());
             OntologySemanticAdapterSynchronizer.SynchronizeAll(
@@ -1636,7 +1635,7 @@ namespace Tormia.Ontology.Core
             }
 
             ontology.ConfigureOntologyData(
-                selected.name,
+                ontology.EntityId,
                 concepts.ToArray(),
                 facts.ToArray());
             OntologySemanticAdapterSynchronizer.SynchronizeAll(

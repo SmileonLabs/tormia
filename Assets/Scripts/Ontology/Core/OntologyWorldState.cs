@@ -4,10 +4,21 @@ using System.Text;
 
 namespace Tormia.Ontology.Core
 {
+    public enum OntologyFactOrigin
+    {
+        Durable,
+        Inferred,
+        RuntimeObservation,
+        AccountProfile,
+        ActorProfile,
+        CharacterAppearance
+    }
+
     public sealed class OntologyWorldState
     {
         private readonly Dictionary<OntologyId, OntologyEntityState> entities = new();
         private readonly HashSet<OntologyFact> facts = new();
+        private readonly Dictionary<OntologyFact, HashSet<OntologyFactOrigin>> factOrigins = new();
         // Predicate index keeps ontology semantics unchanged while avoiding a full fact scan
         // for the common "subject -> predicate -> object" rule condition.
         private readonly Dictionary<OntologyId, HashSet<OntologyFact>> factsByPredicate = new();
@@ -29,13 +40,16 @@ namespace Tormia.Ontology.Core
 
         public bool AddConcept(OntologyId entityId, OntologyId concept)
         {
-            var added = GetOrCreateEntity(entityId).AddConcept(concept);
-            if (added)
-            {
-                AddFact(entityId, OntologyPredicates.HasConcept, concept);
-            }
+            return AddConceptContribution(entityId, concept, OntologyFactOrigin.Durable);
+        }
 
-            return added;
+        public bool AddConceptContribution(
+            OntologyId entityId,
+            OntologyId concept,
+            OntologyFactOrigin origin)
+        {
+            GetOrCreateEntity(entityId);
+            return AddFactContribution(entityId, OntologyPredicates.HasConcept, concept, origin);
         }
 
         public bool HasConcept(OntologyId entityId, OntologyId concept)
@@ -46,12 +60,30 @@ namespace Tormia.Ontology.Core
         public bool AddFact(OntologyId subject, OntologyId predicate, OntologyId obj)
         {
             var fact = new OntologyFact(subject, predicate, obj);
+            var existed = facts.Contains(fact);
+            AddFactContribution(subject, predicate, obj, OntologyFactOrigin.Durable);
+            return !existed && facts.Contains(fact);
+        }
+
+        public bool AddFactContribution(
+            OntologyId subject,
+            OntologyId predicate,
+            OntologyId obj,
+            OntologyFactOrigin origin)
+        {
+            var fact = new OntologyFact(subject, predicate, obj);
             if (!fact.IsValid)
             {
                 return false;
             }
 
             var added = facts.Add(fact);
+            if (!factOrigins.TryGetValue(fact, out var origins))
+            {
+                origins = new HashSet<OntologyFactOrigin>();
+                factOrigins.Add(fact, origins);
+            }
+            var contributionAdded = origins.Add(origin);
             if (added)
             {
                 AddToPredicateIndex(fact);
@@ -63,7 +95,7 @@ namespace Tormia.Ontology.Core
                 GetOrCreateEntity(fact.Subject).AddConcept(fact.Object);
             }
 
-            return added;
+            return contributionAdded;
         }
 
         public bool RemoveFact(OntologyId subject, OntologyId predicate, OntologyId obj)
@@ -72,6 +104,7 @@ namespace Tormia.Ontology.Core
             var removed = facts.Remove(fact);
             if (removed)
             {
+                factOrigins.Remove(fact);
                 RemoveFromPredicateIndex(fact);
                 changedPredicates.Add(fact.Predicate);
             }
@@ -82,6 +115,59 @@ namespace Tormia.Ontology.Core
             }
 
             return removed;
+        }
+
+        public bool RemoveFactContribution(
+            OntologyId subject,
+            OntologyId predicate,
+            OntologyId obj,
+            OntologyFactOrigin origin)
+        {
+            var fact = new OntologyFact(subject, predicate, obj);
+            if (!factOrigins.TryGetValue(fact, out var origins) || !origins.Remove(origin))
+            {
+                return false;
+            }
+
+            if (origins.Count > 0)
+            {
+                return true;
+            }
+
+            return RemoveFact(subject, predicate, obj);
+        }
+
+        public int RemoveFactContributions(
+            OntologyId subject,
+            OntologyFactOrigin origin,
+            OntologyId predicate = default)
+        {
+            var targets = new List<OntologyFact>();
+            foreach (var pair in factOrigins)
+            {
+                if (pair.Key.Subject.Equals(subject) &&
+                    (predicate.IsEmpty || pair.Key.Predicate.Equals(predicate)) &&
+                    pair.Value.Contains(origin))
+                {
+                    targets.Add(pair.Key);
+                }
+            }
+
+            var removed = 0;
+            foreach (var fact in targets)
+            {
+                if (RemoveFactContribution(fact.Subject, fact.Predicate, fact.Object, origin))
+                {
+                    removed++;
+                }
+            }
+            return removed;
+        }
+
+        public bool IsPersistentFact(OntologyFact fact)
+        {
+            return factOrigins.TryGetValue(fact, out var origins) &&
+                   origins.Contains(OntologyFactOrigin.Durable);
         }
 
         public bool SetFact(OntologyId subject, OntologyId predicate, OntologyId obj, out bool added)

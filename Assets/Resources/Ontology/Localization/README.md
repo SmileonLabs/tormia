@@ -1,4 +1,4 @@
-# Tormia Ontology Language Pack
+# TOV Ontology Language Pack
 
 These CSV files control what players see and what localized words they may enter.
 They do not change the identifiers used by the rule engine.

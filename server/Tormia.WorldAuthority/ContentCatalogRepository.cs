@@ -161,8 +161,99 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
         return new ContentRuleCatalogReadResult(null, rules);
     }
 
+    /// <summary>
+    /// Publishes the deliberately small first authoritative-action contract. The
+    /// definition owns the predicate; clients can later submit only actor/target/tool
+    /// entity IDs. Conditions and structured effects remain future server-evaluator
+    /// work and are rejected here rather than being interpreted differently by Unity.
+    /// </summary>
+    public async Task<ContentActionCatalogPublishResult> PublishActionEffects(
+        string packageId,
+        Guid actorUserId,
+        ContentActionCatalogPublishRequest request,
+        CancellationToken cancellationToken)
+    {
+        packageId = packageId?.Trim() ?? string.Empty;
+        var packageVersion = request.PackageVersion?.Trim() ?? string.Empty;
+        var actions = request.Actions ?? [];
+        if (!SemanticId.IsValid(packageId) || packageVersion.Length is < 1 or > 64 || actions.Count is < 1 or > 250)
+            return new ContentActionCatalogPublishResult(false, "invalid_content_publish_request", 0, 0, null);
+
+        var validated = new List<ValidatedAction>(actions.Count);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var action in actions)
+        {
+            var actionId = action.ActionId?.Trim() ?? string.Empty;
+            if (!SemanticId.IsValid(actionId) || action.DefinitionVersion < 1 || string.IsNullOrWhiteSpace(action.PayloadJson) ||
+                !seen.Add(actionId + "\u001f" + action.DefinitionVersion))
+                return new ContentActionCatalogPublishResult(false, "invalid_action_definition_identity", 0, 0, null);
+
+            OntologyActionEffectDefinition? definition;
+            try { definition = JsonSerializer.Deserialize<OntologyActionEffectDefinition>(action.PayloadJson, RuleJson); }
+            catch (JsonException) { return new ContentActionCatalogPublishResult(false, "invalid_action_definition_json", 0, 0, null); }
+
+            if (definition is null || !string.Equals(definition.actionVerb?.Trim(), actionId, StringComparison.Ordinal) ||
+                !IsSupportedAuthoritativeAction(definition))
+                return new ContentActionCatalogPublishResult(false, "unsupported_authoritative_action_definition", 0, 0, null);
+
+            var canonicalPayload = JsonSerializer.Serialize(definition, RuleJson);
+            validated.Add(new ValidatedAction(actionId, action.DefinitionVersion, canonicalPayload,
+                Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalPayload))).ToLowerInvariant()));
+        }
+
+        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        if (!await EnsurePackageAccess(connection, transaction, packageId, actorUserId, cancellationToken))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new ContentActionCatalogPublishResult(false, "content_package_forbidden", 0, 0, null);
+        }
+
+        var published = 0;
+        var unchanged = 0;
+        foreach (var action in validated)
+        {
+            var outcome = await InsertImmutableAction(connection, transaction, packageId, packageVersion, action, cancellationToken);
+            if (outcome == InsertOutcome.Conflict)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new ContentActionCatalogPublishResult(false, "action_definition_version_conflict", 0, 0, null);
+            }
+            if (outcome == InsertOutcome.Inserted) published++; else unchanged++;
+        }
+        await transaction.CommitAsync(cancellationToken);
+        return new ContentActionCatalogPublishResult(true, null, published, unchanged, null);
+    }
+
+    public async Task<ContentActionCatalogReadResult> GetPublishedActionEffects(string packageId, Guid actorUserId, CancellationToken cancellationToken)
+    {
+        packageId = packageId?.Trim() ?? string.Empty;
+        if (!SemanticId.IsValid(packageId)) return new ContentActionCatalogReadResult("invalid_content_package_id", null);
+        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        const string sql = """
+            SELECT d.definition_id, d.definition_version, d.package_version, d.checksum
+            FROM content_definitions d
+            WHERE d.definition_kind = 'action_effect' AND d.package_id = @packageId AND d.is_published
+              AND EXISTS (SELECT 1 FROM content_package_members m WHERE m.package_id = d.package_id AND m.user_id = @actorUserId)
+            ORDER BY d.definition_id, d.definition_version;
+            """;
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("packageId", packageId);
+        command.Parameters.AddWithValue("actorUserId", actorUserId);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var actions = new List<PublishedActionDefinitionSummary>();
+        while (await reader.ReadAsync(cancellationToken)) actions.Add(new PublishedActionDefinitionSummary(reader.GetString(0), reader.GetInt32(1), reader.GetString(2), reader.GetString(3)));
+        return new ContentActionCatalogReadResult(null, actions);
+    }
+
     private static ContentRuleCatalogPublishResult Rejected(string code) =>
         new(false, code, 0, 0, null);
+
+    private static bool IsSupportedAuthoritativeAction(OntologyActionEffectDefinition definition) =>
+        definition.conditions is not { Count: > 0 } && definition.effects is not { Count: > 0 } &&
+        SemanticId.IsValid(definition.actionVerb) && SemanticId.IsValid(definition.predicate) &&
+        (definition.subjectPattern is "?actor") &&
+        (definition.objectPattern is "?target" or "?tool");
 
     private static async Task<bool> EnsurePackageAccess(
         NpgsqlConnection connection,
@@ -262,6 +353,33 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
         return InsertOutcome.Unchanged;
     }
 
+    private static async Task<InsertOutcome> InsertImmutableAction(NpgsqlConnection connection, NpgsqlTransaction transaction, string packageId, string packageVersion, ValidatedAction action, CancellationToken cancellationToken)
+    {
+        const string insert = """
+            INSERT INTO content_definitions (definition_kind, definition_id, definition_version, package_id, package_version, payload, checksum, is_published)
+            VALUES ('action_effect', @actionId, @definitionVersion, @packageId, @packageVersion, CAST(@payload AS jsonb), @checksum, true)
+            ON CONFLICT (definition_kind, definition_id, definition_version) DO NOTHING;
+            """;
+        await using (var command = new NpgsqlCommand(insert, connection, transaction))
+        {
+            command.Parameters.AddWithValue("actionId", action.Id); command.Parameters.AddWithValue("definitionVersion", action.Version);
+            command.Parameters.AddWithValue("packageId", packageId); command.Parameters.AddWithValue("packageVersion", packageVersion);
+            command.Parameters.Add("payload", NpgsqlDbType.Jsonb).Value = action.PayloadJson; command.Parameters.AddWithValue("checksum", action.Checksum);
+            if (await command.ExecuteNonQueryAsync(cancellationToken) == 1) return InsertOutcome.Inserted;
+        }
+        const string existing = """
+            SELECT package_id, checksum, is_published FROM content_definitions
+            WHERE definition_kind = 'action_effect' AND definition_id = @actionId AND definition_version = @definitionVersion;
+            """;
+        await using var check = new NpgsqlCommand(existing, connection, transaction);
+        check.Parameters.AddWithValue("actionId", action.Id); check.Parameters.AddWithValue("definitionVersion", action.Version);
+        await using var reader = await check.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) && string.Equals(reader.GetString(0), packageId, StringComparison.Ordinal) &&
+               string.Equals(reader.GetString(1), action.Checksum, StringComparison.Ordinal) && reader.GetBoolean(2)
+            ? InsertOutcome.Unchanged : InsertOutcome.Conflict;
+    }
+
     private sealed record ValidatedRule(string Id, int Version, string PayloadJson, string Checksum);
+    private sealed record ValidatedAction(string Id, int Version, string PayloadJson, string Checksum);
     private enum InsertOutcome { Inserted, Unchanged, Conflict }
 }

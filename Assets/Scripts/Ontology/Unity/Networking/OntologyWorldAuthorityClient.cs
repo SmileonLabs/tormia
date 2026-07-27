@@ -13,14 +13,14 @@ namespace Tormia.Ontology.Core
     /// </summary>
     public sealed class OntologyWorldAuthorityClient : MonoBehaviour
     {
-        private const string PlayerPrefsPrefix = "Tormia.WorldAuthority.";
-
         [SerializeField] private OntologyWorldAuthoritySettings settings;
         [SerializeField, TextArea] private string lastStatus;
         [SerializeField] private string currentUserId;
+        [SerializeField] private string accessToken;
         [SerializeField] private string currentCharacterId;
         [SerializeField] private string currentWorldId;
         [SerializeField] private long currentRevision;
+        [SerializeField] private bool hasEnteredCurrentWorld;
         private bool isLoadingWorld;
         private bool realtimeNotificationsActive;
         private float nextProjectionPollAt;
@@ -28,9 +28,13 @@ namespace Tormia.Ontology.Core
         private string runtimeProjectionZoneKey;
         private OntologyAuthorityWorldProjection currentProjection;
         private OntologyAuthorityAccountDashboard currentAccount;
+        private OntologyAuthorityPendingCommandQueue pendingCommandQueue;
 
         public OntologyWorldAuthoritySettings Settings => settings;
         public string CurrentUserId => currentUserId;
+        public string AccessToken => accessToken;
+        public bool HasStoredSession =>
+            OntologyAuthoritySessionStore.HasSession(SessionBaseUrl());
         public string CurrentCharacterId => currentCharacterId;
         public OntologyAuthorityPlayerCharacter CurrentCharacter
         {
@@ -75,9 +79,11 @@ namespace Tormia.Ontology.Core
         /// server remains the final authority; this property is a client-side
         /// UX gate that prevents an optimistic edit in a viewer session.
         /// </summary>
-        public bool CanEditCurrentWorld =>
-            IsReady && (string.Equals(CurrentWorldRole, "owner", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(CurrentWorldRole, "editor", StringComparison.OrdinalIgnoreCase));
+        public bool CanAuthorSelectedWorld =>
+            IsReady &&
+            (string.Equals(CurrentWorldRole, "owner", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(CurrentWorldRole, "editor", StringComparison.OrdinalIgnoreCase));
+        public bool CanEditCurrentWorld => IsWorldRuntimeReady && CanAuthorSelectedWorld;
         public long CurrentRevision => currentRevision;
         public string LastStatus => lastStatus;
         public string CurrentProjectionZoneKey => hasRuntimeProjectionZoneScope
@@ -88,11 +94,78 @@ namespace Tormia.Ontology.Core
         public bool IsAuthenticated => Guid.TryParse(currentUserId, out _);
         public bool IsReady => IsAuthenticated &&
                                Guid.TryParse(currentWorldId, out _);
+        public bool HasEnteredCurrentWorld => hasEnteredCurrentWorld;
+        public bool IsWorldRuntimeReady => IsReady && hasEnteredCurrentWorld;
         public bool RealtimeNotificationsActive => realtimeNotificationsActive;
+
+        public void ResetWorldEntryConfirmation()
+        {
+            hasEnteredCurrentWorld = false;
+            realtimeNotificationsActive = false;
+            StateChanged?.Invoke();
+        }
+
+        public IEnumerator ReplayPendingCommandsRoutine(Action<bool> completed = null)
+        {
+            if (pendingCommandQueue == null)
+                pendingCommandQueue = GetComponent<OntologyAuthorityPendingCommandQueue>();
+            if (pendingCommandQueue == null)
+            {
+                completed?.Invoke(true);
+                yield break;
+            }
+            if (pendingCommandQueue.Count == 0)
+            {
+                completed?.Invoke(true);
+                yield break;
+            }
+            yield return pendingCommandQueue.ReplayRoutine(completed);
+        }
 
         public event Action StateChanged;
         public event Action<string, string> ProjectionZoneScopeChanged;
         public event Action<OntologyAuthorityWorldProjection> ProjectionReceived;
+        public event Action<OntologyWorldCommand> CommandSending;
+        public event Action<OntologyWorldCommand, OntologyAuthorityCommandResult> CommandCompleted;
+
+        private void Awake()
+        {
+            pendingCommandQueue = GetComponent<OntologyAuthorityPendingCommandQueue>();
+            if (pendingCommandQueue == null)
+                pendingCommandQueue = gameObject.AddComponent<OntologyAuthorityPendingCommandQueue>();
+            pendingCommandQueue.Bind(this);
+        }
+
+        public bool TryResolveEnabledAction(
+            string actionId,
+            out OntologyAuthorityActionDefinitionProjection resolved)
+        {
+            resolved = null;
+            if (string.IsNullOrWhiteSpace(actionId) || currentProjection?.actions == null)
+            {
+                return false;
+            }
+
+            foreach (var candidate in currentProjection.actions)
+            {
+                if (candidate == null ||
+                    !string.Equals(candidate.actionId, actionId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                // Ambiguous action IDs must be selected by a higher-level content
+                // policy instead of silently choosing a package.
+                if (resolved != null)
+                {
+                    resolved = null;
+                    return false;
+                }
+                resolved = candidate;
+            }
+
+            return resolved != null;
+        }
 
         public void Configure(OntologyWorldAuthoritySettings value)
         {
@@ -101,15 +174,52 @@ namespace Tormia.Ontology.Core
 
         private void Start()
         {
-            if (settings != null && settings.connectOnStart)
+            RestoreStoredSession();
+            if (settings != null && settings.connectOnStart && HasStoredSession) BeginConnect();
+        }
+
+        public IEnumerator RegisterRoutine(string email, string displayName, string password, Action<bool> completed = null)
+        {
+            var payload = JsonUtility.ToJson(new PasswordRegisterRequest { email=email?.Trim(), displayName=displayName?.Trim(), password=password });
+            yield return AuthenticateRoutine("/v1/auth/register", payload, completed);
+        }
+
+        public IEnumerator LoginRoutine(string email, string password, Action<bool> completed = null)
+        {
+            var payload = JsonUtility.ToJson(new PasswordLoginRequest { email=email?.Trim(), password=password });
+            yield return AuthenticateRoutine("/v1/auth/login", payload, completed);
+        }
+
+        public void Logout()
+        {
+            StartCoroutine(LogoutRoutine());
+        }
+
+        private IEnumerator LogoutRoutine()
+        {
+            if (!string.IsNullOrWhiteSpace(accessToken))
+                yield return SendJson("POST", "/v1/auth/logout", null, currentUserId, (_, _, _) => { });
+            ClearSession();
+            SetStatus("Signed out.");
+        }
+
+        private IEnumerator AuthenticateRoutine(string path, string payload, Action<bool> completed)
+        {
+            var authenticated = false;
+            yield return SendJson("POST", path, payload, null, (success, body, error) =>
             {
-                BeginConnect();
-            }
+                if (!success) { SetStatus("Authentication failed: " + error); return; }
+                var response = JsonUtility.FromJson<PasswordAuthResponse>(body);
+                if (response == null || !Guid.TryParse(response.userId, out _) || string.IsNullOrWhiteSpace(response.accessToken)) { SetStatus("Authority returned an invalid authentication session."); return; }
+                currentUserId=response.userId; accessToken=response.accessToken; PersistSession(); authenticated=true;
+            });
+            if (authenticated) { yield return LoadAccountDashboardRoutine(); SelectRememberedCharacter(); SelectRememberedWorld(); }
+            completed?.Invoke(authenticated);
         }
 
         private void Update()
         {
-            if (settings == null || !IsReady ||
+            if (settings == null || !IsWorldRuntimeReady ||
                 isLoadingWorld || Time.unscaledTime < nextProjectionPollAt)
             {
                 return;
@@ -232,68 +342,20 @@ namespace Tormia.Ontology.Core
                 yield break;
             }
 
-            if (string.IsNullOrWhiteSpace(settings.developmentSubject) ||
-                string.IsNullOrWhiteSpace(settings.developmentDisplayName))
+            RestoreStoredSession();
+            if (!Guid.TryParse(currentUserId, out _) || string.IsNullOrWhiteSpace(accessToken))
             {
-                SetStatus("Local development identity is incomplete.");
-                completed?.Invoke(false);
-                yield break;
-            }
-
-            var request = new DevelopmentUserRequest
-            {
-                externalSubject = settings.developmentSubject.Trim(),
-                displayName = settings.developmentDisplayName.Trim()
-            };
-            yield return SendJson(
-                "POST",
-                "/v1/dev/users",
-                JsonUtility.ToJson(request),
-                null,
-                (success, body, error) =>
-                {
-                    if (!success)
-                    {
-                        SetStatus("Authority user connection failed: " + error);
-                        return;
-                    }
-
-                    var response = JsonUtility.FromJson<DevelopmentUserResponse>(body);
-                    currentUserId = response == null ? null : response.userId;
-                    if (!Guid.TryParse(currentUserId, out _))
-                    {
-                        SetStatus("Authority returned an invalid local user id.");
-                        currentUserId = string.Empty;
-                        return;
-                    }
-
-                    var configuredWorld = settings.sharedWorldId?.Trim();
-                    if (!Guid.TryParse(configuredWorld, out _))
-                    {
-                        configuredWorld = PlayerPrefs.GetString(WorldPreferenceKey(), string.Empty);
-                    }
-
-                    currentWorldId = configuredWorld;
-                });
-
-            if (!Guid.TryParse(currentUserId, out _))
-            {
+                SetStatus("Sign in first.");
                 completed?.Invoke(false);
                 yield break;
             }
 
             yield return LoadAccountDashboardRoutine();
+            if (currentAccount == null) { ClearSession(); completed?.Invoke(false); yield break; }
             SelectRememberedCharacter();
-
-            if (Guid.TryParse(currentWorldId, out _))
-            {
-                yield return LoadWorldRoutine();
-                completed?.Invoke(IsReady);
-                yield break;
-            }
-
-            yield return CreateDevelopmentWorldRoutine();
-            completed?.Invoke(IsReady);
+            SelectRememberedWorld();
+            if (Guid.TryParse(currentWorldId, out _)) yield return LoadWorldRoutine();
+            completed?.Invoke(IsAuthenticated);
         }
 
         /// <summary>
@@ -350,9 +412,13 @@ namespace Tormia.Ontology.Core
             {
                 if (character != null && string.Equals(character.characterId, characterId, StringComparison.OrdinalIgnoreCase))
                 {
+                    if (!string.Equals(currentCharacterId, character.characterId, StringComparison.OrdinalIgnoreCase))
+                        hasEnteredCurrentWorld = false;
                     currentCharacterId = character.characterId;
-                    PlayerPrefs.SetString(CharacterPreferenceKey(), currentCharacterId);
-                    PlayerPrefs.Save();
+                    OntologyAuthoritySessionStore.SaveCharacterId(
+                        SessionBaseUrl(),
+                        currentUserId,
+                        currentCharacterId);
                     SetStatus("Selected character '" + character.displayName + "'.");
                     return true;
                 }
@@ -367,10 +433,14 @@ namespace Tormia.Ontology.Core
             {
                 if (world != null && string.Equals(world.worldId, worldId, StringComparison.OrdinalIgnoreCase))
                 {
+                    if (!string.Equals(currentWorldId, world.worldId, StringComparison.OrdinalIgnoreCase))
+                        hasEnteredCurrentWorld = false;
                     currentWorldId = world.worldId;
                     currentRevision = world.revision;
-                    PlayerPrefs.SetString(WorldPreferenceKey(), currentWorldId);
-                    PlayerPrefs.Save();
+                    OntologyAuthoritySessionStore.SaveWorldId(
+                        SessionBaseUrl(),
+                        currentUserId,
+                        currentWorldId);
                     StateChanged?.Invoke();
                     return true;
                 }
@@ -492,11 +562,97 @@ namespace Tormia.Ontology.Core
                 (success, _, error) =>
                 {
                     entered = success;
+                    hasEnteredCurrentWorld = success;
                     SetStatus(success
                         ? "Entered authority world with the selected character."
                         : "World entry failed: " + error);
                 });
             completed?.Invoke(entered);
+        }
+
+        /// <summary>Creates the small development package used by the first
+        /// end-to-end player loop. Immutable publication is safe to replay;
+        /// package activation remains a normal revisioned world command.</summary>
+        public IEnumerator EnsureDevelopmentActionPackageRoutine(Action<bool> completed = null)
+        {
+            if (!IsReady) { completed?.Invoke(false); yield break; }
+            if (settings == null || !settings.publishDevelopmentPackageOnWorldEntry)
+            {
+                completed?.Invoke(true);
+                yield break;
+            }
+
+            var packageId = settings.developmentPackageId?.Trim();
+            var packageVersion = settings.developmentPackageVersion?.Trim();
+            var configuredActions =
+                settings.developmentActions ?? Array.Empty<OntologyAuthorityDevelopmentAction>();
+            if (string.IsNullOrWhiteSpace(packageId) ||
+                string.IsNullOrWhiteSpace(packageVersion) ||
+                configuredActions.Length == 0)
+            {
+                SetStatus("Development action package metadata is incomplete.");
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            var actions = new AuthorityActionDefinitionPublishRequest[configuredActions.Length];
+            for (var index = 0; index < configuredActions.Length; index++)
+            {
+                var configured = configuredActions[index];
+                if (configured == null ||
+                    string.IsNullOrWhiteSpace(configured.actionId) ||
+                    string.IsNullOrWhiteSpace(configured.predicateId))
+                {
+                    SetStatus("Development action metadata contains an invalid entry.");
+                    completed?.Invoke(false);
+                    yield break;
+                }
+
+                actions[index] = new AuthorityActionDefinitionPublishRequest
+                {
+                    actionId = configured.actionId.Trim(),
+                    definitionVersion = Math.Max(1, configured.definitionVersion),
+                    payloadJson = DevelopmentActionJson(
+                        configured.actionId.Trim(),
+                        configured.predicateId.Trim(),
+                        configured.requiresTool,
+                        string.IsNullOrWhiteSpace(configured.objectPattern)
+                            ? "?target"
+                            : configured.objectPattern.Trim())
+                };
+            }
+
+            var request = new AuthorityActionCatalogPublishRequest
+            {
+                packageVersion = packageVersion,
+                actions = actions
+            };
+            var published = false;
+            yield return SendJson(
+                "POST",
+                "/v1/content/packages/" + UnityWebRequest.EscapeURL(packageId) + "/actions",
+                JsonUtility.ToJson(request),
+                currentUserId,
+                (success, _, error) =>
+                {
+                    published = success;
+                    if (!success) SetStatus("Development action package publish failed: " + error);
+                });
+            if (!published) { completed?.Invoke(false); yield break; }
+
+            var activated = false;
+            var command = CreateCommand(
+                "set_content_package",
+                CreateSetContentPackagePayload(packageId, packageVersion, true));
+            yield return SendCommandRoutine(command, result => activated = result != null && result.accepted);
+            if (activated)
+            {
+                var projectionLoaded = false;
+                yield return LoadWorldRoutine(value => projectionLoaded = value);
+                activated = projectionLoaded;
+            }
+            if (!activated) SetStatus("Development action package activation failed: " + LastStatus);
+            completed?.Invoke(activated);
         }
 
         public IEnumerator LoadWorldRoutine(Action<bool> completed = null)
@@ -589,6 +745,7 @@ namespace Tormia.Ontology.Core
                        ",\"expectedRevision\":" + command.expectedRevision.ToString(CultureInfo.InvariantCulture) +
                        ",\"commandType\":" + JsonString(command.commandType) +
                        ",\"payload\":" + command.payloadJson + "}";
+            CommandSending?.Invoke(command);
             OntologyAuthorityCommandResult result = null;
             yield return SendJson(
                 "POST",
@@ -597,13 +754,30 @@ namespace Tormia.Ontology.Core
                 currentUserId,
                 (success, responseBody, error) =>
                 {
-                    var response = JsonUtility.FromJson<AuthorityCommandResponse>(responseBody);
+                    AuthorityCommandResponse response = null;
+                    if (!string.IsNullOrWhiteSpace(responseBody))
+                    {
+                        try
+                        {
+                            response = JsonUtility.FromJson<AuthorityCommandResponse>(responseBody);
+                        }
+                        catch (ArgumentException)
+                        {
+                            // A proxy or an unhandled server error may return
+                            // plain text/HTML. Treat it as a transport failure
+                            // instead of terminating the entry coroutine.
+                        }
+                    }
                     result = new OntologyAuthorityCommandResult
                     {
                         accepted = success && response != null && response.accepted,
                         rejectionCode = response?.rejectionCode ?? (success ? "invalid_authority_response" : error),
                         revision = response?.revision ?? currentRevision,
-                        isReplay = response != null && response.isReplay
+                        isReplay = response != null && response.isReplay,
+                        // A valid 4xx Authority envelope is a completed durable
+                        // rejection, not a lost transport response. Only keep
+                        // commands in the outbox when no envelope was received.
+                        transportFailure = !success && response == null
                     };
                     if (result.accepted)
                     {
@@ -623,7 +797,9 @@ namespace Tormia.Ontology.Core
                     }
                 });
 
-            completed?.Invoke(result ?? OntologyAuthorityCommandResult.Rejected("authority_no_response"));
+            result ??= OntologyAuthorityCommandResult.TransportFailure("authority_no_response");
+            CommandCompleted?.Invoke(command, result);
+            completed?.Invoke(result);
         }
 
         /// <summary>
@@ -671,6 +847,72 @@ namespace Tormia.Ontology.Core
                     };
                 });
             completed?.Invoke(result ?? OntologyAuthorityRuntimeIntentResult.Rejected("authority_no_response"));
+        }
+
+        /// <summary>
+        /// Reads the selected avatar's durable world-specific ontology overlay.
+        /// This is separate from account profile relations and from ephemeral
+        /// observations; callers project it only into the local runtime view.
+        /// </summary>
+        public IEnumerator LoadWorldAvatarProfileRoutine(
+            Guid avatarEntityId,
+            Action<OntologyAuthorityWorldAvatarProfile> completed = null)
+        {
+            if (!IsReady || avatarEntityId == Guid.Empty)
+            {
+                completed?.Invoke(null);
+                yield break;
+            }
+
+            OntologyAuthorityWorldAvatarProfile profile = null;
+            yield return SendJson(
+                "GET",
+                "/v1/worlds/" + currentWorldId + "/avatars/" + avatarEntityId.ToString("D") + "/profile",
+                null,
+                currentUserId,
+                (success, body, error) =>
+                {
+                    if (!success)
+                    {
+                        SetStatus("World avatar profile load failed: " + error);
+                        return;
+                    }
+                    profile = JsonUtility.FromJson<OntologyAuthorityWorldAvatarProfile>(body);
+                    if (profile != null) profile.profileRelations ??= Array.Empty<OntologyAuthorityProfileRelation>();
+                });
+            completed?.Invoke(profile);
+        }
+
+        public IEnumerator LoadAvatarCheckpointRoutine(
+            Guid avatarEntityId,
+            Action<OntologyAuthorityAvatarCheckpoint> completed = null)
+        {
+            if (!IsReady || avatarEntityId == Guid.Empty)
+            {
+                completed?.Invoke(null);
+                yield break;
+            }
+
+            OntologyAuthorityAvatarCheckpoint checkpoint = null;
+            yield return SendJson(
+                "GET",
+                "/v1/worlds/" + currentWorldId + "/avatars/" +
+                avatarEntityId.ToString("D") + "/checkpoint",
+                null,
+                currentUserId,
+                (success, body, _) =>
+                {
+                    if (!success) return;
+                    var response = JsonUtility.FromJson<AuthorityAvatarCheckpointResponse>(body);
+                    if (response == null || !response.accepted || response.transform == null) return;
+                    checkpoint = new OntologyAuthorityAvatarCheckpoint
+                    {
+                        zoneKey = response.zoneKey,
+                        transform = response.transform,
+                        revision = response.revision
+                    };
+                });
+            completed?.Invoke(checkpoint);
         }
 
         /// <summary>
@@ -763,9 +1005,63 @@ namespace Tormia.Ontology.Core
                    ",\"transform\":" + TransformJson(transform) + "}";
         }
 
+        public static string CreateAvatarCheckpointPayload(
+            Guid avatarEntityId,
+            string zoneKey,
+            Transform transform)
+        {
+            return "{\"avatarEntityId\":" + JsonString(avatarEntityId.ToString("D")) +
+                   ",\"zoneKey\":" + JsonNullableString(zoneKey) +
+                   ",\"transform\":" + TransformJson(transform) + "}";
+        }
+
         public static string CreateRegisterPlayerAvatarPayload(Guid entityId)
         {
             return "{\"entityId\":" + JsonString(entityId.ToString("D")) + "}";
+        }
+
+        public static string CreateSetContentPackagePayload(
+            string packageId,
+            string packageVersion,
+            bool enabled)
+        {
+            return "{\"packageId\":" + JsonString(packageId) +
+                   ",\"packageVersion\":" + JsonString(packageVersion) +
+                   ",\"enabled\":" + (enabled ? "true" : "false") + "}";
+        }
+
+        /// <summary>
+        /// A durable action intent. The authority resolves its published effect from
+        /// the enabled package/version; this payload never contains a predicate or
+        /// a client-authored ontology effect.
+        /// </summary>
+        public static string CreateExecuteActionPayload(
+            Guid actorEntityId,
+            Guid targetEntityId,
+            Guid? toolEntityId,
+            string packageId,
+            string packageVersion,
+            string actionId,
+            int definitionVersion)
+        {
+            return "{\"actorEntityId\":" + JsonString(actorEntityId.ToString("D")) +
+                   ",\"targetEntityId\":" + JsonString(targetEntityId.ToString("D")) +
+                   ",\"toolEntityId\":" + (toolEntityId.HasValue ? JsonString(toolEntityId.Value.ToString("D")) : "null") +
+                   ",\"packageId\":" + JsonString(packageId) +
+                   ",\"packageVersion\":" + JsonString(packageVersion) +
+                   ",\"actionId\":" + JsonString(actionId) +
+                   ",\"definitionVersion\":" + definitionVersion.ToString(CultureInfo.InvariantCulture) + "}";
+        }
+
+        public static string CreateSetAvatarProfileRelationsPayload(
+            Guid avatarEntityId,
+            OntologyAuthorityProfileRelation[] relations)
+        {
+            return JsonUtility.ToJson(new AvatarProfileRelationsPayload
+            {
+                avatarEntityId = avatarEntityId.ToString("D"),
+                profileRelations = relations ?? Array.Empty<OntologyAuthorityProfileRelation>()
+            });
         }
 
         public static string CreateDefineZonePayload(
@@ -871,8 +1167,10 @@ namespace Tormia.Ontology.Core
 
                     currentWorldId = response.worldId;
                     currentRevision = response.revision;
-                    PlayerPrefs.SetString(WorldPreferenceKey(), currentWorldId);
-                    PlayerPrefs.Save();
+                    OntologyAuthoritySessionStore.SaveWorldId(
+                        SessionBaseUrl(),
+                        currentUserId,
+                        currentWorldId);
                     SetStatus("Created authority world '" + title + "'.");
                 });
 
@@ -880,6 +1178,41 @@ namespace Tormia.Ontology.Core
             {
                 yield return LoadWorldRoutine();
             }
+        }
+
+        /// <summary>Creates a user-authored world and selects it for the current account.</summary>
+        public IEnumerator CreateWorldRoutine(string slug, string title, string visibility, Action<bool> completed = null)
+        {
+            if (!IsAuthenticated) { completed?.Invoke(false); yield break; }
+            var request = new CreateWorldRequest { slug = slug?.Trim(), title = title?.Trim(), visibility = visibility?.Trim() };
+            var created = false;
+            yield return SendJson("POST", "/v1/worlds", JsonUtility.ToJson(request), currentUserId, (success, body, error) =>
+            {
+                if (!success) { SetStatus("Authority world creation failed: " + error); return; }
+                var response = JsonUtility.FromJson<CreateWorldResponse>(body);
+                if (response == null || !Guid.TryParse(response.worldId, out _)) { SetStatus("Authority returned an invalid new world id."); return; }
+                currentWorldId = response.worldId; currentRevision = response.revision;
+                OntologyAuthoritySessionStore.SaveWorldId(
+                    SessionBaseUrl(),
+                    currentUserId,
+                    currentWorldId);
+                SetStatus("Created and selected authority world '" + request.title + "'."); created = true;
+            });
+            if (created) { yield return LoadAccountDashboardRoutine(); SelectWorld(currentWorldId); }
+            completed?.Invoke(created);
+        }
+
+        private static string DevelopmentActionJson(
+            string verb,
+            string predicate,
+            bool requiresTool,
+            string objectPattern)
+        {
+            return "{\"actionVerb\":" + JsonString(verb) +
+                   ",\"subjectPattern\":\"?actor\",\"predicate\":" + JsonString(predicate) +
+                   ",\"objectPattern\":" + JsonString(objectPattern) +
+                   ",\"requiresTool\":" + (requiresTool ? "true" : "false") +
+                   ",\"conditions\":[],\"effects\":[]}";
         }
 
         private IEnumerator SendJson(
@@ -899,9 +1232,9 @@ namespace Tormia.Ontology.Core
                 request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
                 request.SetRequestHeader("Content-Type", "application/json");
             }
-            if (!string.IsNullOrWhiteSpace(userId))
+            if (!string.IsNullOrWhiteSpace(accessToken) && !relativePath.StartsWith("/v1/auth/register") && !relativePath.StartsWith("/v1/auth/login"))
             {
-                request.SetRequestHeader("X-Tormia-User-Id", userId);
+                request.SetRequestHeader("Authorization", "Bearer " + accessToken);
             }
 
             yield return request.SendWebRequest();
@@ -931,27 +1264,82 @@ namespace Tormia.Ontology.Core
         private static bool IsValidZoneKey(string value)
         {
             if (string.IsNullOrEmpty(value)) return true;
-            if (value.Length > 128 || !char.IsLetter(value[0])) return false;
+            if (value.Length > 128 || !IsAsciiLetter(value[0])) return false;
             foreach (var character in value)
             {
-                if (!char.IsLetterOrDigit(character) && character != '_' && character != '-')
+                if (!IsAsciiLetter(character) &&
+                    !(character >= '0' && character <= '9') &&
+                    character != '_' &&
+                    character != '-')
                     return false;
             }
             return true;
         }
 
-        private string WorldPreferenceKey()
+        private static bool IsAsciiLetter(char value) =>
+            (value >= 'A' && value <= 'Z') ||
+            (value >= 'a' && value <= 'z');
+
+        public static string SessionTokenPreferenceKey(string baseUrl) =>
+            OntologyAuthoritySessionStore.TokenKey(baseUrl);
+
+        private string SessionBaseUrl() =>
+            settings == null ? string.Empty : NormalizeBaseUrl();
+
+        private void PersistSession()
         {
-            return PlayerPrefsPrefix +
-                   PreferenceSegment(NormalizeBaseUrl()) + "." +
-                   PreferenceSegment(settings.developmentSubject) + ".worldId";
+            OntologyAuthoritySessionStore.Save(
+                SessionBaseUrl(),
+                currentUserId,
+                accessToken);
         }
 
-        private string CharacterPreferenceKey()
+        private void RestoreStoredSession()
         {
-            return PlayerPrefsPrefix +
-                   PreferenceSegment(NormalizeBaseUrl()) + "." +
-                   PreferenceSegment(settings.developmentSubject) + ".characterId";
+            if (settings == null)
+            {
+                return;
+            }
+
+            var session = OntologyAuthoritySessionStore.Load(SessionBaseUrl());
+            accessToken = session.AccessToken;
+            currentUserId = session.UserId;
+        }
+
+        private void ClearSession()
+        {
+            if (settings != null)
+            {
+                OntologyAuthoritySessionStore.Clear(SessionBaseUrl());
+            }
+
+            accessToken = string.Empty;
+            currentUserId = string.Empty;
+            currentCharacterId = string.Empty;
+            currentWorldId = string.Empty;
+            currentAccount = null;
+            currentProjection = null;
+            hasEnteredCurrentWorld = false;
+        }
+
+        private void SelectRememberedWorld()
+        {
+            if (currentAccount?.worlds == null ||
+                currentAccount.worlds.Length == 0)
+            {
+                currentWorldId = string.Empty;
+                return;
+            }
+
+            var remembered = OntologyAuthoritySessionStore.LoadWorldId(
+                SessionBaseUrl(),
+                currentUserId);
+            if (SelectWorld(remembered))
+            {
+                return;
+            }
+
+            SelectWorld(currentAccount.worlds[0].worldId);
         }
 
         private void SelectRememberedCharacter()
@@ -962,23 +1350,11 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            var remembered = PlayerPrefs.GetString(CharacterPreferenceKey(), string.Empty);
+            var remembered = OntologyAuthoritySessionStore.LoadCharacterId(
+                SessionBaseUrl(),
+                currentUserId);
             if (SelectCharacter(remembered)) return;
             SelectCharacter(currentAccount.characters[0].characterId);
-        }
-
-        private static string PreferenceSegment(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value)) return "default";
-            var characters = value.Trim().ToLowerInvariant().ToCharArray();
-            for (var index = 0; index < characters.Length; index++)
-            {
-                if (!char.IsLetterOrDigit(characters[index]))
-                {
-                    characters[index] = '_';
-                }
-            }
-            return new string(characters);
         }
 
         private void SetStatus(string value)
@@ -1041,8 +1417,9 @@ namespace Tormia.Ontology.Core
             return "\"" + escaped + "\"";
         }
 
-        [Serializable] private sealed class DevelopmentUserRequest { public string externalSubject; public string displayName; }
-        [Serializable] private sealed class DevelopmentUserResponse { public string userId; }
+        [Serializable] private sealed class PasswordRegisterRequest { public string email; public string displayName; public string password; }
+        [Serializable] private sealed class PasswordLoginRequest { public string email; public string password; }
+        [Serializable] private sealed class PasswordAuthResponse { public string userId; public string accessToken; }
         [Serializable] private sealed class AuthorityCreatePlayerCharacterRequest
         {
             public string displayName;
@@ -1054,6 +1431,8 @@ namespace Tormia.Ontology.Core
             public string characterId;
             public string avatarEntityId;
         }
+        [Serializable] private sealed class AuthorityActionCatalogPublishRequest { public string packageVersion; public AuthorityActionDefinitionPublishRequest[] actions; }
+        [Serializable] private sealed class AuthorityActionDefinitionPublishRequest { public string actionId; public int definitionVersion; public string payloadJson; }
         [Serializable] private sealed class AuthorityUpdatePlayerCharacterProfileRequest
         {
             public string commandId;
@@ -1066,6 +1445,14 @@ namespace Tormia.Ontology.Core
         [Serializable] private sealed class CreateWorldRequest { public string slug; public string title; public string visibility; }
         [Serializable] private sealed class CreateWorldResponse { public string worldId; public long revision; }
         [Serializable] private sealed class AuthorityCommandResponse { public bool accepted; public string rejectionCode; public long revision; public bool isReplay; }
+        [Serializable] private sealed class AuthorityAvatarCheckpointResponse
+        {
+            public bool accepted;
+            public string rejectionCode;
+            public string zoneKey;
+            public OntologyAuthorityTransform transform;
+            public long revision;
+        }
         [Serializable] private sealed class AuthorityPlayerIntentRequest
         {
             public string avatarEntityId;
@@ -1076,6 +1463,11 @@ namespace Tormia.Ontology.Core
             public bool jump;
         }
         [Serializable] private sealed class AuthorityRuntimeIntentResponse { public bool accepted; public string rejectionCode; }
+        [Serializable] private sealed class AvatarProfileRelationsPayload
+        {
+            public string avatarEntityId;
+            public OntologyAuthorityProfileRelation[] profileRelations;
+        }
     }
 
     [Serializable]
@@ -1113,6 +1505,15 @@ namespace Tormia.Ontology.Core
     }
 
     [Serializable]
+    public sealed class OntologyAuthorityWorldAvatarProfile
+    {
+        public bool accepted;
+        public string rejectionCode;
+        public OntologyAuthorityProfileRelation[] profileRelations;
+        public long revision;
+    }
+
+    [Serializable]
     public sealed class OntologyAuthorityAccountWorld
     {
         public string worldId;
@@ -1129,10 +1530,20 @@ namespace Tormia.Ontology.Core
         public string rejectionCode;
         public long revision;
         public bool isReplay;
+        public bool transportFailure;
 
         public static OntologyAuthorityCommandResult Rejected(string code)
         {
             return new OntologyAuthorityCommandResult { rejectionCode = code };
+        }
+
+        public static OntologyAuthorityCommandResult TransportFailure(string code)
+        {
+            return new OntologyAuthorityCommandResult
+            {
+                rejectionCode = code,
+                transportFailure = true
+            };
         }
     }
 
@@ -1169,6 +1580,14 @@ namespace Tormia.Ontology.Core
     }
 
     [Serializable]
+    public sealed class OntologyAuthorityAvatarCheckpoint
+    {
+        public string zoneKey;
+        public OntologyAuthorityTransform transform;
+        public long revision;
+    }
+
+    [Serializable]
     public sealed class OntologyAuthorityWorldProjection
     {
         public string worldId;
@@ -1178,6 +1597,16 @@ namespace Tormia.Ontology.Core
         public OntologyAuthorityEntityProjection[] entities;
         public OntologyAuthorityFactProjection[] facts;
         public OntologyAuthorityRuleBindingProjection[] ruleBindings;
+        public OntologyAuthorityActionDefinitionProjection[] actions;
+    }
+
+    [Serializable]
+    public sealed class OntologyAuthorityActionDefinitionProjection
+    {
+        public string packageId;
+        public string packageVersion;
+        public string actionId;
+        public int definitionVersion;
     }
 
     [Serializable]

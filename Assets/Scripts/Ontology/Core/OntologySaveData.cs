@@ -6,9 +6,9 @@ namespace Tormia.Ontology.Core
     [Serializable]
     public sealed class OntologySaveData
     {
-        // Version 7 persists per-instance semantic contribution ownership, so a
-        // preset can be removed without erasing independently authored triples.
-        public int version = 7;
+        // Version 8 persists a stable ontology entity id separately from the
+        // editable Unity display name.
+        public int version = 8;
         public List<OntologyFactRecord> facts = new();
         public List<OntologyActionRecord> actionHistory = new();
         public List<OntologyEventRecord> eventHistory = new();
@@ -20,6 +20,7 @@ namespace Tormia.Ontology.Core
     public sealed class OntologyPlacedObjectRecord
     {
         public string instanceName;
+        public string entityId;
         public string definitionId;
         public OntologyTransformRecord transform = new();
         public List<string> concepts = new();
@@ -95,6 +96,11 @@ namespace Tormia.Ontology.Core
             {
                 foreach (var fact in world.Facts)
                 {
+                    if (!world.IsPersistentFact(fact))
+                    {
+                        continue;
+                    }
+
                     if (OntologyDerivedFactPolicy.IsDerived(
                             fact,
                             ruleDefinitions))

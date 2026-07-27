@@ -67,7 +67,11 @@ namespace Tormia.Ontology.Core
                     var eventChanged = false;
                     foreach (var fact in ontologyEvent.AddedFacts)
                     {
-                        if (world.AddFact(fact.Subject, fact.Predicate, fact.Object))
+                        if (world.AddFactContribution(
+                                fact.Subject,
+                                fact.Predicate,
+                                fact.Object,
+                                OntologyFactOrigin.Inferred))
                         {
                             inferredFacts?.Add(fact);
                             addedFactCount++;

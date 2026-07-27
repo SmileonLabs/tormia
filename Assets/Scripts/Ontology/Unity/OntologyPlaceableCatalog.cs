@@ -4,6 +4,13 @@ using UnityEngine;
 
 namespace Tormia.Ontology.Core
 {
+    public enum OntologyPlaceableKind
+    {
+        Object,
+        Npc,
+        Monster
+    }
+
     public enum OntologyPlacementSurfaceKind
     {
         AnyCollider,
@@ -30,6 +37,8 @@ namespace Tormia.Ontology.Core
     {
         [Tooltip("Stable data id. It must not change after saves exist.")]
         public string definitionId;
+        [Tooltip("Top-level placement catalog mode. This is authored data, not a prefab-name convention.")]
+        public OntologyPlaceableKind placementKind = OntologyPlaceableKind.Object;
         [Tooltip("Language-pack key used only for display. It never replaces the stable definition id.")]
         public string displayNameKey;
         public string displayName;

@@ -16,8 +16,7 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            world.RemoveFacts(actorId, OntologyPredicates.EquippedPart);
-            world.RemoveFacts(actorId, OntologyPredicates.HasCapability);
+            world.RemoveFactContributions(actorId, OntologyFactOrigin.CharacterAppearance);
 
             foreach (var definition in definitions)
             {
@@ -32,12 +31,20 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                world.AddFact(actorId, OntologyPredicates.EquippedPart, definition.partId);
+                world.AddFactContribution(
+                    actorId,
+                    OntologyPredicates.EquippedPart,
+                    definition.partId,
+                    OntologyFactOrigin.CharacterAppearance);
                 foreach (var fact in definition.facts ?? Array.Empty<OntologyFactEntry>())
                 {
                     if (fact != null && fact.predicate == OntologyPredicates.GrantsCapability && !string.IsNullOrWhiteSpace(fact.obj))
                     {
-                        world.AddFact(actorId, OntologyPredicates.HasCapability, fact.obj);
+                        world.AddFactContribution(
+                            actorId,
+                            OntologyPredicates.HasCapability,
+                            fact.obj,
+                            OntologyFactOrigin.CharacterAppearance);
                     }
                 }
             }
@@ -50,17 +57,29 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            world.AddFact(definition.partId, OntologyPredicates.HasConcept, OntologyConcepts.CharacterPart);
+            world.AddFactContribution(
+                definition.partId,
+                OntologyPredicates.HasConcept,
+                OntologyConcepts.CharacterPart,
+                OntologyFactOrigin.CharacterAppearance);
             if (!string.IsNullOrWhiteSpace(definition.slot))
             {
-                world.AddFact(definition.partId, OntologyPredicates.HasSlot, definition.slot);
+                world.AddFactContribution(
+                    definition.partId,
+                    OntologyPredicates.HasSlot,
+                    definition.slot,
+                    OntologyFactOrigin.CharacterAppearance);
             }
 
             foreach (var fact in definition.facts ?? Array.Empty<OntologyFactEntry>())
             {
                 if (fact != null && !string.IsNullOrWhiteSpace(fact.predicate) && !string.IsNullOrWhiteSpace(fact.obj))
                 {
-                    world.AddFact(definition.partId, fact.predicate, fact.obj);
+                    world.AddFactContribution(
+                        definition.partId,
+                        fact.predicate,
+                        fact.obj,
+                        OntologyFactOrigin.CharacterAppearance);
                 }
             }
         }

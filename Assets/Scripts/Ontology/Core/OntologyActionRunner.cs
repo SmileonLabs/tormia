@@ -6,14 +6,14 @@ namespace Tormia.Ontology.Core
 
         public OntologyActionRunner()
         {
-            definitions = CreateDefaultDefinitions();
+            definitions = new System.Collections.Generic.List<OntologyActionEffectDefinition>();
         }
 
         public OntologyActionRunner(System.Collections.Generic.IReadOnlyList<OntologyActionEffectDefinition> definitions)
         {
             this.definitions = definitions != null && definitions.Count > 0
                 ? new System.Collections.Generic.List<OntologyActionEffectDefinition>(definitions)
-                : CreateDefaultDefinitions();
+                : new System.Collections.Generic.List<OntologyActionEffectDefinition>();
         }
 
         public bool ApplyAction(OntologyWorldState world, OntologyAction action, OntologySession session = null)
@@ -23,15 +23,16 @@ namespace Tormia.Ontology.Core
                 return false;
             }
 
-            world.GetOrCreateEntity(action.ActorId);
-            world.GetOrCreateEntity(action.TargetId);
-            if (!action.ToolId.IsEmpty)
+            var hasVerbDefinition = definitions.Exists(
+                definition =>
+                    definition != null &&
+                    definition.actionVerb == action.Verb.Value);
+            if (!hasVerbDefinition)
             {
-                world.GetOrCreateEntity(action.ToolId);
+                return false;
             }
 
             var changed = false;
-            var matchedDefinition = false;
             foreach (var definition in definitions)
             {
                 if (definition == null || definition.actionVerb != action.Verb.Value)
@@ -59,7 +60,13 @@ namespace Tormia.Ontology.Core
                              definition.conditions,
                              initialBinding))
                 {
-                    matchedDefinition = true;
+                    world.GetOrCreateEntity(action.ActorId);
+                    world.GetOrCreateEntity(action.TargetId);
+                    if (!action.ToolId.IsEmpty)
+                    {
+                        world.GetOrCreateEntity(action.ToolId);
+                    }
+
                     if (definition.effects != null && definition.effects.Count > 0)
                     {
                         foreach (var effect in definition.effects)
@@ -75,11 +82,6 @@ namespace Tormia.Ontology.Core
                             Resolve(definition.objectPattern, action));
                     }
                 }
-            }
-
-            if (!matchedDefinition)
-            {
-                changed |= world.AddFact(action.ActorId, action.Verb, action.TargetId);
             }
 
             if (changed)

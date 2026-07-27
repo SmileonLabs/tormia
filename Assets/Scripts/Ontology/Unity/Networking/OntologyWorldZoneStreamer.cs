@@ -34,7 +34,7 @@ namespace Tormia.Ontology.Core
         private void Update()
         {
             ResolveDependencies();
-            if (authorityClient == null || !authorityClient.IsReady)
+            if (authorityClient == null || !authorityClient.IsWorldRuntimeReady)
             {
                 return;
             }
@@ -50,7 +50,7 @@ namespace Tormia.Ontology.Core
         [ContextMenu("Refresh Authority Zone Directory")]
         public void RefreshZoneDirectory()
         {
-            if (!isLoadingDirectory && authorityClient != null && authorityClient.IsReady)
+            if (!isLoadingDirectory && authorityClient != null && authorityClient.IsWorldRuntimeReady)
             {
                 StartCoroutine(LoadZoneDirectoryRoutine());
             }

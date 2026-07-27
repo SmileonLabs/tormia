@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -17,6 +18,20 @@ namespace Tormia.Ontology.Core
         [SerializeField] private bool syncFromWorldFacts = true;
 
         public OntologyCharacterPartDatabase PartDatabase => partDatabase;
+        public Transform VisualRoot => visualRoot != null ? visualRoot : transform;
+        public event Action EquippedPartsChanged;
+
+        /// <summary>
+        /// Finds the scene avatar adapter even while session gating keeps the
+        /// player inactive before authenticated world entry. Account creation
+        /// and preview UI must not require the gameplay avatar to be active.
+        /// </summary>
+        public static OntologyCharacterPartAdapter FindAvailable()
+        {
+            return FindAnyObjectByType<OntologyCharacterPartAdapter>(
+                FindObjectsInactive.Include);
+        }
+
         private string ActorId => actorObject != null && !string.IsNullOrWhiteSpace(actorObject.EntityId)
             ? actorObject.EntityId
             : actorId;
@@ -26,6 +41,17 @@ namespace Tormia.Ontology.Core
         public const string FailureWorldMissing = "world_missing";
         public const string FailureAlreadyEquipped = "already_equipped";
         public const string FailureAlreadyUnequipped = "already_unequipped";
+        public const string FailureRequiredPart = "required_part";
+
+        private readonly Dictionary<Renderer, RendererVisualState> baseRendererStates = new();
+        private bool appearanceInitialized;
+
+        private sealed class RendererVisualState
+        {
+            public Mesh Mesh;
+            public Material[] Materials;
+            public Bounds LocalBounds;
+        }
 
         private void OnEnable()
         {
@@ -69,6 +95,8 @@ namespace Tormia.Ontology.Core
                 // child such as "Visual_Base_Mesh".
                 visualRoot = transform;
             }
+
+            CacheBaseRendererStates();
         }
 
         private void Start()
@@ -105,6 +133,7 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
+            CacheBaseRendererStates();
             var clearedRendererPaths = new HashSet<string>();
             foreach (var definition in partDatabase.Definitions)
             {
@@ -130,6 +159,38 @@ namespace Tormia.Ontology.Core
                     SetPartEnabled(definition, true);
                 }
             }
+
+            appearanceInitialized = true;
+        }
+
+        public void EnsureAppearanceInitialized()
+        {
+            EnsureWorldReady();
+            if (bootstrap == null || bootstrap.World == null || partDatabase == null)
+            {
+                return;
+            }
+
+            foreach (var definition in partDatabase.Definitions)
+            {
+                if (definition != null
+                    && bootstrap.World.HasFact(
+                        ActorId,
+                        OntologyPredicates.EquippedPart,
+                        definition.partId))
+                {
+                    if (!appearanceInitialized)
+                    {
+                        SyncRenderersFromWorldFacts();
+                    }
+
+                    appearanceInitialized = true;
+                    return;
+                }
+            }
+
+            ApplyDefaultPreset();
+            InjectActivePartFacts();
         }
 
         /// <summary>
@@ -145,6 +206,7 @@ namespace Tormia.Ontology.Core
                 return false;
             }
 
+            CacheBaseRendererStates();
             if (equippedPartIds == null || equippedPartIds.Count == 0)
             {
                 ApplyDefaultPreset();
@@ -185,6 +247,7 @@ namespace Tormia.Ontology.Core
             }
 
             InjectActivePartFacts();
+            appearanceInitialized = true;
             return true;
         }
 
@@ -313,6 +376,8 @@ namespace Tormia.Ontology.Core
             EnsureWorldReady();
             SetDefinitionEquipped(definition, true);
             InjectActivePartFacts();
+            appearanceInitialized = true;
+            EquippedPartsChanged?.Invoke();
             return true;
         }
 
@@ -327,6 +392,7 @@ namespace Tormia.Ontology.Core
             EnsureWorldReady();
             SetDefinitionEquipped(definition, false);
             InjectActivePartFacts();
+            EquippedPartsChanged?.Invoke();
             return true;
         }
 
@@ -388,6 +454,12 @@ namespace Tormia.Ontology.Core
             if (!IsPartEquipped(partId))
             {
                 reason = FailureAlreadyUnequipped;
+                return false;
+            }
+
+            if (definition.required)
+            {
+                reason = FailureRequiredPart;
                 return false;
             }
 
@@ -453,13 +525,18 @@ namespace Tormia.Ontology.Core
             var renderer = FindRenderer(definition.rendererPath);
             if (renderer != null)
             {
+                CacheBaseRendererState(renderer);
                 renderer.enabled = enabled;
                 if (!enabled)
                 {
                     return;
                 }
 
-                var appliedVariant = ApplyVariantMeshAndMaterials(definition, renderer);
+                var appliedVariant = definition.useBaseRendererMesh
+                    ? RestoreBaseRendererState(renderer)
+                    : OntologyCharacterAppearanceProjector.ApplyVariantMeshAndMaterials(
+                        definition,
+                        renderer);
                 if (!renderer.gameObject.activeSelf)
                 {
                     renderer.gameObject.SetActive(true);
@@ -483,6 +560,13 @@ namespace Tormia.Ontology.Core
 
             if (definition.variantPrefab == null)
             {
+                if (definition.useBaseRendererMesh
+                    && renderer is SkinnedMeshRenderer skinnedRenderer
+                    && baseRendererStates.TryGetValue(renderer, out var baseState))
+                {
+                    return skinnedRenderer.sharedMesh == baseState.Mesh;
+                }
+
                 return true;
             }
 
@@ -515,12 +599,28 @@ namespace Tormia.Ontology.Core
                 if (equipped)
                 {
                     InjectPartDefinitionFacts(definition);
-                    factsChanged |= bootstrap.World.AddFact(ActorId, OntologyPredicates.EquippedPart, definition.partId);
+                    factsChanged |= bootstrap.World.AddFactContribution(
+                        ActorId,
+                        OntologyPredicates.EquippedPart,
+                        definition.partId,
+                        OntologyFactOrigin.CharacterAppearance);
+                    // Legacy local actions wrote equipped_part as a durable world
+                    // fact. Appearance is account-owned, so absorb that contribution
+                    // into the character-appearance projection.
+                    bootstrap.World.RemoveFactContribution(
+                        ActorId,
+                        OntologyPredicates.EquippedPart,
+                        definition.partId,
+                        OntologyFactOrigin.Durable);
                     factsChanged |= bootstrap.World.RemoveFact(ActorId, OntologyPredicates.UnequipPart, definition.partId);
                 }
                 else
                 {
-                    factsChanged |= bootstrap.World.RemoveFact(ActorId, OntologyPredicates.EquippedPart, definition.partId);
+                    factsChanged |= bootstrap.World.RemoveFactContribution(
+                        ActorId,
+                        OntologyPredicates.EquippedPart,
+                        definition.partId,
+                        OntologyFactOrigin.CharacterAppearance);
                     factsChanged |= bootstrap.World.RemoveFact(ActorId, OntologyPredicates.UnequipPart, definition.partId);
                 }
             }
@@ -560,23 +660,52 @@ namespace Tormia.Ontology.Core
             return false;
         }
 
-        private static bool ApplyVariantMeshAndMaterials(OntologyCharacterPartDefinition definition, Renderer targetRenderer)
+        private void CacheBaseRendererStates()
         {
-            if (definition.variantPrefab == null || targetRenderer == null)
+            if (partDatabase == null || partDatabase.Definitions == null || visualRoot == null)
+            {
+                return;
+            }
+
+            foreach (var definition in partDatabase.Definitions)
+            {
+                if (definition != null)
+                {
+                    CacheBaseRendererState(FindRenderer(definition.rendererPath));
+                }
+            }
+        }
+
+        private void CacheBaseRendererState(Renderer renderer)
+        {
+            if (renderer == null || baseRendererStates.ContainsKey(renderer))
+            {
+                return;
+            }
+
+            var skinnedRenderer = renderer as SkinnedMeshRenderer;
+            baseRendererStates.Add(renderer, new RendererVisualState
+            {
+                Mesh = skinnedRenderer != null ? skinnedRenderer.sharedMesh : null,
+                Materials = renderer.sharedMaterials,
+                LocalBounds = skinnedRenderer != null ? skinnedRenderer.localBounds : default
+            });
+        }
+
+        private bool RestoreBaseRendererState(Renderer renderer)
+        {
+            if (renderer == null || !baseRendererStates.TryGetValue(renderer, out var state))
             {
                 return false;
             }
 
-            var sourceRenderer = definition.variantPrefab.GetComponentInChildren<SkinnedMeshRenderer>(true);
-            var targetSkinnedRenderer = targetRenderer as SkinnedMeshRenderer;
-            if (sourceRenderer == null || sourceRenderer.sharedMesh == null || targetSkinnedRenderer == null)
+            renderer.sharedMaterials = state.Materials;
+            if (renderer is SkinnedMeshRenderer skinnedRenderer)
             {
-                return false;
+                skinnedRenderer.sharedMesh = state.Mesh;
+                skinnedRenderer.localBounds = state.LocalBounds;
             }
 
-            targetSkinnedRenderer.sharedMesh = sourceRenderer.sharedMesh;
-            targetSkinnedRenderer.sharedMaterials = sourceRenderer.sharedMaterials;
-            targetSkinnedRenderer.localBounds = sourceRenderer.sharedMesh.bounds;
             return true;
         }
 
@@ -601,6 +730,14 @@ namespace Tormia.Ontology.Core
                     || OntologyCharacterPartFactSynchronizer.SlotsConflict(equippedDefinition, definition))
                 {
                     if (IsLinkedPart(equippedDefinition, definition.partId))
+                    {
+                        continue;
+                    }
+
+                    // Definitions in the same slot often share one renderer.
+                    // Disabling an unequipped definition can therefore hide the
+                    // actually equipped variant or one of its linked parts.
+                    if (!IsPartEquipped(definition.partId))
                     {
                         continue;
                     }
@@ -633,14 +770,9 @@ namespace Tormia.Ontology.Core
                 return null;
             }
 
-            var normalized = rendererPath;
-            if (normalized.StartsWith(visualRoot.name + "/"))
-            {
-                normalized = normalized.Substring(visualRoot.name.Length + 1);
-            }
-
-            var target = visualRoot.Find(normalized);
-            return target == null ? null : target.GetComponent<Renderer>();
+            return OntologyCharacterAppearanceProjector.FindRenderer(
+                visualRoot,
+                rendererPath);
         }
 
         private void EnsureWorldReady()

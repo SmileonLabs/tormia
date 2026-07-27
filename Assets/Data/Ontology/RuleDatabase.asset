@@ -259,31 +259,31 @@ MonoBehaviour:
       predicate: records
       obj: InvestigateSmokeAndPanicCompleted
   - id: CraftStoneAxeRule
-    description: Player -- CRAFTED --> StoneAxe
+    description: Any actor combining Stone and Stick crafts a StoneAxe.
     conditions:
     - kind: 0
-      subject: Player
+      subject: ?actor
       predicate: combined
       obj: Stone
     - kind: 0
-      subject: Player
+      subject: ?actor
       predicate: combined
       obj: Stick
     - kind: 1
-      subject: Player
+      subject: ?actor
       predicate: has_item
       obj: StoneAxe
     effects:
     - kind: 0
-      subject: Player
+      subject: ?actor
       predicate: has_item
       obj: StoneAxe
     - kind: 1
-      subject: Player
+      subject: ?actor
       predicate: combined
       obj: Stone
     - kind: 1
-      subject: Player
+      subject: ?actor
       predicate: combined
       obj: Stick
   - id: TileWaterStatusWetRule

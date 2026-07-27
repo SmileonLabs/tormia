@@ -28,7 +28,11 @@ namespace Tormia.Ontology.Core
                 foreach (var assignment in assignmentList)
                 {
                     var ontology = assignment.GetComponent<OntologyObject>();
-                    var entityId = ontology != null ? ontology.EntityId : assignment.gameObject.name;
+                    var entityId = ontology != null ? ontology.EntityId : string.Empty;
+                    if (string.IsNullOrWhiteSpace(entityId))
+                    {
+                        continue;
+                    }
                     foreach (var binding in assignment.Bindings.Where(value =>
                                  value != null && value.ruleId == definition.id))
                     {

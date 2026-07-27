@@ -123,6 +123,7 @@ namespace Tormia.Ontology.Core
                 var record = new OntologyPlacedObjectRecord
                 {
                     instanceName = placed.name,
+                    entityId = ontology == null ? string.Empty : ontology.EntityId,
                     definitionId = placed.DefinitionId,
                     transform = CaptureTransform(placed.transform)
                 };
@@ -137,7 +138,7 @@ namespace Tormia.Ontology.Core
                     {
                         record.facts.Add(new OntologyFactRecord
                         {
-                            subject = placed.name,
+                            subject = ontology.EntityId,
                             predicate = fact.predicate,
                             obj = fact.obj
                         });
@@ -264,7 +265,9 @@ namespace Tormia.Ontology.Core
 
                         record.facts.Add(new OntologyFactRecord
                         {
-                            subject = record.instanceName,
+                            subject =
+                                OntologyPlacedObjectFactProjection.ResolveSubject(
+                                    record),
                             predicate = templateFact.predicate,
                             obj = templateFact.obj
                         });
@@ -293,14 +296,19 @@ namespace Tormia.Ontology.Core
                 }
 
                 if (applyTemplateRetirements &&
-                    RemoveRetiredTemplateData(saveData.facts, record, template))
+                    OntologyPlacedObjectFactProjection.RemoveRetiredTemplateData(
+                        saveData.facts,
+                        record,
+                        template))
                 {
                     changed = true;
                 }
 
                 if (!changed) continue;
                 migrated++;
-                SynchronizeRecordFacts(saveData.facts, record);
+                OntologyPlacedObjectFactProjection.Synchronize(
+                    saveData.facts,
+                    record);
             }
 
             saveData.version = 6;
@@ -346,7 +354,16 @@ namespace Tormia.Ontology.Core
                     })
                     .ToArray() ?? Array.Empty<OntologyFactEntry>();
                 facts = EnsurePhysicalProfileFact(facts, definition);
-                ontology.ConfigureOntologyData(instance.name, concepts, facts);
+                var restoredEntityId = string.IsNullOrWhiteSpace(record.entityId)
+                    ? instance.name
+                    : record.entityId;
+                ontology.ConfigureOntologyData(restoredEntityId, concepts, facts);
+                if (Guid.TryParse(restoredEntityId, out var restoredGuid))
+                {
+                    var identity = instance.GetComponent<OntologyAuthorityEntityIdentity>() ??
+                                   instance.AddComponent<OntologyAuthorityEntityIdentity>();
+                    identity.SetGuid(restoredGuid);
+                }
                 EnsureSemanticAdapters(instance, definition);
 
                 if (record.ruleBlocks != null && record.ruleBlocks.Count > 0)
@@ -915,6 +932,9 @@ namespace Tormia.Ontology.Core
             }
             var record = instance.GetComponent<OntologyPlaceableInstance>() ?? instance.AddComponent<OntologyPlaceableInstance>();
             record.Configure(definition.definitionId);
+            var identity = instance.GetComponent<OntologyAuthorityEntityIdentity>() ??
+                           instance.AddComponent<OntologyAuthorityEntityIdentity>();
+            identity.EnsureGuid();
             ApplyOntologyTemplate(instance, definition);
             ApplyDefaultRuleBlocks(instance, definition);
             EnsureSemanticAdapters(instance, definition);
@@ -1018,8 +1038,10 @@ namespace Tormia.Ontology.Core
                 });
             }
 
+            var identity = target.GetComponent<OntologyAuthorityEntityIdentity>() ??
+                           target.AddComponent<OntologyAuthorityEntityIdentity>();
             ontology.ConfigureOntologyData(
-                target.name,
+                identity.EnsureGuid().ToString("D"),
                 concepts,
                 facts.ToArray());
         }
@@ -1175,87 +1197,6 @@ namespace Tormia.Ontology.Core
             }
         }
 
-        private static void SynchronizeRecordFacts(
-            ICollection<OntologyFactRecord> worldFacts,
-            OntologyPlacedObjectRecord record)
-        {
-            if (worldFacts == null || record == null) return;
-            foreach (var concept in record.concepts.Where(value => !string.IsNullOrWhiteSpace(value)))
-            {
-                AddWorldFactIfMissing(worldFacts, record.instanceName, OntologyPredicates.HasConcept, concept);
-            }
-
-            foreach (var fact in record.facts.Where(value => value != null &&
-                                                             !string.IsNullOrWhiteSpace(value.predicate) &&
-                                                             !string.IsNullOrWhiteSpace(value.obj)))
-            {
-                AddWorldFactIfMissing(worldFacts, record.instanceName, fact.predicate, fact.obj);
-            }
-
-            foreach (var ruleBlock in record.ruleBlocks.Where(value => value != null &&
-                                                                       !string.IsNullOrWhiteSpace(value.ruleId)))
-            {
-                AddWorldFactIfMissing(worldFacts, record.instanceName, OntologyPredicates.HasRuleBlock, ruleBlock.ruleId);
-            }
-        }
-
-        private static bool RemoveRetiredTemplateData(
-            List<OntologyFactRecord> worldFacts,
-            OntologyPlacedObjectRecord record,
-            OntologyMapObjectTemplate template)
-        {
-            if (record == null || template == null)
-                return false;
-
-            var retiredConcepts = new HashSet<string>(
-                (template.retiredConcepts ?? Array.Empty<string>())
-                    .Where(value => !string.IsNullOrWhiteSpace(value)),
-                StringComparer.Ordinal);
-            var retiredFacts = (template.retiredFacts ?? Array.Empty<OntologyFactEntry>())
-                .Where(value => value != null &&
-                                !string.IsNullOrWhiteSpace(value.predicate) &&
-                                !string.IsNullOrWhiteSpace(value.obj))
-                .ToArray();
-            if (retiredConcepts.Count == 0 && retiredFacts.Length == 0)
-                return false;
-
-            var changed = record.concepts.RemoveAll(retiredConcepts.Contains) > 0;
-            changed |= record.facts.RemoveAll(value => value != null &&
-                retiredFacts.Any(retired => retired.predicate == value.predicate &&
-                                           retired.obj == value.obj)) > 0;
-
-            if (worldFacts == null || string.IsNullOrWhiteSpace(record.instanceName))
-                return changed;
-
-            changed |= worldFacts.RemoveAll(value => value != null &&
-                value.subject == record.instanceName &&
-                ((value.predicate == OntologyPredicates.HasConcept &&
-                  retiredConcepts.Contains(value.obj)) ||
-                 retiredFacts.Any(retired => retired.predicate == value.predicate &&
-                                           retired.obj == value.obj))) > 0;
-            return changed;
-        }
-
-        private static void AddWorldFactIfMissing(
-            ICollection<OntologyFactRecord> facts,
-            string subject,
-            string predicate,
-            string obj)
-        {
-            if (facts.Any(value => value != null && value.subject == subject &&
-                                   value.predicate == predicate && value.obj == obj))
-            {
-                return;
-            }
-
-            facts.Add(new OntologyFactRecord
-            {
-                subject = subject,
-                predicate = predicate,
-                obj = obj
-            });
-        }
-
         private static OntologyFactEntry[] CloneFacts(OntologyFactEntry[] source)
         {
             if (source == null || source.Length == 0) return Array.Empty<OntologyFactEntry>();
@@ -1334,8 +1275,7 @@ namespace Tormia.Ontology.Core
             }
 
             foreach (var ontologyObject in FindObjectsByType<OntologyObject>(
-                         FindObjectsInactive.Include,
-                         FindObjectsSortMode.None))
+                         FindObjectsInactive.Include))
             {
                 if (ontologyObject != null &&
                     ontologyObject.EntityId == candidate)

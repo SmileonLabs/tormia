@@ -40,16 +40,11 @@ namespace Tormia.Ontology.Core
         public IEnumerator PublishRoutine()
         {
             isPublishing = true;
-            if (!authorityClient.IsReady)
+            if (!authorityClient.IsWorldRuntimeReady)
             {
-                var connected = false;
-                yield return authorityClient.ConnectRoutine(value => connected = value);
-                if (!connected)
-                {
-                    SetStatus("Zone publish stopped: authority connection failed.");
-                    isPublishing = false;
-                    yield break;
-                }
+                SetStatus("Zone publish stopped: enter the selected world first.");
+                isPublishing = false;
+                yield break;
             }
 
             var volumes = FindObjectsByType<OntologyWorldZoneVolume>(FindObjectsInactive.Exclude)

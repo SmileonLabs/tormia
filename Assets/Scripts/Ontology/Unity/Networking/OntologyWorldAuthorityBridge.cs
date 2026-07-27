@@ -16,6 +16,8 @@ namespace Tormia.Ontology.Core
         [SerializeField] private OntologyWorldAuthorityClient authorityClient;
         [SerializeField] private OntologyRuntimeObjectPlacementController placementController;
         [SerializeField] private OntologyRuntimeWorldEditorController worldEditorController;
+        [SerializeField, Tooltip("The locally controlled avatar. Live Transform ownership belongs to input/motion and checkpoint restore, not durable world projection refreshes.")]
+        private OntologyAuthorityEntityIdentity localAvatarIdentity;
         [SerializeField, TextArea] private string lastPublishStatus;
         private readonly HashSet<string> publishedEntityIds =
             new(StringComparer.OrdinalIgnoreCase);
@@ -26,7 +28,7 @@ namespace Tormia.Ontology.Core
         private bool suppressOutgoingChanges;
 
         public string LastPublishStatus => lastPublishStatus;
-        public bool HasSelectedAuthorityWorld => authorityClient != null && authorityClient.IsReady;
+        public bool HasSelectedAuthorityWorld => authorityClient != null && authorityClient.IsWorldRuntimeReady;
         public bool CanEditAuthorityWorld => authorityClient != null && authorityClient.CanEditCurrentWorld;
         public event Action StatusChanged;
 
@@ -43,6 +45,37 @@ namespace Tormia.Ontology.Core
         private void OnEnable()
         {
             ResolveDependencies();
+            SubscribeDependencies();
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeDependencies();
+        }
+
+        /// <summary>
+        /// Rebinds presentation/editor dependencies after the World and UI
+        /// scenes have been loaded additively around the persistent services.
+        /// </summary>
+        public void RefreshSceneBindings()
+        {
+            if (isActiveAndEnabled)
+            {
+                UnsubscribeDependencies();
+            }
+
+            placementController = null;
+            worldEditorController = null;
+            ResolveDependencies();
+
+            if (isActiveAndEnabled)
+            {
+                SubscribeDependencies();
+            }
+        }
+
+        private void SubscribeDependencies()
+        {
             if (authorityClient != null)
             {
                 authorityClient.ProjectionReceived += ApplyProjection;
@@ -61,7 +94,7 @@ namespace Tormia.Ontology.Core
             }
         }
 
-        private void OnDisable()
+        private void UnsubscribeDependencies()
         {
             if (authorityClient != null)
             {
@@ -100,7 +133,7 @@ namespace Tormia.Ontology.Core
 
         public void PublishMove(OntologyPlaceableInstance instance)
         {
-            if (instance == null || authorityClient == null || !authorityClient.IsReady)
+            if (instance == null || authorityClient == null || !authorityClient.IsWorldRuntimeReady)
             {
                 return;
             }
@@ -197,16 +230,10 @@ namespace Tormia.Ontology.Core
 
         private IEnumerator PublishRoutine()
         {
-            SetStatus("Connecting to authority...");
-            if (!authorityClient.IsReady)
+            if (!authorityClient.IsWorldRuntimeReady)
             {
-                var connected = false;
-                yield return authorityClient.ConnectRoutine(success => connected = success);
-                if (!connected)
-                {
-                    SetStatus("Authority connection failed: " + authorityClient.LastStatus);
-                    yield break;
-                }
+                SetStatus("Enter the selected world before publishing durable scene edits.");
+                yield break;
             }
 
             OntologyAuthorityWorldProjection projection = null;
@@ -281,11 +308,10 @@ namespace Tormia.Ontology.Core
                 yield break;
             }
 
-            if (!authorityClient.IsReady)
+            if (!authorityClient.IsWorldRuntimeReady)
             {
-                var connected = false;
-                yield return authorityClient.ConnectRoutine(success => connected = success);
-                if (!connected) yield break;
+                SetStatus("Enter the selected world before publishing a placement.");
+                yield break;
             }
 
             var identity = EnsureIdentity(instance.gameObject);
@@ -551,7 +577,7 @@ namespace Tormia.Ontology.Core
 
         private static int ResolveRuleVersion(string ruleId)
         {
-            var definition = FindFirstObjectByType<OntologyWorldBootstrap>()
+            var definition = FindAnyObjectByType<OntologyWorldBootstrap>()
                 ?.RuleDatabase
                 ?.Definitions
                 .FirstOrDefault(value => value != null &&
@@ -592,6 +618,15 @@ namespace Tormia.Ontology.Core
 
                 if (identity == null || remote.transform == null) continue;
                 publishedEntityIds.Add(remote.entityId);
+                if (!ShouldApplyProjectedTransform(identity, localAvatarIdentity))
+                {
+                    // The durable projection may contain the avatar entity so its
+                    // profile/semantic facts remain addressable. Its live Transform,
+                    // however, is ephemeral movement state and is restored explicitly
+                    // through the checkpoint controller on world entry.
+                    continue;
+                }
+
                 var instance = identity.GetComponent<OntologyPlaceableInstance>();
                 if (worldEditorController != null && worldEditorController.IsMoving &&
                     worldEditorController.Selected == instance)
@@ -924,12 +959,58 @@ namespace Tormia.Ontology.Core
             {
                 worldEditorController = FindAnyObjectByType<OntologyRuntimeWorldEditorController>();
             }
+            if (localAvatarIdentity == null)
+            {
+                var entryFlow = FindAnyObjectByType<OntologyWorldAuthorityAccountEntryFlow>(
+                    FindObjectsInactive.Include);
+                localAvatarIdentity = entryFlow == null
+                    ? null
+                    : entryFlow.AvatarIdentity;
+            }
+            if (localAvatarIdentity == null)
+            {
+                var localInput = FindAnyObjectByType<OntologyInputSystemPlayerInput>(
+                    FindObjectsInactive.Include);
+                localAvatarIdentity = localInput == null
+                    ? null
+                    : localInput.GetComponent<OntologyAuthorityEntityIdentity>();
+            }
+        }
+
+        /// <summary>
+        /// Durable world projections own placed-object transforms. A locally
+        /// controlled avatar is instead owned by ephemeral motion and explicit
+        /// checkpoint restoration, even when the projection contains the same
+        /// authority entity ID.
+        /// </summary>
+        public static bool ShouldApplyProjectedTransform(
+            OntologyAuthorityEntityIdentity identity,
+            OntologyAuthorityEntityIdentity localIdentity)
+        {
+            if (identity == null)
+            {
+                return false;
+            }
+
+            var isLocallyControlled =
+                identity == localIdentity ||
+                identity.GetComponent<OntologyInputSystemPlayerInput>() != null;
+            if (isLocallyControlled)
+            {
+                return false;
+            }
+
+            return localIdentity == null ||
+                   !identity.TryGetGuid(out var identityId) ||
+                   !localIdentity.TryGetGuid(out var localId) ||
+                   identityId != localId;
         }
 
         private bool IsAutomaticAuthorityEnabled()
         {
             ResolveDependencies();
             return authorityClient != null && authorityClient.Settings != null &&
+                   authorityClient.IsWorldRuntimeReady &&
                    authorityClient.Settings.connectOnStart && authorityClient.CanEditCurrentWorld;
         }
 

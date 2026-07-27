@@ -77,6 +77,7 @@ namespace Tormia.Ontology.Core
         private OntologySwimmingMovementAdapter swimmingMovement;
         private OntologyDrowningRecoveryAdapter drowningRecovery;
         private OntologyObject selectedInteractionObject;
+        private string publishedInteractionIntent;
         private OntologyRuntimeSelectionMarker interactionSelectionMarker;
         private string ResolvedActorId =>
             !string.IsNullOrWhiteSpace(actorIdOverride)
@@ -114,6 +115,10 @@ namespace Tormia.Ontology.Core
         public bool IsJumpIntentHeld => ReadJumpHeld();
         public bool IsMovingIntent => lastHadInput;
         public Vector2 CurrentMoveAxis => lastMoveAxis;
+        public string SelectedInteractionEntityId =>
+            selectedInteractionObject == null
+                ? string.Empty
+                : selectedInteractionObject.EntityId;
 
         private void Awake()
         {
@@ -189,6 +194,7 @@ namespace Tormia.Ontology.Core
             UpdateInteractionCompletion();
             var axis = ReadMoveAxis();
             UpdateClickTarget();
+            CancelClickNavigationForDirectInput(axis);
             var useClickTarget = axis.sqrMagnitude <= 0.0001f && hasClickTarget;
             if (useClickTarget)
             {
@@ -432,8 +438,34 @@ namespace Tormia.Ontology.Core
             }
 
             UpdateFallbackGravity();
-            characterController.Move((move * speed + Vector3.up * verticalVelocity) * Time.deltaTime);
+            var horizontalDistance = speed * Time.deltaTime;
+            if (useClickTarget)
+            {
+                horizontalDistance = ClampClickTravelDistance(
+                    horizontalDistance,
+                    GetActiveClickTargetPlanarDistance(),
+                    GetActiveClickStopDistance());
+            }
+
+            characterController.Move(
+                move * horizontalDistance +
+                Vector3.up * verticalVelocity * Time.deltaTime);
             RotateTowardsMove(move);
+        }
+
+        /// <summary>
+        /// Keeps a click-navigation frame from crossing its stopping radius.
+        /// This prevents low-frame-rate overshoot from alternating the movement
+        /// direction and looking like the actor was thrown away from an NPC.
+        /// </summary>
+        public static float ClampClickTravelDistance(
+            float requestedDistance,
+            float planarDistanceToTarget,
+            float stopDistance)
+        {
+            return Mathf.Min(
+                Mathf.Max(0f, requestedDistance),
+                Mathf.Max(0f, planarDistanceToTarget - Mathf.Max(0f, stopDistance)));
         }
 
         private void RotateTowardsMove(Vector3 move)
@@ -519,6 +551,15 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
+            if (TryConsumeCreatorNpcClick(
+                    ray,
+                    Mathf.Max(1f, clickRaycastDistance)))
+            {
+                ClearInteractionSelection(removeIntent: true);
+                hasClickTarget = false;
+                return;
+            }
+
             if (TryGetSelectableInteractionTarget(
                     ray,
                     Mathf.Max(1f, clickRaycastDistance),
@@ -544,6 +585,78 @@ namespace Tormia.Ontology.Core
             }
         }
 
+        /// <summary>
+        /// Direct movement owns navigation for the current frame. This prevents a
+        /// stale click destination from resuming when the key is released.
+        /// </summary>
+        public bool CancelClickNavigationForDirectInput(Vector2 directAxis)
+        {
+            if (directAxis.sqrMagnitude <= 0.0001f ||
+                (!hasClickTarget && selectedInteractionObject == null))
+            {
+                return false;
+            }
+
+            ClearInteractionSelection(removeIntent: true);
+            hasClickTarget = false;
+            return true;
+        }
+
+        /// <summary>
+        /// Creator assistants intentionally have no solid Collider. Their visible
+        /// renderer bounds receive pointer input so a click cannot fall through to
+        /// the terrain and become an unintended movement destination.
+        /// </summary>
+        public static bool TryConsumeCreatorNpcClick(
+            Ray ray,
+            float maximumDistance)
+        {
+            OntologyCreatorNpcAppearance selected = null;
+            var selectedDistance = float.PositiveInfinity;
+            foreach (var candidate in FindObjectsByType<OntologyCreatorNpcAppearance>(
+                         FindObjectsInactive.Exclude))
+            {
+                if (candidate == null || !candidate.isActiveAndEnabled)
+                {
+                    continue;
+                }
+
+                foreach (var renderer in candidate.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (renderer == null || !renderer.enabled ||
+                        !renderer.gameObject.activeInHierarchy ||
+                        !renderer.bounds.IntersectRay(ray, out var distance) ||
+                        distance < 0f || distance > maximumDistance ||
+                        distance >= selectedDistance)
+                    {
+                        continue;
+                    }
+
+                    selected = candidate;
+                    selectedDistance = distance;
+                }
+            }
+
+            if (selected == null)
+            {
+                return false;
+            }
+
+            if (Physics.Raycast(
+                    ray,
+                    out var blockingHit,
+                    maximumDistance,
+                    ~0,
+                    QueryTriggerInteraction.Ignore) &&
+                blockingHit.distance + 0.02f < selectedDistance)
+            {
+                return false;
+            }
+
+            selected.NotifyClicked();
+            return true;
+        }
+
         private static bool TryUnequipClickedAttachment(
             Ray ray,
             float maximumDistance)
@@ -551,8 +664,7 @@ namespace Tormia.Ontology.Core
             OntologyAttachmentAdapter selected = null;
             var selectedDistance = float.PositiveInfinity;
             foreach (var attachment in FindObjectsByType<OntologyAttachmentAdapter>(
-                         FindObjectsInactive.Exclude,
-                         FindObjectsSortMode.None))
+                         FindObjectsInactive.Exclude))
             {
                 if (attachment != null &&
                     attachment.RaycastPresentation(
@@ -657,11 +769,12 @@ namespace Tormia.Ontology.Core
             }
 
             selectedInteractionObject = target;
-            if (bootstrap.World.SetFact(
+            if (OntologyRuntimeObservationFacts.SynchronizeSingleValue(
+                    bootstrap.World,
                     ResolvedActorId,
                     OntologyPredicates.InteractionIntent,
                     target.EntityId,
-                    out _))
+                    ref publishedInteractionIntent))
             {
                 bootstrap.RunSimulation();
             }
@@ -692,13 +805,14 @@ namespace Tormia.Ontology.Core
 
         private void ClearInteractionSelection(bool removeIntent)
         {
-            if (removeIntent && selectedInteractionObject != null &&
+            if (removeIntent &&
                 bootstrap != null && bootstrap.World != null)
             {
-                if (bootstrap.World.RemoveFact(
+                if (OntologyRuntimeObservationFacts.RemovePublishedSingleValue(
+                        bootstrap.World,
                         ResolvedActorId,
                         OntologyPredicates.InteractionIntent,
-                        selectedInteractionObject.EntityId))
+                        ref publishedInteractionIntent))
                 {
                     bootstrap.RunSimulation();
                 }
@@ -718,30 +832,10 @@ namespace Tormia.Ontology.Core
                 return Vector2.zero;
             }
 
-            var activeTarget =
-                selectedInteractionObject != null &&
-                bootstrap != null &&
-                bootstrap.World != null &&
-                bootstrap.World.HasFact(
-                    ResolvedActorId,
-                    OntologyPredicates.InteractionIntent,
-                    selectedInteractionObject.EntityId)
-                    ? selectedInteractionObject.transform.position
-                    : clickTarget;
+            var activeTarget = GetActiveClickTarget();
             var toTarget = activeTarget - transform.position;
             toTarget.y = 0f;
-            var stopDistance = Mathf.Max(0.01f, clickStopDistance);
-            if (selectedInteractionObject != null)
-            {
-                var attachment =
-                    selectedInteractionObject.GetComponent<OntologyAttachmentAdapter>();
-                if (attachment != null && attachment.AttachmentProfile != null)
-                {
-                    stopDistance = Mathf.Max(
-                        stopDistance,
-                        attachment.AttachmentProfile.autoEquipDistance * 0.8f);
-                }
-            }
+            var stopDistance = GetActiveClickStopDistance();
 
             if (toTarget.magnitude <= stopDistance)
             {
@@ -755,6 +849,46 @@ namespace Tormia.Ontology.Core
             return Vector2.ClampMagnitude(new Vector2(Vector3.Dot(direction, right), Vector3.Dot(direction, forward)), 1f);
         }
 
+        private Vector3 GetActiveClickTarget()
+        {
+            return selectedInteractionObject != null &&
+                   bootstrap != null &&
+                   bootstrap.World != null &&
+                   bootstrap.World.HasFact(
+                       ResolvedActorId,
+                       OntologyPredicates.InteractionIntent,
+                       selectedInteractionObject.EntityId)
+                ? selectedInteractionObject.transform.position
+                : clickTarget;
+        }
+
+        private float GetActiveClickTargetPlanarDistance()
+        {
+            var toTarget = GetActiveClickTarget() - transform.position;
+            toTarget.y = 0f;
+            return toTarget.magnitude;
+        }
+
+        private float GetActiveClickStopDistance()
+        {
+            var stopDistance = Mathf.Max(0.01f, clickStopDistance);
+            if (selectedInteractionObject == null)
+            {
+                return stopDistance;
+            }
+
+            var attachment =
+                selectedInteractionObject.GetComponent<OntologyAttachmentAdapter>();
+            if (attachment != null && attachment.AttachmentProfile != null)
+            {
+                stopDistance = Mathf.Max(
+                    stopDistance,
+                    attachment.AttachmentProfile.autoEquipDistance * 0.8f);
+            }
+
+            return stopDistance;
+        }
+
         private void ApplyFallbackGravityOnly()
         {
             if (characterController == null)
@@ -763,7 +897,8 @@ namespace Tormia.Ontology.Core
             }
 
             UpdateFallbackGravity();
-            characterController.Move(Vector3.up * verticalVelocity * Time.deltaTime);
+            characterController.Move(
+                Vector3.up * verticalVelocity * Time.deltaTime);
         }
 
         private void UpdateFallbackGravity()

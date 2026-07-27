@@ -116,18 +116,20 @@ namespace Tormia.Ontology.Core
             var changed = false;
             if (shouldBeNear)
             {
-                changed = bootstrap.World.AddFact(
+                changed = bootstrap.World.AddFactContribution(
                     actorObject.EntityId,
                     proximityPredicate,
-                    observedObject.EntityId);
+                    observedObject.EntityId,
+                    OntologyFactOrigin.RuntimeObservation);
                 publishedObservation = changed;
             }
             else if (publishedObservation)
             {
-                changed = bootstrap.World.RemoveFact(
+                changed = bootstrap.World.RemoveFactContribution(
                     actorObject.EntityId,
                     proximityPredicate,
-                    observedObject.EntityId);
+                    observedObject.EntityId,
+                    OntologyFactOrigin.RuntimeObservation);
                 publishedObservation = false;
             }
             if (changed)
@@ -191,10 +193,11 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            var changed = bootstrap.World.RemoveFact(
+            var changed = bootstrap.World.RemoveFactContribution(
                 actorObject.EntityId,
                 proximityPredicate,
-                observedObject.EntityId);
+                observedObject.EntityId,
+                OntologyFactOrigin.RuntimeObservation);
             publishedObservation = false;
             if (changed)
             {

@@ -13,14 +13,26 @@ MonoBehaviour:
   m_Name: WorldAuthoritySettings
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyWorldAuthoritySettings
   baseUrl: http://127.0.0.1:5272
-  developmentSubject: local-editor-1
-  developmentDisplayName: Local Editor 1
   sharedWorldId: 
   newWorldSlug: local-sandbox
   newWorldTitle: Local Sandbox
   newWorldVisibility: private
   connectOnStart: 0
   projectionPollIntervalSeconds: 1
+  publishDevelopmentPackageOnWorldEntry: 1
+  developmentPackageId: social_village
+  developmentPackageVersion: 1.0.0
+  developmentActions:
+  - actionId: help
+    definitionVersion: 1
+    predicateId: helps
+    requiresTool: 0
+    objectPattern: ?target
+  - actionId: talk
+    definitionVersion: 1
+    predicateId: talks_to
+    requiresTool: 0
+    objectPattern: ?target
   useRealtimeNotifications: 1
   realtimeZoneKey: 
   realtimeRecoveryPollIntervalSeconds: 10

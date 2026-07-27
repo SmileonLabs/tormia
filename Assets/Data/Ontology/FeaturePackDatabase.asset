@@ -12,4 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8f7e6d5c4b3a29108192a3b4c5d6e7f9, type: 3}
   m_Name: FeaturePackDatabase
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyFeaturePackDatabase
-  packs: []
+  packs:
+  - {fileID: 11400000, guid: 4f6d8c2ab0b24a14afd1744e1bc905a5, type: 2}

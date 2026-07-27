@@ -100,7 +100,7 @@ namespace Tormia.Ontology.Core
         {
             return authorityClient != null && authorityClient.Settings != null &&
                    authorityClient.Settings.useRealtimeNotifications &&
-                   authorityClient.IsReady;
+                   authorityClient.IsWorldRuntimeReady;
         }
 
         private IEnumerator ConnectRoutine()
@@ -113,7 +113,7 @@ namespace Tormia.Ontology.Core
             {
                 downloadHandler = new DownloadHandlerBuffer()
             };
-            negotiate.SetRequestHeader("X-Tormia-User-Id", authorityClient.CurrentUserId);
+            negotiate.SetRequestHeader("Authorization", "Bearer " + authorityClient.AccessToken);
             negotiate.SetRequestHeader("Content-Type", "application/json");
             yield return negotiate.SendWebRequest();
 
@@ -133,7 +133,7 @@ namespace Tormia.Ontology.Core
 
             cancellation = new CancellationTokenSource();
             socket = new ClientWebSocket();
-            socket.Options.SetRequestHeader("X-Tormia-User-Id", authorityClient.CurrentUserId);
+            socket.Options.SetRequestHeader("Authorization", "Bearer " + authorityClient.AccessToken);
             socketTask = RunSocketAsync(
                 socket,
                 BuildWebSocketHubUrl(negotiation.connectionToken),

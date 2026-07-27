@@ -325,9 +325,15 @@ namespace Tormia.Ontology.Core
 
         public List<OntologyActionCandidate> GetActionCandidates()
         {
+            return GetActionCandidates(ActiveActorId);
+        }
+
+        /// <summary>Returns candidates for any registered actor, including NPCs.</summary>
+        public List<OntologyActionCandidate> GetActionCandidates(string actorId)
+        {
             EnsureWorldReady();
-            var quests = GetGeneratedQuests();
-            return CreateActionService().GetCandidates(World, ActiveActorId, quests);
+            var quests = GetGeneratedQuests(actorId);
+            return CreateActionService().GetCandidates(World, actorId, quests);
         }
 
         /// <summary>
@@ -337,8 +343,40 @@ namespace Tormia.Ontology.Core
         /// </summary>
         public List<OntologyQuest> GetGeneratedQuests()
         {
+            return GetGeneratedQuests(ActiveActorId);
+        }
+
+        /// <summary>Returns read-only inferred quests for the specified actor.</summary>
+        public List<OntologyQuest> GetGeneratedQuests(string actorId)
+        {
             EnsureWorldReady();
-            return CreateQuestService().Generate(World, ActiveActorId);
+            return CreateQuestService().Generate(World, actorId);
+        }
+
+        /// <summary>
+        /// Applies an already validated action for any actor and refreshes
+        /// inference using that actor's context. Presentation callers should
+        /// use this instead of treating the local player as the sole actor.
+        /// </summary>
+        public bool ExecuteActionForActor(OntologyAction action)
+        {
+            if (!IsActionCurrentlyAvailable(action)) return false;
+            if (!ApplyAction(action)) return false;
+            RunSimulationForActor(action.ActorId);
+            return true;
+        }
+
+        public void RunSimulationForActor(string actorId)
+        {
+            EnsureWorldReady();
+            if (string.IsNullOrWhiteSpace(actorId)) return;
+            worldService.Simulate(
+                GetRuleDefinitions(),
+                CreateQuestService(),
+                actorId,
+                maxIterations,
+                AllRuleDefinitions);
+            WorldChanged?.Invoke();
         }
 
         public bool ApplyAction(OntologyAction action)

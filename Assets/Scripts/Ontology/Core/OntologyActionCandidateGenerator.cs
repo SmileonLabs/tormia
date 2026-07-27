@@ -8,14 +8,14 @@ namespace Tormia.Ontology.Core
 
         public OntologyActionCandidateGenerator()
         {
-            definitions = CreateDefaultDefinitions();
+            definitions = new List<OntologyActionCandidateDefinition>();
         }
 
         public OntologyActionCandidateGenerator(IReadOnlyList<OntologyActionCandidateDefinition> definitions)
         {
             this.definitions = definitions != null && definitions.Count > 0
                 ? new List<OntologyActionCandidateDefinition>(definitions)
-                : CreateDefaultDefinitions();
+                : new List<OntologyActionCandidateDefinition>();
         }
 
         public List<OntologyActionCandidate> Generate(OntologyWorldState world, OntologyId actorId)

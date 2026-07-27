@@ -1,4 +1,4 @@
-# Tormia local platform services
+# TOV local platform services
 
 This folder is the development equivalent of the production data platform. It deliberately runs only stateful infrastructure:
 

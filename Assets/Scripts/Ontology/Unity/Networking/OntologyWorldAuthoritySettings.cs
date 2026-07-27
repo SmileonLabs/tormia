@@ -1,11 +1,11 @@
+using System;
 using UnityEngine;
 
 namespace Tormia.Ontology.Core
 {
     /// <summary>
-    /// Non-secret connection data for a development or production authority endpoint.
-    /// Authentication tokens deliberately do not live here; the production identity
-    /// provider supplies them at runtime.
+    /// Non-secret connection data for a local or production authority endpoint.
+    /// Authentication tokens deliberately do not live in this asset.
     /// </summary>
     [CreateAssetMenu(
         fileName = "WorldAuthoritySettings",
@@ -16,13 +16,8 @@ namespace Tormia.Ontology.Core
         [Tooltip("Authority endpoint only. Unity clients never receive a PostgreSQL or Redis connection string.")]
         public string baseUrl = "http://127.0.0.1:5272";
 
-        [Header("Local development identity")]
-        [Tooltip("Stable local development subject. Give each local client a different value when testing two players.")]
-        public string developmentSubject = "local-editor-1";
-        public string developmentDisplayName = "Local Editor 1";
-
-        [Header("Development world")]
-        [Tooltip("Paste a shared world GUID here to join an existing development world. Leave empty to create and remember a personal local world.")]
+        [Header("Local world defaults")]
+        [Tooltip("Paste a shared world GUID here to join an existing local world. Leave empty to create and remember a personal world.")]
         public string sharedWorldId;
         public string newWorldSlug = "local-sandbox";
         public string newWorldTitle = "Local Sandbox";
@@ -33,6 +28,15 @@ namespace Tormia.Ontology.Core
         public bool connectOnStart;
         [Min(0.25f), Tooltip("How often a connected client refreshes the durable world projection. Commands remain immediate; this is for other clients' accepted changes.")]
         public float projectionPollIntervalSeconds = 1f;
+
+        [Header("Development content seed")]
+        [Tooltip("Development-only convenience. Production worlds should be provisioned by an authenticated content workflow.")]
+        public bool publishDevelopmentPackageOnWorldEntry = true;
+        [Tooltip("Canonical Authority package ID used by the development seed.")]
+        public string developmentPackageId = "social_village";
+        public string developmentPackageVersion = "1.0.0";
+        public OntologyAuthorityDevelopmentAction[] developmentActions =
+            Array.Empty<OntologyAuthorityDevelopmentAction>();
 
         [Header("Realtime notifications")]
         [Tooltip("Uses the authority SignalR endpoint only as a revision notification channel. The client still reloads the server projection; it never applies socket data as ontology facts directly.")]
@@ -45,5 +49,15 @@ namespace Tormia.Ontology.Core
         public float realtimeReconnectDelaySeconds = 2f;
         [Min(5f), Tooltip("Interval for a connected client to renew its server-side Zone session lease. This is presence only; it never sends world facts or authoring commands.")]
         public float realtimeSessionHeartbeatSeconds = 25f;
+    }
+
+    [Serializable]
+    public sealed class OntologyAuthorityDevelopmentAction
+    {
+        public string actionId;
+        [Min(1)] public int definitionVersion = 1;
+        public string predicateId;
+        public bool requiresTool;
+        public string objectPattern = "?target";
     }
 }

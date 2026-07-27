@@ -1,4 +1,68 @@
 key,text,description
+ui.runtime_status.title,월드 상태,런타임 상태 HUD
+ui.runtime_status.movement,이동,런타임 상태 HUD
+ui.runtime_status.interaction,상호작용,런타임 상태 HUD
+ui.runtime_status.permission,권한,런타임 상태 HUD
+ui.runtime_status.save,저장,런타임 상태 HUD
+ui.runtime_status.slowed,느려짐,런타임 상태 HUD
+ui.runtime_status.moving,이동 중,런타임 상태 HUD
+ui.runtime_status.explore,탐험,런타임 상태 HUD
+ui.runtime_status.none,없음,런타임 상태 HUD
+ui.runtime_status.permission.local,로컬,런타임 상태 HUD
+ui.runtime_status.permission.owner,소유자,런타임 상태 HUD
+ui.runtime_status.permission.builder,빌더,런타임 상태 HUD
+ui.runtime_status.permission.visitor,방문자,런타임 상태 HUD
+ui.runtime_status.save.local,로컬 저장,런타임 상태 HUD
+ui.runtime_status.save.attention,확인 필요,런타임 상태 HUD
+ui.runtime_status.save.saved,저장됨,런타임 상태 HUD
+ui.runtime_status.save.connecting,연결 중,런타임 상태 HUD
+ui.runtime_status.save.saving,저장 중,런타임 상태 HUD
+ui.runtime_status.world_not_ready,월드를 준비하고 있습니다.,런타임 상태 HUD
+ui.account.login.title,로그인,계정 인증
+ui.account.login.prompt,이메일과 비밀번호를 입력하세요.,계정 인증
+ui.account.login.submit,로그인,계정 인증
+ui.account.create.open,계정 만들기,계정 진입
+ui.account.create.title,계정 만들기,계정 진입
+ui.account.create.prompt,이메일과 표시 이름 및 10자 이상의 비밀번호를 입력하세요.,계정 진입
+ui.account.create.create,계정 만들기,계정 진입
+ui.account.create.display_name_placeholder,게임에서 사용할 이름,계정 진입
+ui.account.create.password_placeholder,10자 이상의 비밀번호,계정 진입
+ui.account.field.email,이메일,계정 인증
+ui.account.field.email_placeholder,name@example.com,계정 인증
+ui.account.field.display_name,표시 이름,계정 인증
+ui.account.field.password,비밀번호,계정 인증
+ui.account.field.password_placeholder,비밀번호를 입력하세요,계정 인증
+ui.account.back,뒤로,계정 진입
+ui.account.character_create.title,나만의 캐릭터 만들기,계정 진입
+ui.account.character_create.prompt,원하는 파츠를 골라 나만의 캐릭터를 완성하세요.,계정 진입
+ui.account.character_create.create,생성,계정 진입
+ui.account.character_create.customize,외형 선택,계정 진입
+ui.account.character_create.step,첫 모험 · 캐릭터 설정,계정 진입
+ui.account.character_create.name,캐릭터 이름,계정 진입
+ui.account.character_create.name_placeholder,기억에 남을 이름을 입력하세요,계정 진입
+ui.account.character_create.appearance_hint,파츠를 누르면 캐릭터가 바로 착용합니다.,계정 진입
+ui.account.character_select.title,캐릭터 선택,계정 진입
+ui.account.character_select.prompt,모험을 함께할 캐릭터를 선택하세요.,계정 진입
+ui.account.character_select.account,{0},계정 진입
+ui.account.character_select.selected,선택됨,계정 진입
+ui.account.character_select.continue,계속,계정 진입
+ui.account.character_select.appearance_count,착용 파츠 {0}개,계정 진입
+ui.account.character_select.current_appearance,현재 착용 외형,계정 진입
+ui.account.character_select.entry_hint,선택한 외형과 프로필로 월드에 입장합니다.,계정 진입
+ui.account.character_select.continue_selected,이 캐릭터로 계속,계정 진입
+ui.account.character_select.logout,로그아웃,계정 진입
+ui.account.character_select.create_new,새 캐릭터 만들기,계정 진입
+ui.account.world_create.open,월드 만들기,계정 진입
+ui.account.world_create.title,월드 만들기,계정 진입
+ui.account.world_create.prompt,새 월드의 이름을 입력하세요.,계정 진입
+ui.account.world_create.create,생성,계정 진입
+ui.account.world_create.name,월드 이름,계정 진입
+ui.account.world_create.name_placeholder,새로운 세계의 이름,계정 진입
+ui.account.world_select.title,월드 선택,계정 진입
+ui.account.world_select.prompt,입장할 세계를 선택하세요.,계정 진입
+ui.account.world_select.selected_character,선택한 캐릭터: {0},계정 진입
+ui.account.world_select.selected,선택됨,계정 진입
+ui.account.world_select.continue,계속,계정 진입
 ui.account.appearance_default,외형: 기본 프로필,계정 진입
 ui.account.appearance,외형: {0},계정 진입
 ui.account.default_appearance,기본 외형,계정 진입
@@ -12,7 +76,33 @@ ui.account.no_profile_relations,저장된 프로필 관계 없음,계정 진입
 ui.account.no_account_profile_relations,저장된 계정 프로필 관계 없음,계정 진입
 ui.account.profile_relation_count,저장된 프로필 관계 {0}개,계정 진입
 ui.account.appearance_review,외형 확인,계정 진입
+ui.account.appearance_review.prompt,계속하기 전에 캐릭터 외형을 확인하세요.,계정 진입
+ui.account.appearance_review.character,캐릭터,계정 진입
+ui.account.appearance_review.template,템플릿,계정 진입
+ui.account.appearance_review.parts,장착 파츠,계정 진입
+ui.account.appearance_review.continue,계속,계정 진입
+ui.account.appearance_review.more,장착 파츠 {0}개 더 있음,계정 진입
 ui.account.profile_review,프로필 확인,계정 진입
+ui.account.profile_final_review.title,프로필 최종 확인,계정 진입
+ui.account.profile_final_review.prompt,모험을 시작할 모든 준비가 끝났습니다.,계정 진입
+ui.account.profile_final_review.character,캐릭터,계정 진입
+ui.account.profile_final_review.template,템플릿,계정 진입
+ui.account.profile_final_review.appearance,외형,계정 진입
+ui.account.profile_final_review.world,선택한 월드,계정 진입
+ui.account.profile_final_review.permission,월드 권한,계정 진입
+ui.account.profile_final_review.permission_missing,월드 권한 없음,계정 진입
+ui.account.profile_final_review.edit_allowed,월드 편집 가능,계정 진입
+ui.account.profile_final_review.relations,프로필 관계,계정 진입
+ui.account.profile_final_review.status,상태,계정 진입
+ui.account.profile_final_review.ready,입장 준비 완료,계정 진입
+ui.account.profile_final_review.enter,월드 입장,계정 진입
+ui.account.world_entry_loading.title,월드 입장 중,계정 진입
+ui.account.world_entry_loading.preparing,모험을 준비하고 있습니다...,계정 진입
+ui.account.world_entry_loading.stage,월드 데이터 불러오는 중,계정 진입
+ui.account.world_entry_loading.ready,월드 준비 완료,계정 진입
+ui.account.world_entry_loading.failed,월드 입장 실패,계정 진입
+ui.account.world_entry_loading.tip_heading,팁,계정 진입
+ui.account.world_entry_loading.tip,캐릭터 프로필은 함께 이동하지만 월드 사실은 이 월드에 속합니다.,계정 진입
 ui.account.character,캐릭터: {0},계정 진입
 ui.account.template,템플릿: {0},계정 진입
 ui.account.equipped_parts,장착 파츠: {0},계정 진입
@@ -20,8 +110,14 @@ ui.account.world,월드: {0},계정 진입
 ui.account.revision,리비전 {0},계정 진입
 ui.authority.read_only,열람자 권한: 월드 편집은 읽기 전용입니다.,월드 편집기
 ui.quest_panel.title,퀘스트와 행동,플레이어 퀘스트 패널
+ui.quest_panel.subtitle,퀘스트를 선택하고 세계에서 행동하세요.,플레이어 퀘스트 패널
 ui.quest_panel.empty_quests,진행 중인 퀘스트가 없습니다,플레이어 퀘스트 패널
 ui.quest_panel.empty_actions,현재 가능한 행동이 없습니다,플레이어 퀘스트 패널
+ui.quest_panel.active_quests,진행 중인 퀘스트,플레이어 퀘스트 패널
+ui.quest_panel.available_actions,가능한 행동,플레이어 퀘스트 패널
+ui.quest_panel.footer_hint,퀘스트를 선택하거나 가능한 행동을 실행하세요.,플레이어 퀘스트 패널
+ui.quest_panel.no_selection,선택한 퀘스트가 없습니다,플레이어 퀘스트 패널
+ui.quest_panel.select_prompt,진행 중인 퀘스트를 선택하세요.,플레이어 퀘스트 패널
 ui.quest.active,진행 중,플레이어 퀘스트 패널
 ui.quest.completed,완료,플레이어 퀘스트 패널
 ui.quest.goal_prefix,"퀘스트: ",플레이어 퀘스트 패널
@@ -232,9 +328,24 @@ variable.object,오브젝트,규칙 변수
 variable.water,물 영역,규칙 변수
 variable.support,받침 오브젝트,규칙 변수
 placement.ui.categories,카테고리,배치 UI
-placement.ui.select,선택,배치 UI
+placement.ui.world_title,월드 배치,배치 UI
+placement.ui.mode.object,오브젝트,배치 모드
+placement.ui.mode.npc,NPC,배치 모드
+placement.ui.mode.monster,몬스터,배치 모드
+placement.ui.ontology_data,온톨로지 데이터,배치 온톨로지 요약
+placement.ui.definition_id,정의 ID,배치 온톨로지 요약
+placement.ui.concepts,개념,배치 온톨로지 요약
+placement.ui.placement_surface,배치 표면,배치 온톨로지 요약
+placement.ui.rule_blocks,규칙 블록,배치 온톨로지 요약
+placement.ui.select,배치,배치 UI
 placement.ui.close,닫기,배치 UI
 placement.empty.title,오브젝트 없음,빈 배치 목록
+placement.empty.object.title,오브젝트 항목 없음,빈 배치 목록
+placement.empty.npc.title,NPC 항목 없음,빈 배치 목록
+placement.empty.monster.title,몬스터 항목 없음,빈 배치 목록
+placement.empty.object.description,이 카테고리에 배치 가능한 오브젝트가 없습니다.,빈 배치 목록
+placement.empty.npc.description,이 카테고리에 배치 가능한 NPC가 없습니다.,빈 배치 목록
+placement.empty.monster.description,이 카테고리에 배치 가능한 몬스터가 없습니다.,빈 배치 목록
 placement.empty.description,이 카테고리에 배치 가능한 오브젝트가 없습니다.,빈 배치 목록
 placement.status.choose,오브젝트를 선택하세요.,배치 상태
 placement.status.invalid_prefab,이 목록에는 사용할 수 있는 프리팹이 없습니다.,배치 상태
@@ -261,6 +372,10 @@ world_edit.summary.id,아이디,월드 편집 요약
 world_edit.summary.concepts,컨셉,월드 편집 요약
 world_edit.summary.facts,팩트,월드 편집 요약
 character.ui.title,캐릭터 파츠,캐릭터 꾸미기
+character.ui.section.style,스타일,캐릭터 꾸미기
+character.ui.section.parts,파츠 선택,캐릭터 꾸미기
+character.ui.section.selected,선택한 외형,캐릭터 꾸미기
+character.ui.live_preview,실시간 캐릭터 미리보기,캐릭터 꾸미기
 character.ui.toggle_hint,C 키로 캐릭터 꾸미기,캐릭터 꾸미기
 character.ui.select_part,파츠를 선택하세요,캐릭터 꾸미기
 character.ui.select_part_description,카테고리와 파츠를 선택해 온톨로지 효과를 확인하세요.,캐릭터 꾸미기
@@ -295,6 +410,7 @@ character.failure.renderer_missing,렌더러가 없습니다,캐릭터 오류
 character.failure.world_missing,온톨로지 월드가 준비되지 않았습니다,캐릭터 오류
 character.failure.already_equipped,이미 장착되어 있습니다,캐릭터 오류
 character.failure.already_unequipped,이미 해제되어 있습니다,캐릭터 오류
+character.failure.required_part,필수 파츠는 해제할 수 없습니다,캐릭터 오류
 character.failure.unknown,알 수 없는 이유,캐릭터 오류
 object.stone_1.description,POLY STYLE 돌입니다.,배치 설명
 object.stone_2.description,POLY STYLE 돌입니다.,배치 설명
@@ -750,3 +866,27 @@ labels.hudSelectedClip,선택된 클립,공통 UI
 labels.trueText,참,공통 UI
 labels.falseText,거짓,공통 UI
 labels.noneText,없음,공통 UI
+creator.service.world_architect,월드 설계자,제작 작업공간
+creator.service.resource_maker,리소스 제작자,제작 작업공간
+creator.service.ontology_steward,온톨로지 관리자,제작 작업공간
+creator.service.physics_engineer,물리 기술자,제작 작업공간
+creator.service.rule_engineer,규칙 기술자,제작 작업공간
+creator.service.quest_designer,퀘스트 디자이너,제작 작업공간
+creator.service.ui_designer,UI 디자이너,제작 작업공간
+creator.service.qa_publisher,테스트·발행 관리자,제작 작업공간
+ui.creator.service_unavailable,이 제작 서비스를 사용할 수 없습니다.,제작 작업공간
+ui.creator.stage_not_ready,월드 설계 초안이 만들어진 뒤 이 전문가를 이용할 수 있습니다.,제작 작업공간
+ui.creator.prompt_placeholder,만들고 싶은 게임을 설명해 주세요...,제작 작업공간
+ui.creator.start_draft,설계 시작,제작 작업공간
+ui.creator.draft_started,설계 초안을 시작했습니다. 월드 데이터를 바꾸기 전에 제작 경로를 검토하세요.,제작 작업공간
+ui.creator.prompt_too_short,만들고 싶은 게임을 10자 이상으로 설명해 주세요.,제작 작업공간
+ui.creator.missing_prompt_service,제작 서비스 카탈로그에 최초 요청을 받을 서비스가 없습니다.,제작 작업공간
+ui.creator.duplicate_service,제작 서비스 카탈로그에 중복된 서비스 ID가 있습니다.,제작 작업공간
+creator.summary.world_architect,월드 주인의 게임 아이디어를 단계별 제작 계획으로 정리합니다.,제작 작업공간
+creator.summary.resource_maker,필요한 오브젝트와 캐릭터 몬스터 재사용 리소스를 준비합니다.,제작 작업공간
+creator.summary.ontology_steward,승인된 리소스와 의미를 정식 트리플 데이터로 변환합니다.,제작 작업공간
+creator.summary.physics_engineer,메시 이름 예외 없이 물리 프로필을 선택하거나 신규 제작을 요청합니다.,제작 작업공간
+creator.summary.rule_engineer,규칙 블록을 재사용하거나 없는 규칙의 검토 요청을 만듭니다.,제작 작업공간
+creator.summary.quest_designer,목표와 미션 조건 보상을 연결합니다.,제작 작업공간
+creator.summary.ui_designer,플레이어 HUD와 스테이지 흐름 피드백 화면을 정의합니다.,제작 작업공간
+creator.summary.qa_publisher,기능 활성화와 제거 상태를 검증한 뒤 콘텐츠를 발행합니다.,제작 작업공간

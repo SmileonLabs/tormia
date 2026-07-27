@@ -10,6 +10,7 @@ namespace Tormia.Ontology.Core
         [SerializeField] private bool isRunning = true;
 
         private int currentTickId;
+        private string publishedTickId;
         private Coroutine tickRoutine;
 
         private void Start()
@@ -31,6 +32,15 @@ namespace Tormia.Ontology.Core
             {
                 StopCoroutine(tickRoutine);
                 tickRoutine = null;
+            }
+
+            if (bootstrap != null && bootstrap.World != null)
+            {
+                OntologyRuntimeObservationFacts.RemovePublishedSingleValue(
+                    bootstrap.World,
+                    "Simulation",
+                    "current_tick",
+                    ref publishedTickId);
             }
         }
 
@@ -66,8 +76,12 @@ namespace Tormia.Ontology.Core
             }
 
             currentTickId++;
-            bootstrap.World.RemoveFacts("Simulation", "current_tick");
-            bootstrap.World.AddFact("Simulation", "current_tick", "Tick_" + currentTickId);
+            OntologyRuntimeObservationFacts.SynchronizeSingleValue(
+                bootstrap.World,
+                "Simulation",
+                "current_tick",
+                "Tick_" + currentTickId,
+                ref publishedTickId);
             bootstrap.RunSimulation();
         }
     }

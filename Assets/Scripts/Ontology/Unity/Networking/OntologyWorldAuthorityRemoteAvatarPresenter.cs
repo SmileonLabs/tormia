@@ -298,67 +298,10 @@ namespace Tormia.Ontology.Core
 
         private void ApplyEquippedParts(Transform visualRoot, IReadOnlyList<string> equippedPartIds)
         {
-            if (visualRoot == null || characterPartDatabase?.Definitions == null) return;
-            var activeIds = new HashSet<string>(equippedPartIds ?? Array.Empty<string>(), StringComparer.Ordinal);
-            if (activeIds.Count == 0)
-            {
-                foreach (var definition in characterPartDatabase.Definitions)
-                {
-                    if (definition != null && definition.enabledByDefault && !string.IsNullOrWhiteSpace(definition.partId))
-                    {
-                        activeIds.Add(definition.partId);
-                    }
-                }
-            }
-            ExpandLinkedPartIds(activeIds);
-
-            var clearedPaths = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var definition in characterPartDatabase.Definitions)
-            {
-                if (definition == null || string.IsNullOrWhiteSpace(definition.rendererPath) ||
-                    !clearedPaths.Add(definition.rendererPath))
-                {
-                    continue;
-                }
-
-                var renderer = FindRenderer(visualRoot, definition.rendererPath);
-                if (renderer != null) renderer.enabled = false;
-            }
-
-            foreach (var definition in characterPartDatabase.Definitions)
-            {
-                if (definition == null || string.IsNullOrWhiteSpace(definition.partId) || !activeIds.Contains(definition.partId))
-                {
-                    continue;
-                }
-
-                var renderer = FindRenderer(visualRoot, definition.rendererPath);
-                if (renderer == null) continue;
-                renderer.enabled = true;
-                if (!renderer.gameObject.activeSelf) renderer.gameObject.SetActive(true);
-                if (!ApplyVariantMeshAndMaterials(definition, renderer) && definition.material != null)
-                {
-                    renderer.sharedMaterial = definition.material;
-                }
-            }
-        }
-
-        private void ExpandLinkedPartIds(HashSet<string> activeIds)
-        {
-            if (characterPartDatabase?.Definitions == null) return;
-            var changed = true;
-            while (changed)
-            {
-                changed = false;
-                foreach (var definition in characterPartDatabase.Definitions)
-                {
-                    if (definition == null || !activeIds.Contains(definition.partId)) continue;
-                    foreach (var linkedPartId in definition.linkedPartIds ?? Array.Empty<string>())
-                    {
-                        changed |= !string.IsNullOrWhiteSpace(linkedPartId) && activeIds.Add(linkedPartId);
-                    }
-                }
-            }
+            OntologyCharacterAppearanceProjector.ApplyPresentation(
+                characterPartDatabase,
+                visualRoot,
+                equippedPartIds);
         }
 
         private void ApplyMotionAnimation(RemoteReplica replica, bool movedThisFrame)
@@ -389,30 +332,6 @@ namespace Tormia.Ontology.Core
             return false;
         }
 
-        private static Renderer FindRenderer(Transform visualRoot, string rendererPath)
-        {
-            if (visualRoot == null || string.IsNullOrWhiteSpace(rendererPath)) return null;
-            var normalized = rendererPath.StartsWith(visualRoot.name + "/", StringComparison.Ordinal)
-                ? rendererPath.Substring(visualRoot.name.Length + 1)
-                : rendererPath;
-            return visualRoot.Find(normalized)?.GetComponent<Renderer>();
-        }
-
-        private static bool ApplyVariantMeshAndMaterials(OntologyCharacterPartDefinition definition, Renderer targetRenderer)
-        {
-            if (definition?.variantPrefab == null || targetRenderer is not SkinnedMeshRenderer targetSkinnedRenderer)
-            {
-                return false;
-            }
-
-            var sourceRenderer = definition.variantPrefab.GetComponentInChildren<SkinnedMeshRenderer>(true);
-            if (sourceRenderer == null || sourceRenderer.sharedMesh == null) return false;
-            targetSkinnedRenderer.sharedMesh = sourceRenderer.sharedMesh;
-            targetSkinnedRenderer.sharedMaterials = sourceRenderer.sharedMaterials;
-            targetSkinnedRenderer.localBounds = sourceRenderer.sharedMesh.bounds;
-            return true;
-        }
-
         private Transform GetOrCreateRoot()
         {
             if (remoteAvatarRoot != null) return remoteAvatarRoot;
@@ -440,7 +359,7 @@ namespace Tormia.Ontology.Core
 
         private bool CanReplicate()
         {
-            return replicateRemoteAvatars && authorityClient != null && authorityClient.IsReady &&
+            return replicateRemoteAvatars && authorityClient != null && authorityClient.IsWorldRuntimeReady &&
                    zoneStreamer != null && !string.IsNullOrWhiteSpace(zoneStreamer.ActiveZoneKey);
         }
 

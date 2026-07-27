@@ -1,0 +1,151 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bb954e4880841bb8bcd5a0c6666696b, type: 3}
+  m_Name: CreatorServiceCatalog
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyCreatorServiceCatalog
+  services:
+  - serviceId: WorldArchitect
+    displayNameKey: creator.service.world_architect
+    fallbackDisplayName: "\uC6D4\uB4DC \uC124\uACC4\uC790"
+    summaryKey: creator.summary.world_architect
+    stageOrder: 10
+    acceptsInitialPrompt: 1
+    fallbackSummary: Turns the owner's game idea into a staged production plan.
+    workspaceOffset: {x: -5.4, y: 0, z: 3.8}
+    defaultPartIds:
+    - Part_Body_Base
+    - Part_Face_Base
+    - Part_Hairstyle_Base
+    - Part_TShirt_Base
+    - Part_Pants_Base
+    - Part_Shoes_Base
+    - Part_Hat_Base
+    - Part_Glasses_Base
+  - serviceId: ResourceMaker
+    displayNameKey: creator.service.resource_maker
+    fallbackDisplayName: "\uB9AC\uC18C\uC2A4 \uC81C\uC791\uC790"
+    summaryKey: creator.summary.resource_maker
+    stageOrder: 20
+    acceptsInitialPrompt: 0
+    fallbackSummary: Prepares requested objects, characters, monsters, and reusable resources.
+    workspaceOffset: {x: -2, y: 0, z: 5.8}
+    defaultPartIds:
+    - Part_Body_Base
+    - Part_Male_Emotion_Happy_002
+    - Part_Hairstyle_Male_005
+    - Part_TShirt_Base
+    - Part_Pants_010
+    - Part_Shoe_Slippers_002
+    - Part_Outwear_043
+    - Part_Gloves_Base
+  - serviceId: OntologySteward
+    displayNameKey: creator.service.ontology_steward
+    fallbackDisplayName: "\uC628\uD1A8\uB85C\uC9C0 \uAD00\uB9AC\uC790"
+    summaryKey: creator.summary.ontology_steward
+    stageOrder: 30
+    acceptsInitialPrompt: 0
+    fallbackSummary: Converts approved resources and meanings into canonical triples.
+    workspaceOffset: {x: 2, y: 0, z: 5.8}
+    defaultPartIds:
+    - Part_Body_Base
+    - Part_Face_Base
+    - Part_Hairstyle_Male_Single_006
+    - Part_TShirt_Base
+    - Part_Shorts_003
+    - Part_Socks_008
+    - Part_Accessories_Base
+    - Part_Glasses_004
+  - serviceId: PhysicsEngineer
+    displayNameKey: creator.service.physics_engineer
+    fallbackDisplayName: "\uBB3C\uB9AC \uAE30\uC220\uC790"
+    summaryKey: creator.summary.physics_engineer
+    stageOrder: 40
+    acceptsInitialPrompt: 0
+    fallbackSummary: Selects or requests physical behavior profiles without mesh-name exceptions.
+    workspaceOffset: {x: 5.4, y: 0, z: 3.8}
+    defaultPartIds:
+    - Part_Body_Base
+    - Part_Male_Emotion_Angry_003
+    - Part_Hairstyle_Base
+    - Part_TShirt_Base
+    - Part_Pants_010
+    - Part_Shoes_Base
+    - Part_Hat_Single_008
+    - Part_Gloves_014
+  - serviceId: RuleEngineer
+    displayNameKey: creator.service.rule_engineer
+    fallbackDisplayName: "\uADDC\uCE59 \uAE30\uC220\uC790"
+    summaryKey: creator.summary.rule_engineer
+    stageOrder: 50
+    acceptsInitialPrompt: 0
+    fallbackSummary: Reuses rule blocks or produces a reviewed request for a missing rule.
+    workspaceOffset: {x: 5.4, y: 0, z: -1.8}
+    defaultPartIds:
+    - Part_Body_Base
+    - Part_Face_Base
+    - Part_Hairstyle_Male_005
+    - Part_TShirt_Base
+    - Part_Pants_Base
+    - Part_Shoe_Slippers_005
+    - Part_Outwear_050
+    - Part_Mustache_003
+  - serviceId: QuestDesigner
+    displayNameKey: creator.service.quest_designer
+    fallbackDisplayName: "\uD018\uC2A4\uD2B8 \uB514\uC790\uC774\uB108"
+    summaryKey: creator.summary.quest_designer
+    stageOrder: 60
+    acceptsInitialPrompt: 0
+    fallbackSummary: Connects objectives, missions, conditions, and rewards.
+    workspaceOffset: {x: 2, y: 0, z: -3.8}
+    defaultPartIds:
+    - Part_Body_Base
+    - Part_Male_Emotion_Happy_002
+    - Part_Hairstyle_Male_Single_006
+    - Part_TShirt_Base
+    - Part_Shorts_003
+    - Part_Shoes_Base
+    - Part_Hat_Single_013
+    - Part_Clown_Nose_001
+  - serviceId: UiDesigner
+    displayNameKey: creator.service.ui_designer
+    fallbackDisplayName: "UI \uB514\uC790\uC774\uB108"
+    summaryKey: creator.summary.ui_designer
+    stageOrder: 70
+    acceptsInitialPrompt: 0
+    fallbackSummary: Defines the player-facing HUD, stage flow, and feedback surfaces.
+    workspaceOffset: {x: -2, y: 0, z: -3.8}
+    defaultPartIds:
+    - Part_Body_Base
+    - Part_Face_Base
+    - Part_Hairstyle_Base
+    - Part_TShirt_Base
+    - Part_Pants_010
+    - Part_Shoe_Slippers_002
+    - Part_Mascot_002
+    - Part_Pacifier_001
+  - serviceId: QaPublisher
+    displayNameKey: creator.service.qa_publisher
+    fallbackDisplayName: "\uD14C\uC2A4\uD2B8\xB7\uBC1C\uD589 \uAD00\uB9AC\uC790"
+    summaryKey: creator.summary.qa_publisher
+    stageOrder: 80
+    acceptsInitialPrompt: 0
+    fallbackSummary: Verifies enabled and removed behavior before publishing the experience.
+    workspaceOffset: {x: -5.4, y: 0, z: -1.8}
+    defaultPartIds:
+    - Part_Body_Base
+    - Part_Male_Emotion_Angry_003
+    - Part_Hairstyle_Male_005
+    - Part_TShirt_Base
+    - Part_Pants_Base
+    - Part_Shoes_Base
+    - Part_Hat_Single_016
+    - Part_Mustache_Base

@@ -10,14 +10,14 @@ namespace Tormia.Ontology.Core
 
         public OntologyQuestGenerator()
         {
-            definitions = CreateDefaultDefinitions();
+            definitions = new List<OntologyQuestDefinition>();
         }
 
         public OntologyQuestGenerator(IReadOnlyList<OntologyQuestDefinition> definitions)
         {
             this.definitions = definitions != null && definitions.Count > 0
                 ? new List<OntologyQuestDefinition>(definitions)
-                : CreateDefaultDefinitions();
+                : new List<OntologyQuestDefinition>();
         }
 
         public List<OntologyQuest> Generate(OntologyWorldState world, OntologyId actorId)
@@ -135,7 +135,7 @@ namespace Tormia.Ontology.Core
             return format;
         }
 
-        private static List<OntologyQuestDefinition> CreateDefaultDefinitions()
+        public static List<OntologyQuestDefinition> CreateDefaultDefinitions()
         {
             return new List<OntologyQuestDefinition>
             {

@@ -29,6 +29,13 @@ namespace Tormia.Ontology.Core
 
         public bool AvatarRegistered => avatarRegistered;
 
+        /// <summary>Called by the durable account-entry coordinator after it
+        /// completes the first-time avatar placement and registration.</summary>
+        public void SetAvatarRegistered(bool value)
+        {
+            avatarRegistered = value;
+        }
+
         private void Awake()
         {
             ResolveDependencies();
@@ -38,7 +45,7 @@ namespace Tormia.Ontology.Core
         {
             ResolveDependencies();
             if (!submitRuntimeIntents || isSubmitting || authorityClient == null ||
-                !authorityClient.IsReady || !avatarRegistered || !TryGetAvatarId(out _) ||
+                !authorityClient.IsWorldRuntimeReady || !avatarRegistered || !TryGetAvatarId(out _) ||
                 string.IsNullOrWhiteSpace(zoneStreamer == null ? string.Empty : zoneStreamer.ActiveZoneKey))
             {
                 return;
@@ -80,7 +87,7 @@ namespace Tormia.Ontology.Core
         public IEnumerator RegisterCurrentAvatarRoutine(Action<bool> completed = null)
         {
             ResolveDependencies();
-            if (authorityClient == null || !authorityClient.IsReady || !TryGetAvatarId(out var avatarId))
+            if (authorityClient == null || !authorityClient.IsWorldRuntimeReady || !TryGetAvatarId(out var avatarId))
             {
                 SetStatus("Connect to authority and assign a stable avatar Entity GUID before registering.");
                 completed?.Invoke(false);

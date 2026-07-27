@@ -32,18 +32,18 @@ namespace Tormia.Ontology.Core
             if (bootstrap.World == null || bootstrap.Session == null) bootstrap.ResetWorld(logReport: false);
             if (bootstrap.World == null) return;
 
-            bootstrap.World.RemoveFacts(ActorId, "actor_type");
-            bootstrap.World.RemoveFacts(ActorId, "rig_type");
-            bootstrap.World.RemoveFacts(ActorId, "animation_capability");
-            bootstrap.World.RemoveFacts(ActorId, OntologyPredicates.HasAnimation);
-            bootstrap.World.AddFact(ActorId, "actor_type", profile.actorType);
-            bootstrap.World.AddFact(ActorId, "rig_type", profile.rigType);
+            bootstrap.World.RemoveFactContributions(ActorId, OntologyFactOrigin.ActorProfile);
+            bootstrap.World.AddFactContribution(ActorId, "actor_type", profile.actorType, OntologyFactOrigin.ActorProfile);
+            bootstrap.World.AddFactContribution(ActorId, "rig_type", profile.rigType, OntologyFactOrigin.ActorProfile);
             if (profile.defaultConcepts != null)
             {
                 foreach (var concept in profile.defaultConcepts)
                 {
                     if (!string.IsNullOrWhiteSpace(concept))
-                        bootstrap.World.AddFact(ActorId, OntologyPredicates.HasConcept, concept);
+                        bootstrap.World.AddConceptContribution(
+                            ActorId,
+                            concept,
+                            OntologyFactOrigin.ActorProfile);
                 }
             }
             if (profile.defaultFacts != null)
@@ -52,7 +52,11 @@ namespace Tormia.Ontology.Core
                 {
                     if (fact == null || string.IsNullOrWhiteSpace(fact.predicate) || string.IsNullOrWhiteSpace(fact.obj))
                         continue;
-                    bootstrap.World.AddFact(ActorId, fact.predicate, fact.obj);
+                    bootstrap.World.AddFactContribution(
+                        ActorId,
+                        fact.predicate,
+                        fact.obj,
+                        OntologyFactOrigin.ActorProfile);
                 }
             }
             if (profile.ontologyCapabilities != null)
@@ -60,7 +64,11 @@ namespace Tormia.Ontology.Core
                 foreach (var capability in profile.ontologyCapabilities)
                 {
                     if (!string.IsNullOrWhiteSpace(capability))
-                        bootstrap.World.AddFact(ActorId, OntologyPredicates.HasCapability, capability);
+                        bootstrap.World.AddFactContribution(
+                            ActorId,
+                            OntologyPredicates.HasCapability,
+                            capability,
+                            OntologyFactOrigin.ActorProfile);
                 }
             }
             if (profile.capabilities != null)
@@ -71,7 +79,11 @@ namespace Tormia.Ontology.Core
                     {
                         // Keep the historical animation_capability projection for existing clips,
                         // without treating animation grouping as gameplay permission.
-                        bootstrap.World.AddFact(ActorId, "animation_capability", capability);
+                        bootstrap.World.AddFactContribution(
+                            ActorId,
+                            "animation_capability",
+                            capability,
+                            OntologyFactOrigin.ActorProfile);
                     }
                 }
             }
@@ -80,7 +92,11 @@ namespace Tormia.Ontology.Core
                 foreach (var animationId in profile.animationIds)
                 {
                     if (!string.IsNullOrWhiteSpace(animationId))
-                        bootstrap.World.AddFact(ActorId, OntologyPredicates.HasAnimation, animationId);
+                        bootstrap.World.AddFactContribution(
+                            ActorId,
+                            OntologyPredicates.HasAnimation,
+                            animationId,
+                            OntologyFactOrigin.ActorProfile);
                 }
             }
             if (runSimulationAfterSync) bootstrap.RunSimulation();

@@ -100,7 +100,11 @@ namespace Tormia.Ontology.Core
         {
             foreach (var fact in inferredFacts)
             {
-                World.RemoveFact(fact.Subject, fact.Predicate, fact.Object);
+                World.RemoveFactContribution(
+                    fact.Subject,
+                    fact.Predicate,
+                    fact.Object,
+                    OntologyFactOrigin.Inferred);
             }
 
             inferredFacts.Clear();

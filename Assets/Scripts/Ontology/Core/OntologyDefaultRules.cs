@@ -11,7 +11,7 @@ namespace Tormia.Ontology.Core
 
         public static void RegisterRules(OntologyRuleEngine engine, IReadOnlyList<OntologyRuleDefinition> dataRules)
         {
-            var definitions = dataRules != null && dataRules.Count > 0 ? dataRules : CreateDefaultDefinitions();
+            var definitions = dataRules ?? System.Array.Empty<OntologyRuleDefinition>();
             foreach (var definition in definitions)
             {
                 if (definition != null)

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using System;
 using UnityEngine;
 
 namespace Tormia.Ontology.Core
@@ -8,9 +9,22 @@ namespace Tormia.Ontology.Core
     {
         [SerializeField] private OntologyWorldBootstrap bootstrap;
         [SerializeField] private OntologyRuntimeObjectPlacementController placementController;
+        [SerializeField] private OntologyWorldAuthorityClient authorityClient;
         [SerializeField] private string saveFileName = "ontology_save.json";
+        [SerializeField] private bool useAccountWorldScopedPath = true;
+        [SerializeField] private bool autoLoadLocalSnapshot = true;
+        [SerializeField] private bool autoSaveLocalSnapshot = true;
+        [SerializeField, Min(5f)] private float localAutosaveIntervalSeconds = 30f;
 
-        public string SavePath => Path.Combine(Application.persistentDataPath, saveFileName);
+        private float nextAutosaveAt;
+
+        public string SavePath => useAccountWorldScopedPath
+            ? BuildScopedSavePath(
+                Application.persistentDataPath,
+                authorityClient?.CurrentUserId,
+                authorityClient?.CurrentWorldId,
+                saveFileName)
+            : Path.Combine(Application.persistentDataPath, saveFileName);
 
         private void Awake()
         {
@@ -22,6 +36,35 @@ namespace Tormia.Ontology.Core
             {
                 placementController = FindAnyObjectByType<OntologyRuntimeObjectPlacementController>();
             }
+            if (authorityClient == null)
+                authorityClient = FindAnyObjectByType<OntologyWorldAuthorityClient>();
+            nextAutosaveAt = Time.unscaledTime + Mathf.Max(5f, localAutosaveIntervalSeconds);
+        }
+
+        private void Start()
+        {
+            if (autoLoadLocalSnapshot && !AuthorityOwnsCurrentWorld() && File.Exists(ResolveLoadPath()))
+                LoadSnapshot();
+        }
+
+        private void Update()
+        {
+            if (!autoSaveLocalSnapshot || AuthorityOwnsCurrentWorld() ||
+                Time.unscaledTime < nextAutosaveAt) return;
+            nextAutosaveAt = Time.unscaledTime + Mathf.Max(5f, localAutosaveIntervalSeconds);
+            SaveSnapshot();
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused && autoSaveLocalSnapshot && !AuthorityOwnsCurrentWorld())
+                SaveSnapshot();
+        }
+
+        private void OnApplicationQuit()
+        {
+            if (autoSaveLocalSnapshot && !AuthorityOwnsCurrentWorld())
+                SaveSnapshot();
         }
 
         public string SaveSnapshot()
@@ -44,13 +87,10 @@ namespace Tormia.Ontology.Core
                 saveData.controlledRuleIds.AddRange(bootstrap.RuleBlockRegistry.ControlledRuleIds);
             var json = JsonUtility.ToJson(saveData, prettyPrint: true);
 
-            var directory = Path.GetDirectoryName(SavePath);
-            if (!string.IsNullOrWhiteSpace(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            File.WriteAllText(SavePath, json);
+            OntologyAtomicFileStore.WriteAllText(
+                SavePath,
+                json,
+                keepBackup: true);
             return "[OntologySaveController]\nSaved snapshot to:\n" + SavePath +
                    "\nFacts: " + saveData.facts.Count +
                    "\nPlaced objects: " + saveData.placedObjects.Count;
@@ -63,12 +103,13 @@ namespace Tormia.Ontology.Core
                 return "[OntologySaveController]\nNo OntologyWorldBootstrap found.";
             }
 
-            if (!File.Exists(SavePath))
+            var loadPath = ResolveLoadPath();
+            if (!File.Exists(loadPath))
             {
                 return "[OntologySaveController]\nSave file not found:\n" + SavePath;
             }
 
-            var json = File.ReadAllText(SavePath);
+            var json = File.ReadAllText(loadPath);
             var saveData = JsonUtility.FromJson<OntologySaveData>(json);
             OntologyLanguagePackService.MigrateSaveData(saveData);
             if (placementController == null)
@@ -98,7 +139,7 @@ namespace Tormia.Ontology.Core
             {
                 SaveSnapshot();
             }
-            return "[OntologySaveController]\nLoaded snapshot from:\n" + SavePath +
+            return "[OntologySaveController]\nLoaded snapshot from:\n" + loadPath +
                    "\nRestored placed objects: " + restoredObjects +
                    "\nMigrated legacy placement records: " + migratedPlacementRecords +
                    "\n\n" + report;
@@ -138,6 +179,38 @@ namespace Tormia.Ontology.Core
             {
                 adapter.SyncRenderersFromWorldFacts();
             }
+        }
+
+        private bool AuthorityOwnsCurrentWorld() =>
+            authorityClient != null && authorityClient.IsWorldRuntimeReady;
+
+        private string ResolveLoadPath()
+        {
+            if (File.Exists(SavePath)) return SavePath;
+            var legacy = Path.Combine(Application.persistentDataPath, saveFileName);
+            return File.Exists(legacy) ? legacy : SavePath;
+        }
+
+        private static string Scope(string value, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return fallback;
+            foreach (var invalid in Path.GetInvalidFileNameChars())
+                value = value.Replace(invalid, '_');
+            return value.Trim();
+        }
+
+        public static string BuildScopedSavePath(
+            string root,
+            string accountId,
+            string worldId,
+            string fileName)
+        {
+            return Path.Combine(
+                root,
+                "Saves",
+                "account-" + Scope(accountId, "local"),
+                "world-" + Scope(worldId, "default"),
+                string.IsNullOrWhiteSpace(fileName) ? "ontology_save.json" : fileName);
         }
     }
 }

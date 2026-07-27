@@ -18,6 +18,7 @@ namespace Tormia.Ontology.Core
         public const string DefineZone = "define_zone";
         public const string EquipEntity = "equip_entity";
         public const string UnequipEntity = "unequip_entity";
+        public const string SaveAvatarCheckpoint = "save_avatar_checkpoint";
     }
 
     /// <summary>

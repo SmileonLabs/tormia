@@ -110,7 +110,7 @@ namespace Tormia.Ontology.Core
 
         private bool CanReconcile()
         {
-            return reconcileAuthorityMotion && authorityClient != null && authorityClient.IsReady &&
+            return reconcileAuthorityMotion && authorityClient != null && authorityClient.IsWorldRuntimeReady &&
                    intentSender != null && intentSender.AvatarRegistered &&
                    avatarIdentity != null && avatarIdentity.TryGetGuid(out _) &&
                    zoneStreamer != null && !string.IsNullOrWhiteSpace(zoneStreamer.ActiveZoneKey);

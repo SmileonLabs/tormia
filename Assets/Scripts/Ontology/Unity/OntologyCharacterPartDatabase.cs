@@ -24,6 +24,8 @@ namespace Tormia.Ontology.Core
         public Sprite icon;
         public Material material;
         public bool enabledByDefault;
+        [Tooltip("Required appearance parts stay equipped when their selected thumbnail is clicked again.")]
+        public bool required;
         public bool visibleInCustomization = true;
         public string[] linkedPartIds = Array.Empty<string>();
         public OntologyFactEntry[] facts = Array.Empty<OntologyFactEntry>();

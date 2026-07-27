@@ -34,7 +34,11 @@ namespace Tormia.Ontology.Core
             {
                 if (!observedObjects.Contains(publishedObject))
                 {
-                    changed |= world.RemoveFact(subject, predicate, publishedObject);
+                    changed |= world.RemoveFactContribution(
+                        subject,
+                        predicate,
+                        publishedObject,
+                        OntologyFactOrigin.RuntimeObservation);
                     removalBuffer.Add(publishedObject);
                 }
             }
@@ -53,7 +57,11 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                if (world.AddFact(subject, predicate, observedObject))
+                if (world.AddFactContribution(
+                        subject,
+                        predicate,
+                        observedObject,
+                        OntologyFactOrigin.RuntimeObservation))
                 {
                     publishedObjects.Add(observedObject);
                     changed = true;
@@ -81,14 +89,33 @@ namespace Tormia.Ontology.Core
             if (!string.IsNullOrWhiteSpace(publishedValue) &&
                 !string.Equals(publishedValue, observedValue, System.StringComparison.Ordinal))
             {
-                changed |= world.RemoveFact(subject, predicate, publishedValue);
+                changed |= world.RemoveFactContribution(
+                    subject,
+                    predicate,
+                    publishedValue,
+                    OntologyFactOrigin.RuntimeObservation);
                 publishedValue = string.Empty;
             }
 
             if (!string.IsNullOrWhiteSpace(observedValue) &&
-                !string.Equals(publishedValue, observedValue, System.StringComparison.Ordinal) &&
-                !world.HasFact(subject, predicate, observedValue) &&
-                world.AddFact(subject, predicate, observedValue))
+                string.Equals(publishedValue, observedValue, System.StringComparison.Ordinal))
+            {
+                // A world rebuild clears runtime contributions while the adapter's
+                // local publication token can survive. Reassert only values this
+                // adapter already owned; do not claim an authored equal-value fact.
+                changed |= world.AddFactContribution(
+                    subject,
+                    predicate,
+                    observedValue,
+                    OntologyFactOrigin.RuntimeObservation);
+            }
+            else if (!string.IsNullOrWhiteSpace(observedValue) &&
+                     !world.HasFact(subject, predicate, observedValue) &&
+                     world.AddFactContribution(
+                         subject,
+                         predicate,
+                         observedValue,
+                         OntologyFactOrigin.RuntimeObservation))
             {
                 publishedValue = observedValue;
                 changed = true;
@@ -114,7 +141,11 @@ namespace Tormia.Ontology.Core
             var changed = false;
             foreach (var publishedObject in publishedObjects)
             {
-                changed |= world.RemoveFact(subject, predicate, publishedObject);
+                changed |= world.RemoveFactContribution(
+                    subject,
+                    predicate,
+                    publishedObject,
+                    OntologyFactOrigin.RuntimeObservation);
             }
 
             publishedObjects.Clear();
@@ -135,7 +166,11 @@ namespace Tormia.Ontology.Core
                 return false;
             }
 
-            var changed = world.RemoveFact(subject, predicate, publishedValue);
+            var changed = world.RemoveFactContribution(
+                subject,
+                predicate,
+                publishedValue,
+                OntologyFactOrigin.RuntimeObservation);
             publishedValue = string.Empty;
             return changed;
         }

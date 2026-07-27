@@ -10,7 +10,8 @@ namespace Tormia.Ontology.Core
         [SerializeField] private string[] concepts = Array.Empty<string>();
         [SerializeField] private OntologyFactEntry[] facts = Array.Empty<OntologyFactEntry>();
 
-        public string EntityId => string.IsNullOrWhiteSpace(entityId) ? gameObject.name : entityId;
+        public string EntityId => entityId == null ? string.Empty : entityId.Trim();
+        public bool HasStableEntityId => !string.IsNullOrWhiteSpace(EntityId);
         public IReadOnlyList<string> Concepts => concepts;
         public IReadOnlyList<OntologyFactEntry> Facts => facts;
 
@@ -53,6 +54,14 @@ namespace Tormia.Ontology.Core
             }
 
             var id = EntityId;
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                Debug.LogError(
+                    "OntologyObject '" + gameObject.name +
+                    "' has no stable entity id and was not projected into the ontology world.",
+                    this);
+                return;
+            }
             world.GetOrCreateEntity(id);
 
             foreach (var concept in concepts)

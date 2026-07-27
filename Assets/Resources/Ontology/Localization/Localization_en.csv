@@ -1,4 +1,68 @@
 key,text,description
+ui.runtime_status.title,WORLD STATUS,Runtime status HUD
+ui.runtime_status.movement,MOVEMENT,Runtime status HUD
+ui.runtime_status.interaction,INTERACTION,Runtime status HUD
+ui.runtime_status.permission,PERMISSION,Runtime status HUD
+ui.runtime_status.save,SAVE,Runtime status HUD
+ui.runtime_status.slowed,Slowed,Runtime status HUD
+ui.runtime_status.moving,Moving,Runtime status HUD
+ui.runtime_status.explore,Explore,Runtime status HUD
+ui.runtime_status.none,None,Runtime status HUD
+ui.runtime_status.permission.local,Local,Runtime status HUD
+ui.runtime_status.permission.owner,Owner,Runtime status HUD
+ui.runtime_status.permission.builder,Builder,Runtime status HUD
+ui.runtime_status.permission.visitor,Visitor,Runtime status HUD
+ui.runtime_status.save.local,Local only,Runtime status HUD
+ui.runtime_status.save.attention,Attention,Runtime status HUD
+ui.runtime_status.save.saved,Saved,Runtime status HUD
+ui.runtime_status.save.connecting,Connecting,Runtime status HUD
+ui.runtime_status.save.saving,Saving,Runtime status HUD
+ui.runtime_status.world_not_ready,World is not ready.,Runtime status HUD
+ui.account.login.title,SIGN IN,Account authentication
+ui.account.login.prompt,Enter your email and password.,Account authentication
+ui.account.login.submit,SIGN IN,Account authentication
+ui.account.create.open,CREATE ACCOUNT,Account entry
+ui.account.create.title,CREATE ACCOUNT,Account entry
+ui.account.create.prompt,Enter email display name and a password of at least 10 characters.,Account entry
+ui.account.create.create,CREATE ACCOUNT,Account entry
+ui.account.create.display_name_placeholder,Your in-game name,Account entry
+ui.account.create.password_placeholder,At least 10 characters,Account entry
+ui.account.field.email,EMAIL,Account authentication
+ui.account.field.email_placeholder,name@example.com,Account authentication
+ui.account.field.display_name,DISPLAY NAME,Account authentication
+ui.account.field.password,PASSWORD,Account authentication
+ui.account.field.password_placeholder,Enter your password,Account authentication
+ui.account.back,BACK,Account entry
+ui.account.character_create.title,CREATE YOUR CHARACTER,Account entry
+ui.account.character_create.prompt,Choose parts to complete a character that feels like you.,Account entry
+ui.account.character_create.create,CREATE,Account entry
+ui.account.character_create.customize,CUSTOMIZE APPEARANCE,Account entry
+ui.account.character_create.step,FIRST ADVENTURE · CHARACTER SETUP,Account entry
+ui.account.character_create.name,CHARACTER NAME,Account entry
+ui.account.character_create.name_placeholder,Enter a memorable name,Account entry
+ui.account.character_create.appearance_hint,Select a part to try it on instantly.,Account entry
+ui.account.character_select.title,SELECT A CHARACTER,Account entry
+ui.account.character_select.prompt,Choose a character for your adventure.,Account entry
+ui.account.character_select.account,{0},Account entry
+ui.account.character_select.selected,SELECTED,Account entry
+ui.account.character_select.continue,CONTINUE,Account entry
+ui.account.character_select.appearance_count,{0} equipped part(s),Account entry
+ui.account.character_select.current_appearance,CURRENT APPEARANCE,Account entry
+ui.account.character_select.entry_hint,Enter the world with the selected appearance and profile.,Account entry
+ui.account.character_select.continue_selected,CONTINUE WITH THIS CHARACTER,Account entry
+ui.account.character_select.logout,LOG OUT,Account entry
+ui.account.character_select.create_new,CREATE NEW CHARACTER,Account entry
+ui.account.world_create.open,CREATE WORLD,Account entry
+ui.account.world_create.title,CREATE WORLD,Account entry
+ui.account.world_create.prompt,Give your new world a name.,Account entry
+ui.account.world_create.create,CREATE,Account entry
+ui.account.world_create.name,WORLD NAME,Account entry
+ui.account.world_create.name_placeholder,Name your new world,Account entry
+ui.account.world_select.title,SELECT A WORLD,Account entry
+ui.account.world_select.prompt,Choose a world to enter.,Account entry
+ui.account.world_select.selected_character,Selected character: {0},Account entry
+ui.account.world_select.selected,SELECTED,Account entry
+ui.account.world_select.continue,CONTINUE,Account entry
 ui.account.appearance_default,Appearance: default profile,Account entry
 ui.account.appearance,Appearance: {0},Account entry
 ui.account.default_appearance,Default appearance,Account entry
@@ -12,7 +76,33 @@ ui.account.no_profile_relations,No saved profile relations,Account entry
 ui.account.no_account_profile_relations,No saved account profile relations,Account entry
 ui.account.profile_relation_count,{0} saved profile relation(s),Account entry
 ui.account.appearance_review,APPEARANCE REVIEW,Account entry
+ui.account.appearance_review.prompt,Review your character before continuing.,Account entry
+ui.account.appearance_review.character,CHARACTER,Account entry
+ui.account.appearance_review.template,TEMPLATE,Account entry
+ui.account.appearance_review.parts,EQUIPPED PARTS,Account entry
+ui.account.appearance_review.continue,CONTINUE,Account entry
+ui.account.appearance_review.more,+{0} more equipped part(s),Account entry
 ui.account.profile_review,PROFILE REVIEW,Account entry
+ui.account.profile_final_review.title,PROFILE FINAL REVIEW,Account entry
+ui.account.profile_final_review.prompt,Everything is ready for your adventure.,Account entry
+ui.account.profile_final_review.character,CHARACTER,Account entry
+ui.account.profile_final_review.template,TEMPLATE,Account entry
+ui.account.profile_final_review.appearance,APPEARANCE,Account entry
+ui.account.profile_final_review.world,SELECTED WORLD,Account entry
+ui.account.profile_final_review.permission,WORLD PERMISSION,Account entry
+ui.account.profile_final_review.permission_missing,NO WORLD PERMISSION,Account entry
+ui.account.profile_final_review.edit_allowed,WORLD EDITING ENABLED,Account entry
+ui.account.profile_final_review.relations,PROFILE RELATIONS,Account entry
+ui.account.profile_final_review.status,STATUS,Account entry
+ui.account.profile_final_review.ready,READY TO ENTER,Account entry
+ui.account.profile_final_review.enter,ENTER WORLD,Account entry
+ui.account.world_entry_loading.title,ENTERING WORLD,Account entry
+ui.account.world_entry_loading.preparing,Preparing your adventure...,Account entry
+ui.account.world_entry_loading.stage,Loading world data,Account entry
+ui.account.world_entry_loading.ready,World ready,Account entry
+ui.account.world_entry_loading.failed,World entry failed,Account entry
+ui.account.world_entry_loading.tip_heading,TIP,Account entry
+ui.account.world_entry_loading.tip,Your character profile travels with you. World facts belong to this world.,Account entry
 ui.account.character,Character: {0},Account entry
 ui.account.template,Template: {0},Account entry
 ui.account.equipped_parts,Equipped parts: {0},Account entry
@@ -20,8 +110,14 @@ ui.account.world,World: {0},Account entry
 ui.account.revision,Revision {0},Account entry
 ui.authority.read_only,Viewer role: world editing is read only.,World editor
 ui.quest_panel.title,Quests & Actions,Player quest panel
+ui.quest_panel.subtitle,Choose a quest and act in your world.,Player quest panel
 ui.quest_panel.empty_quests,No active quests,Player quest panel
 ui.quest_panel.empty_actions,No available actions,Player quest panel
+ui.quest_panel.active_quests,Active Quests,Player quest panel
+ui.quest_panel.available_actions,Available Actions,Player quest panel
+ui.quest_panel.footer_hint,Select a quest or choose an available action.,Player quest panel
+ui.quest_panel.no_selection,No quest selected,Player quest panel
+ui.quest_panel.select_prompt,Select an active quest.,Player quest panel
 ui.quest.active,Active,Player quest panel
 ui.quest.completed,Completed,Player quest panel
 ui.quest.goal_prefix,"Quest: ",Player quest panel
@@ -216,9 +312,24 @@ variable.object,Object,Rule variable
 variable.water,Water region,Rule variable
 variable.support,Support,Rule variable
 placement.ui.categories,Categories,Placement heading
-placement.ui.select,Select,Placement action
+placement.ui.world_title,World Placement,Placement heading
+placement.ui.mode.object,Object,Placement mode
+placement.ui.mode.npc,NPC,Placement mode
+placement.ui.mode.monster,Monster,Placement mode
+placement.ui.ontology_data,Ontology Data,Placement ontology summary
+placement.ui.definition_id,Definition ID,Placement ontology summary
+placement.ui.concepts,Concepts,Placement ontology summary
+placement.ui.placement_surface,Placement Surface,Placement ontology summary
+placement.ui.rule_blocks,Rule Blocks,Placement ontology summary
+placement.ui.select,Place,Placement action
 placement.ui.close,Close,Placement action
 placement.empty.title,No objects,Empty placement catalog
+placement.empty.object.title,No object entries,Empty placement catalog
+placement.empty.npc.title,No NPC entries,Empty placement catalog
+placement.empty.monster.title,No monster entries,Empty placement catalog
+placement.empty.object.description,No placeable objects are registered in this category.,Empty placement catalog
+placement.empty.npc.description,No placeable NPCs are registered in this category.,Empty placement catalog
+placement.empty.monster.description,No placeable monsters are registered in this category.,Empty placement catalog
 placement.empty.description,No placeable objects are registered in this category.,Empty placement catalog
 placement.status.choose,Choose an object.,Placement status
 placement.status.invalid_prefab,This catalog entry has no valid prefab.,Placement status
@@ -245,6 +356,10 @@ world_edit.summary.id,Id,World edit summary
 world_edit.summary.concepts,Concepts,World edit summary
 world_edit.summary.facts,Facts,World edit summary
 character.ui.title,Character Parts,Character customization
+character.ui.section.style,STYLE,Character customization
+character.ui.section.parts,CHOOSE PARTS,Character customization
+character.ui.section.selected,SELECTED LOOK,Character customization
+character.ui.live_preview,LIVE CHARACTER PREVIEW,Character customization
 character.ui.toggle_hint,Press C to customize,Character customization
 character.ui.select_part,Select a part,Character customization
 character.ui.select_part_description,Choose a category and part to preview ontology effects.,Character customization
@@ -279,6 +394,7 @@ character.failure.renderer_missing,target renderer is missing,Character failure
 character.failure.world_missing,ontology world is not ready,Character failure
 character.failure.already_equipped,already equipped,Character failure
 character.failure.already_unequipped,already unequipped,Character failure
+character.failure.required_part,this required part cannot be removed,Character failure
 character.failure.unknown,unknown reason,Character failure
 object.stone_1.description,A POLY STYLE stone.,Placeable description
 object.stone_2.description,A POLY STYLE stone.,Placeable description
@@ -703,6 +819,30 @@ labels.hudSelectedClip,Selected Clip,Shared UI label
 labels.trueText,TRUE,Shared UI label
 labels.falseText,FALSE,Shared UI label
 labels.noneText,None,Shared UI label
+creator.service.world_architect,World Architect,Creator workspace
+creator.service.resource_maker,Resource Maker,Creator workspace
+creator.service.ontology_steward,Ontology Steward,Creator workspace
+creator.service.physics_engineer,Physics Engineer,Creator workspace
+creator.service.rule_engineer,Rule Engineer,Creator workspace
+creator.service.quest_designer,Quest Designer,Creator workspace
+creator.service.ui_designer,UI Designer,Creator workspace
+creator.service.qa_publisher,QA & Publisher,Creator workspace
+ui.creator.service_unavailable,This creator service is not available.,Creator workspace
+ui.creator.stage_not_ready,This specialist becomes available after the world plan is drafted.,Creator workspace
+ui.creator.prompt_placeholder,Describe the game you want to make...,Creator workspace
+ui.creator.start_draft,START DRAFT,Creator workspace
+ui.creator.draft_started,Draft started. Review the production route before any world data is changed.,Creator workspace
+ui.creator.prompt_too_short,Describe the game you want to make in at least 10 characters.,Creator workspace
+ui.creator.missing_prompt_service,The creator service catalog has no prompt-entry service.,Creator workspace
+ui.creator.duplicate_service,The creator service catalog contains a duplicate service ID.,Creator workspace
+creator.summary.world_architect,Turns the owner's game idea into a staged production plan.,Creator workspace
+creator.summary.resource_maker,Prepares requested objects characters monsters and reusable resources.,Creator workspace
+creator.summary.ontology_steward,Converts approved resources and meanings into canonical triples.,Creator workspace
+creator.summary.physics_engineer,Selects or requests physical behavior profiles without mesh-name exceptions.,Creator workspace
+creator.summary.rule_engineer,Reuses rule blocks or produces a reviewed request for a missing rule.,Creator workspace
+creator.summary.quest_designer,Connects objectives missions conditions and rewards.,Creator workspace
+creator.summary.ui_designer,Defines the player-facing HUD stage flow and feedback surfaces.,Creator workspace
+creator.summary.qa_publisher,Verifies enabled and removed behavior before publishing the experience.,Creator workspace
 ui.button.selected,Selected,Physical behavior
 ui.button.choose,Choose,Physical behavior
 ui.button.details,Details,Physical behavior
