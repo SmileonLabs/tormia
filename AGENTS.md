@@ -1,4 +1,4 @@
-# Tormia Development Harness / 개발 하네스
+# TOV Development Harness / 개발 하네스
 
 This file is the operating agreement for people and AI agents working in this
 repository. Read it together with `docs/PROJECT_CONTEXT.md` and

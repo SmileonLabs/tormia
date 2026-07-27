@@ -48,7 +48,11 @@ namespace Tormia.Ontology.Tests
         {
             var buoyancy = CreateDerivedBuoyancyRule();
             var world = new OntologyWorldState();
-            world.AddFact("Tube", OntologyPredicates.Occupies, "Water");
+            world.AddFactContribution(
+                "Tube",
+                OntologyPredicates.Occupies,
+                "Water",
+                OntologyFactOrigin.RuntimeObservation);
             world.AddFact(
                 "Tube",
                 OntologyPredicates.PhysicalState,
@@ -60,7 +64,7 @@ namespace Tormia.Ontology.Tests
                 new[] { buoyancy });
             Assert.That(
                 saveData.facts,
-                Has.Some.Matches<OntologyFactRecord>(value =>
+                Has.None.Matches<OntologyFactRecord>(value =>
                     value.subject == "Tube" &&
                     value.predicate == OntologyPredicates.Occupies &&
                     value.obj == "Water"));
@@ -91,7 +95,7 @@ namespace Tormia.Ontology.Tests
                     "Tube",
                     OntologyPredicates.Occupies,
                     "Water"),
-                Is.True);
+                Is.False);
         }
 
         [Test]
@@ -137,7 +141,8 @@ namespace Tormia.Ontology.Tests
             world.AddFact("QuestBoard", "offers", "ColdProtectionPreparation");
             world.AddFact("Part_Outerwear_Base", OntologyPredicates.GrantsCapability, OntologyObjects.ColdProtection);
 
-            var quests = new OntologyQuestGenerator().Generate(world, "Player");
+            var quests = new OntologyQuestGenerator(
+                OntologyQuestGenerator.CreateDefaultDefinitions()).Generate(world, "Player");
 
             Assert.That(quests, Has.Count.EqualTo(1));
             Assert.That(quests[0].Id, Is.EqualTo(new OntologyId("ColdProtectionPreparation")));
@@ -149,7 +154,32 @@ namespace Tormia.Ontology.Tests
         public void DefaultRulesAndQuestsPassValidation()
         {
             Assert.That(OntologyRuleValidator.Validate(OntologyDefaultRules.CreateDefaultDefinitions()), Is.Empty);
-            Assert.That(OntologyQuestValidator.Validate(new OntologyQuestGenerator().Definitions), Is.Empty);
+            Assert.That(
+                OntologyQuestValidator.Validate(
+                    OntologyQuestGenerator.CreateDefaultDefinitions()),
+                Is.Empty);
+        }
+
+        [Test]
+        public void EmptyActionCatalogDoesNotRestoreHiddenDefaults()
+        {
+            var world = new OntologyWorldState();
+            world.AddFact("Actor", "has_skill", "Talk");
+            world.AddConcept("Target", "Creature");
+            var service = new OntologyActionService(
+                System.Array.Empty<OntologyActionCandidateDefinition>(),
+                System.Array.Empty<OntologyActionEffectDefinition>());
+
+            Assert.That(service.GetCandidates(world, "Actor"), Is.Empty);
+            Assert.That(
+                service.Apply(
+                    world,
+                    new OntologySession(),
+                    new OntologyAction("Actor", "invented_action", "Target")),
+                Is.False);
+            Assert.That(
+                world.HasFact("Actor", "invented_action", "Target"),
+                Is.False);
         }
 
         private static OntologyRuleDefinition CreateDerivedBuoyancyRule()

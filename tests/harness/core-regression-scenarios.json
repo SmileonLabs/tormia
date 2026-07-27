@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "purpose": "Core regressions that must remain true while Tormia evolves.",
-  "purposeKo": "Tormia 개발 중 반드시 유지되어야 하는 핵심 회귀 시나리오입니다.",
+  "purpose": "Core regressions that must remain true while TOV evolves.",
+  "purposeKo": "TOV 개발 중 반드시 유지되어야 하는 핵심 회귀 시나리오입니다.",
   "scenarios": [
     {
       "id": "water-occupancy-add-remove",
@@ -20,6 +20,24 @@
       "evidenceTest": "RuntimeObservationRetractsOnlyFactsPublishedByThatSensor",
       "enabledExpectationKo": "센서가 직접 발행한 관측 Fact만 회수한다.",
       "disabledExpectationKo": "같은 트리플이 이미 작성되어 있으면 센서가 소유권을 주장하거나 제거하지 않는다."
+    },
+    {
+      "id": "fact-origin-persistence",
+      "title": "Only durable fact origins enter a local snapshot",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Core/OntologySimulationTests.cs",
+      "evidenceTest": "SaveAndLegacyRestoreExcludeRetractableRuleResults",
+      "enabledExpectation": "Durable authored and persistent state facts survive save and restore.",
+      "disabledExpectation": "Runtime observations, inferred facts, account projections, and appearance projections are omitted."
+    },
+    {
+      "id": "empty-action-catalog-stays-empty",
+      "title": "Removing action data removes the matching behavior",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Core/OntologySimulationTests.cs",
+      "evidenceTest": "EmptyActionCatalogDoesNotRestoreHiddenDefaults",
+      "enabledExpectation": "Only explicitly supplied action definitions can create candidates and effects.",
+      "disabledExpectation": "An empty catalog or unmatched verb cannot synthesize an arbitrary Fact."
     },
     {
       "id": "buoyancy-rule-enable-disable",
@@ -63,7 +81,7 @@
       "kind": "local-integration",
       "evidenceFile": "Assets/Scripts/Ontology/Unity/Networking/OntologyWorldAuthorityAccountEntryFlow.cs",
       "evidenceTest": "Manual Unity smoke: connect, select saved character, register avatar, enter world",
-      "enabledExpectationKo": "개발 계정이 저장 캐릭터와 월드를 읽고 아바타를 등록한 뒤 입장한다.",
+      "enabledExpectationKo": "인증된 계정이 저장 캐릭터와 월드를 읽고 아바타를 등록한 뒤 입장한다.",
       "disabledExpectationKo": "안정 아바타 ID 또는 등록이 없으면 입장이 거부되고 월드 Fact가 임의로 생성되지 않는다."
     },
     {
@@ -79,6 +97,51 @@
       "disabledExpectationKo": "같은 명령을 재시도해도 관계가 중복되지 않으며, 이후 빈 관계 집합을 저장하면 관계가 제거된다."
     },
     {
+      "id": "account-profile-runtime-projection",
+      "title": "Account profile relations project to and retract from the local avatar runtime view",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyAccountProfileRelationProjectorTests.cs",
+      "evidenceTest": "AccountRelationsProjectToTheLocalActorAndAreRemovedAgain",
+      "enabledExpectation": "A portable Self relation becomes a fact on the selected local avatar at runtime.",
+      "disabledExpectation": "Clearing the projection retracts only the profile-projected fact."
+    },
+    {
+      "id": "multi-actor-npc-action-candidates",
+      "title": "NPCs use the same actor-scoped action candidate pipeline",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyMultiActorActionTests.cs",
+      "evidenceTest": "NpcUsesTheSameActorScopedActionCandidatesAsThePlayer",
+      "enabledExpectation": "An NPC can receive and execute a data-defined help candidate.",
+      "disabledExpectation": "Without the candidate conditions the NPC does not receive that action."
+    },
+    {
+      "id": "world-avatar-profile-revisioned",
+      "title": "World avatar profile overlays are revisioned world commands",
+      "kind": "local-integration",
+      "evidenceFile": "server/Tormia.WorldAuthority/Program.cs",
+      "evidenceTest": "Manual authority smoke: set_avatar_profile_relations accepts owner avatar only and advances one world revision",
+      "enabledExpectation": "A world-specific role or progression relation is stored against the registered avatar.",
+      "disabledExpectation": "A different user cannot modify the avatar profile and an empty relation set removes the overlay."
+    },
+    {
+      "id": "world-content-package-authoritative-action",
+      "title": "Worlds execute only enabled immutable package actions",
+      "kind": "local-integration",
+      "evidenceFile": "server/Tormia.WorldAuthority/Program.cs",
+      "evidenceTest": "Manual authority smoke: publish action_effect, enable package, execute_action with registered avatar, then retry disabled package",
+      "enabledExpectation": "The Authority resolves the enabled immutable definition and records its action Fact under one revisioned command.",
+      "disabledExpectation": "A disabled/mismatched package, arbitrary predicate, or unregistered actor cannot create an action Fact."
+    },
+    {
+      "id": "first-authenticated-player-loop",
+      "title": "A registered account reaches an Authority action without a trusted client identity header",
+      "kind": "local-integration",
+      "evidenceFile": "Assets/Scripts/Ontology/Unity/Networking/OntologyWorldAuthorityAccountEntryFlow.cs",
+      "evidenceTest": "Authority smoke: register, use Bearer session, create character/world, reject missing or revoked session, login again, enter and reload projection",
+      "enabledExpectation": "The account creates/selects a character, the Authority places/registers its stable avatar, and an enabled package action advances the world revision.",
+      "disabledExpectation": "If avatar placement, package activation, or action validation fails, the client reports rejection and does not write a local durable substitute."
+    },
+    {
       "id": "world-authority-role-gating",
       "title": "World authoring is gated by the selected world's role",
       "kind": "local-integration",
@@ -86,6 +149,132 @@
       "evidenceTest": "Manual authority smoke: owner/editor can publish; viewer receives forbidden and no duplicate replay event",
       "enabledExpectation": "owner/editor sessions expose CanEditCurrentWorld and accepted commands advance one revision",
       "disabledExpectation": "viewer sessions do not auto-publish and server rejects a command with forbidden"
+    },
+    {
+      "id": "account-runtime-entry-gate",
+      "title": "World runtime is exposed only after confirmed entry",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/OntologyGameSessionCoordinatorTests.cs",
+      "evidenceTest": "RuntimeBecomesAvailableOnlyAfterWorldEntryCompletes",
+      "enabledExpectation": "A completed Authority entry transition enables the gameplay runtime.",
+      "disabledExpectation": "Signed-out, selected, entering, failed, and recovering states do not expose gameplay."
+    },
+    {
+      "id": "pre-entry-runtime-presentation-hidden",
+      "title": "Pre-entry presentation hides player and world UI",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/TormiaUiSceneSmokeTests.cs",
+      "evidenceTest": "CompositionCreatesOntologyWorldAndUsesSingleUiScene",
+      "enabledExpectation": "Account UI remains usable before entry.",
+      "disabledExpectation": "Player renderers, HUD, quest toggles, runtime editors, and gameplay input remain inactive."
+    },
+    {
+      "id": "scoped-local-snapshot",
+      "title": "Local snapshots are isolated by account and world",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/OntologyGameSessionCoordinatorTests.cs",
+      "evidenceTest": "LocalSnapshotPathIsIsolatedByAccountAndWorld",
+      "enabledExpectation": "Each account/world pair resolves to its own atomic local snapshot path.",
+      "disabledExpectation": "A snapshot from another account or world cannot be loaded through the current scope."
+    },
+    {
+      "id": "authority-avatar-checkpoint-resume",
+      "title": "Avatar resume is a revisioned Authority checkpoint",
+      "kind": "local-integration",
+      "evidenceFile": "scripts/run-account-world-loop-smoke.ps1",
+      "evidenceTest": "Executable smoke: register, enter, save_avatar_checkpoint, logout, login, then load the same checkpoint",
+      "enabledExpectation": "An owned avatar checkpoint advances one world revision and restores its zone and transform.",
+      "disabledExpectation": "Per-frame motion does not create checkpoint events and an unowned avatar cannot be updated."
+    },
+    {
+      "id": "authority-command-outbox",
+      "title": "Only transport-failed commands enter the scoped outbox",
+      "kind": "local-integration",
+      "evidenceFile": "Assets/Scripts/Ontology/Unity/Networking/OntologyAuthorityPendingCommandQueue.cs",
+      "evidenceTest": "Code contract: retain original command ID for account/world-scoped replay and omit credentials",
+      "enabledExpectation": "A transport failure is replayed idempotently after the matching world entry.",
+      "disabledExpectation": "Accepted, terminally rejected, differently scoped, or credential data is not retained."
+    },
+    {
+      "id": "owner-only-creator-workspace",
+      "title": "Creator specialist NPCs are an owner-only presentation layer",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/OntologyCreatorWorkspaceControllerTests.cs",
+      "evidenceTest": "WorkspaceVisibilityRequiresEnteredOwnerCreatorSession",
+      "enabledExpectation": "An entered owner session with creator mode enabled can see the specialist workspace.",
+      "disabledExpectation": "Signed-out, pre-entry, creator-mode-off, editor, and viewer sessions cannot see the workspace or receive hidden world Facts."
+    },
+    {
+      "id": "bootstrap-world-ui-scene-composition",
+      "title": "Bootstrap composes separate world and UI scenes without bypassing entry gates",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/TormiaSceneCompositionSmokeTests.cs",
+      "evidenceTest": "BootstrapLoadsWorldAndUiAsSeparateScenes",
+      "enabledExpectation": "Bootstrap loads World and UI additively, preserves authored ontology facts, and binds services to the separated presentation scenes.",
+      "disabledExpectation": "Before confirmed world entry, world HUD remains hidden and the composition contains no duplicate EventSystem, AudioListener, or legacy Farm UI canvas."
+    },
+    {
+      "id": "tov-player-facing-brand",
+      "title": "TOV is the player-facing brand while technical identifiers remain stable",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/TovProductBrandSettingsTests.cs",
+      "evidenceTest": "PlayerFacingBrandUsesTovWithoutRenamingTechnicalIdentifiers",
+      "enabledExpectation": "Unity builds use TOV, Smileon Labs, and com.smileonlabs.tov.",
+      "disabledExpectation": "The branding change does not rewrite Tormia namespaces, scene paths, Docker resources, storage prefixes, or ontology IDs."
+    },
+    {
+      "id": "runtime-observation-preserves-durable-origin",
+      "title": "Runtime adapters retract only their own contribution",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Core/OntologyWorldStateTests.cs",
+      "evidenceTest": "RuntimeObservationRetractionPreservesDurableContributionAddedLater",
+      "enabledExpectation": "A runtime observation can be added and reasserted after a world rebuild.",
+      "disabledExpectation": "Removing that observation cannot delete an equal durable contribution."
+    },
+    {
+      "id": "stable-ontology-entity-identity",
+      "title": "Editable display names never become implicit ontology IDs",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/OntologyStableEntityIdentityTests.cs",
+      "evidenceTest": "EntityIdNeverFallsBackToEditableGameObjectName",
+      "enabledExpectation": "An explicitly configured entity ID survives a GameObject rename.",
+      "disabledExpectation": "An unconfigured OntologyObject has no ID and is not bound by its GameObject name."
+    },
+    {
+      "id": "world-architect-ephemeral-draft",
+      "title": "The World Architect starts with a non-durable prompt draft",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/OntologyCreatorWorkDraftTests.cs",
+      "evidenceTest": "DraftUsesCatalogStageOrderWithoutMutatingWorldState",
+      "enabledExpectation": "A valid prompt creates an ordered service route from the creator catalog.",
+      "disabledExpectation": "Short prompts or a missing WorldArchitect are rejected and no world Fact is created."
+    },
+    {
+      "id": "placed-object-facts-use-stable-id",
+      "title": "Placed-object durable facts use stable entity identity",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/OntologyPlacedObjectFactProjectionTests.cs",
+      "evidenceTest": "StableEntityIdOwnsFactsAndMigratesLegacyDisplayNameSubject",
+      "enabledExpectation": "Placed-record concepts, facts, and rule blocks project under the stable entity ID.",
+      "disabledExpectation": "Renaming the editable instance does not create or retain a display-name Fact subject."
+    },
+    {
+      "id": "creator-route-rejects-duplicate-services",
+      "title": "Creator production routes require unique canonical services",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/OntologyCreatorWorkDraftTests.cs",
+      "evidenceTest": "RouteRejectsDuplicateCanonicalServiceIds",
+      "enabledExpectation": "A valid catalog produces one deterministic ordered service route.",
+      "disabledExpectation": "Duplicate canonical service IDs are rejected instead of silently being collapsed."
+    },
+    {
+      "id": "checkpoint-retry-policy",
+      "title": "Avatar checkpoint retry is limited to revision conflicts",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/OntologyGameSessionCoordinatorTests.cs",
+      "evidenceTest": "CheckpointRetriesOnlyARevisionConflict",
+      "enabledExpectation": "A stale revision reloads the Authority projection before one fresh command.",
+      "disabledExpectation": "Permission, validation, and transport failures do not trigger a hidden second command."
     }
   ]
 }

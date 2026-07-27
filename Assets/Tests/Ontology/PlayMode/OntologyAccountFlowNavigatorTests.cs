@@ -12,87 +12,162 @@ namespace Tormia.Ontology.Tests
         [UnityTest]
         public IEnumerator CompleteReviewSequenceKeepsExactlyOneStepVisible()
         {
-            var account = CreatePanel<OntologyAccountEntryPanel>("Account");
             var character = CreatePanel<OntologyAccountCharacterSelectionPanel>("Character");
             var appearance = CreatePanel<OntologyAccountAppearanceReviewPanel>("Appearance");
             var world = CreatePanel<OntologyAccountWorldSelectionPanel>("World");
             var profile = CreatePanel<OntologyAccountProfileReviewPanel>("Profile");
+            var loading = CreatePanel<OntologyWorldEntryLoadingPanel>("Loading");
             var navigatorObject = new GameObject("Navigator");
             navigatorObject.SetActive(false);
             var navigator = navigatorObject.AddComponent<OntologyAccountFlowNavigator>();
 
-            SetPrivateField(navigator, "accountEntryPanel", account.Panel);
             SetPrivateField(navigator, "characterSelectionPanel", character.Panel);
             SetPrivateField(navigator, "appearanceReviewPanel", appearance.Panel);
             SetPrivateField(navigator, "worldSelectionPanel", world.Panel);
             SetPrivateField(navigator, "profileReviewPanel", profile.Panel);
+            SetPrivateField(navigator, "worldEntryLoadingPanel", loading.Panel);
 
-            navigator.ShowAccountEntry();
-            AssertOnlyVisible(account.Group, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
             navigator.ShowCharacterSelection();
-            AssertOnlyVisible(character.Group, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+            Assert.That(character.Panel.gameObject.activeSelf, Is.True,
+                "Navigation must reactivate an authored panel that was hidden in the hierarchy.");
+            AssertOnlyVisible(character.Group, character.Group, appearance.Group, world.Group, profile.Group, loading.Group);
             navigator.ShowAppearanceReview();
-            AssertOnlyVisible(appearance.Group, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+            AssertOnlyVisible(world.Group, character.Group, appearance.Group, world.Group, profile.Group, loading.Group);
             navigator.ShowWorldSelection();
-            AssertOnlyVisible(world.Group, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+            AssertOnlyVisible(world.Group, character.Group, appearance.Group, world.Group, profile.Group, loading.Group);
             navigator.ShowProfileReview();
-            AssertOnlyVisible(profile.Group, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+            AssertOnlyVisible(profile.Group, character.Group, appearance.Group, world.Group, profile.Group, loading.Group);
+            navigator.ShowWorldEntryLoading();
+            AssertOnlyVisible(loading.Group, character.Group, appearance.Group, world.Group, profile.Group, loading.Group);
             navigator.CloseAll();
-            AssertOnlyVisible(null, account.Group, character.Group, appearance.Group, world.Group, profile.Group);
+            AssertOnlyVisible(null, character.Group, appearance.Group, world.Group, profile.Group, loading.Group);
 
-            Object.Destroy(account.Panel.gameObject);
             Object.Destroy(character.Panel.gameObject);
             Object.Destroy(appearance.Panel.gameObject);
             Object.Destroy(world.Panel.gameObject);
             Object.Destroy(profile.Panel.gameObject);
+            Object.Destroy(loading.Panel.gameObject);
             Object.Destroy(navigatorObject);
             yield return null;
         }
 
         [UnityTest]
-        public IEnumerator AppearanceStepOpensOnlyWhenPanelIsPresent()
+        public IEnumerator AppearanceRouteSkipsRemovedPanelAndOpensWorldSelection()
         {
-            var account = CreatePanel<OntologyAccountEntryPanel>("Account");
             var character = CreatePanel<OntologyAccountCharacterSelectionPanel>("Character");
             var appearance = CreatePanel<OntologyAccountAppearanceReviewPanel>("Appearance");
             var world = CreatePanel<OntologyAccountWorldSelectionPanel>("World");
             var profile = CreatePanel<OntologyAccountProfileReviewPanel>("Profile");
+            var loading = CreatePanel<OntologyWorldEntryLoadingPanel>("Loading");
             var navigatorObject = new GameObject("Navigator");
             navigatorObject.SetActive(false);
             var navigator = navigatorObject.AddComponent<OntologyAccountFlowNavigator>();
 
-            SetPrivateField(navigator, "accountEntryPanel", account.Panel);
             SetPrivateField(navigator, "characterSelectionPanel", character.Panel);
             SetPrivateField(navigator, "appearanceReviewPanel", appearance.Panel);
             SetPrivateField(navigator, "worldSelectionPanel", world.Panel);
             SetPrivateField(navigator, "profileReviewPanel", profile.Panel);
+            SetPrivateField(navigator, "worldEntryLoadingPanel", loading.Panel);
 
             navigator.ShowAppearanceReview();
 
-            AssertVisible(appearance.Group, true);
-            AssertVisible(account.Group, false);
+            AssertVisible(appearance.Group, false);
             AssertVisible(character.Group, false);
-            AssertVisible(world.Group, false);
+            AssertVisible(world.Group, true);
             AssertVisible(profile.Group, false);
+            AssertVisible(loading.Group, false);
 
             Object.Destroy(appearance.Panel.gameObject);
             yield return null;
 
-            account.Group.alpha = 1f;
             character.Group.alpha = 1f;
             world.Group.alpha = 1f;
             profile.Group.alpha = 1f;
+            loading.Group.alpha = 1f;
 
             Assert.DoesNotThrow(navigator.ShowAppearanceReview);
-            AssertVisible(account.Group, false);
             AssertVisible(character.Group, false);
-            AssertVisible(world.Group, false);
+            AssertVisible(world.Group, true);
             AssertVisible(profile.Group, false);
+            AssertVisible(loading.Group, false);
 
-            Object.Destroy(account.Panel.gameObject);
             Object.Destroy(character.Panel.gameObject);
             Object.Destroy(world.Panel.gameObject);
             Object.Destroy(profile.Panel.gameObject);
+            Object.Destroy(loading.Panel.gameObject);
+            Object.Destroy(navigatorObject);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator CharacterCreationBackReturnsExistingAccountToCharacterSelection()
+        {
+            var login = CreatePanel<OntologyAccountLoginPanel>("Login");
+            var character = CreatePanel<OntologyAccountCharacterSelectionPanel>("Character");
+            var stateObject = new GameObject("AccountState");
+            var client = stateObject.AddComponent<OntologyWorldAuthorityClient>();
+            var flow = stateObject.AddComponent<OntologyWorldAuthorityAccountEntryFlow>();
+            SetPrivateField(client, "currentAccount", new OntologyAuthorityAccountDashboard
+            {
+                characters = new[]
+                {
+                    new OntologyAuthorityPlayerCharacter
+                    {
+                        characterId = "character-1",
+                        displayName = "Existing Character"
+                    }
+                }
+            });
+
+            var navigatorObject = new GameObject("Navigator");
+            navigatorObject.SetActive(false);
+            var navigator = navigatorObject.AddComponent<OntologyAccountFlowNavigator>();
+            SetPrivateField(navigator, "entryFlow", flow);
+            SetPrivateField(navigator, "accountLoginPanel", login.Panel);
+            SetPrivateField(navigator, "characterSelectionPanel", character.Panel);
+
+            navigator.BackFromCharacterCreation();
+
+            AssertVisible(login.Group, false);
+            AssertVisible(character.Group, true);
+
+            Object.Destroy(login.Panel.gameObject);
+            Object.Destroy(character.Panel.gameObject);
+            Object.Destroy(stateObject);
+            Object.Destroy(navigatorObject);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator CharacterCreationBackSignsOutEmptyAccountAndReturnsToLogin()
+        {
+            var login = CreatePanel<OntologyAccountLoginPanel>("Login");
+            var character = CreatePanel<OntologyAccountCharacterSelectionPanel>("Character");
+            var stateObject = new GameObject("AccountState");
+            var client = stateObject.AddComponent<OntologyWorldAuthorityClient>();
+            var flow = stateObject.AddComponent<OntologyWorldAuthorityAccountEntryFlow>();
+            SetPrivateField(client, "currentAccount", new OntologyAuthorityAccountDashboard
+            {
+                characters = System.Array.Empty<OntologyAuthorityPlayerCharacter>()
+            });
+
+            var navigatorObject = new GameObject("Navigator");
+            navigatorObject.SetActive(false);
+            var navigator = navigatorObject.AddComponent<OntologyAccountFlowNavigator>();
+            SetPrivateField(navigator, "entryFlow", flow);
+            SetPrivateField(navigator, "accountLoginPanel", login.Panel);
+            SetPrivateField(navigator, "characterSelectionPanel", character.Panel);
+
+            navigator.BackFromCharacterCreation();
+
+            AssertVisible(login.Group, true);
+            AssertVisible(character.Group, false);
+            yield return null;
+            Assert.That(client.CurrentAccount, Is.Null);
+
+            Object.Destroy(login.Panel.gameObject);
+            Object.Destroy(character.Panel.gameObject);
+            Object.Destroy(stateObject);
             Object.Destroy(navigatorObject);
             yield return null;
         }

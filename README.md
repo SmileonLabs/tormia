@@ -1,6 +1,6 @@
-# Tormia
+# TOV
 
-Tormia is a Unity 6 prototype that connects a fact-based ontology simulation to character customization, animation selection, quests, and world interaction.
+TOV is a Unity 6 sandbox game that connects a fact-based ontology simulation to character customization, animation selection, quests, and world interaction. Internal code and asset identifiers continue to use the stable `Tormia` prefix.
 
 ## Requirements
 
@@ -12,10 +12,12 @@ Tormia is a Unity 6 prototype that connects a fact-based ontology simulation to 
 
 1. Clone the repository and open the project root in Unity Hub.
 2. Wait for package resolution and the first asset import to finish.
-3. Open `Assets/Scenes/TormiaMain.unity`.
+3. Open `Assets/Scenes/TormiaBootstrap.unity`.
 4. Enter Play Mode.
 
-If the main scene has not been generated yet, run **Tools > Tormia > Project > Ensure Main Scene**. The command creates the project-owned scene from the third-party character demonstration scene without modifying the source asset.
+Edit 3D world content in `Assets/Scenes/TormiaWorld.unity` and UI hierarchy
+in `Assets/Scenes/TormiaUI.unity`. The former integration snapshot is archived
+at `Assets/Scenes/Legacy/TormiaMain.unity` and is not an authoring or build scene.
 
 ## Architecture
 
@@ -81,7 +83,7 @@ the Unity authority server will keep observations and inferred facts in memory.
 - Ontology maps and terrain: tools under **Tools > Ontology**
 - Runtime databases: `Assets/Data/Ontology`
 
-Do not edit third-party demonstration assets for project-specific changes. Make changes in `TormiaMain.unity` or project-owned prefabs and data assets.
+Do not edit third-party demonstration assets for project-specific changes. Make changes in `TormiaWorld.unity`, `TormiaUI.unity`, or project-owned prefabs and data assets.
 
 ## Large assets
 

@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [switch]$RequireServices,
-    [switch]$SkipServerBuild
+    [switch]$SkipServerBuild,
+    [switch]$RunAccountWorldLoopSmoke
 )
 
 $ErrorActionPreference = 'Stop'
@@ -30,7 +31,7 @@ function Require-Path([string]$RelativePath) {
     return $path
 }
 
-Write-Host "Tormia development harness verification" -ForegroundColor Cyan
+Write-Host "TOV development harness verification" -ForegroundColor Cyan
 Write-Host "Root: $root"
 
 Write-Check "Shared project context (English + Korean)" {
@@ -107,6 +108,14 @@ elseif ($RequireServices) {
     Write-Check "World Authority health" {
         $health = Invoke-RestMethod -Uri 'http://127.0.0.1:5272/health' -TimeoutSec 5
         if ($health.status -ne 'healthy') { throw 'World Authority did not report healthy.' }
+    }
+
+    if ($RunAccountWorldLoopSmoke) {
+        Write-Check "Account/world autosave and resume smoke" {
+            $smoke = Require-Path 'scripts/run-account-world-loop-smoke.ps1'
+            & $smoke
+            if ($LASTEXITCODE -ne 0) { throw "account/world smoke exited with $LASTEXITCODE" }
+        }
     }
 }
 else {

@@ -106,5 +106,92 @@ namespace Tormia.Ontology.Tests
                 world.HasFact("Player", OntologyPredicates.ImmersionDepth, "Deep"),
                 Is.True);
         }
+
+        [Test]
+        public void RemovingOneOriginPreservesTheSameFactFromAnotherOrigin()
+        {
+            var world = new OntologyWorldState();
+            world.AddFact("Avatar", "has_skill", "Talk");
+            Assert.That(
+                world.AddFactContribution(
+                    "Avatar",
+                    "has_skill",
+                    "Talk",
+                    OntologyFactOrigin.AccountProfile),
+                Is.True);
+
+            Assert.That(
+                world.RemoveFactContribution(
+                    "Avatar",
+                    "has_skill",
+                    "Talk",
+                    OntologyFactOrigin.AccountProfile),
+                Is.True);
+            Assert.That(world.HasFact("Avatar", "has_skill", "Talk"), Is.True);
+            Assert.That(
+                world.IsPersistentFact(
+                    new OntologyFact("Avatar", "has_skill", "Talk")),
+                Is.True);
+        }
+
+        [Test]
+        public void RuntimeObservationRetractionPreservesDurableContributionAddedLater()
+        {
+            var world = new OntologyWorldState();
+            var published = string.Empty;
+
+            Assert.That(
+                OntologyRuntimeObservationFacts.SynchronizeSingleValue(
+                    world,
+                    "Player",
+                    "standing_on",
+                    "Tile_1_1",
+                    ref published),
+                Is.True);
+            world.AddFact("Player", "standing_on", "Tile_1_1");
+
+            Assert.That(
+                OntologyRuntimeObservationFacts.RemovePublishedSingleValue(
+                    world,
+                    "Player",
+                    "standing_on",
+                    ref published),
+                Is.True);
+            Assert.That(world.HasFact("Player", "standing_on", "Tile_1_1"), Is.True);
+            Assert.That(
+                world.IsPersistentFact(
+                    new OntologyFact("Player", "standing_on", "Tile_1_1")),
+                Is.True);
+        }
+
+        [Test]
+        public void RuntimeObservationReassertsItsValueAfterWorldRebuild()
+        {
+            var firstWorld = new OntologyWorldState();
+            var published = string.Empty;
+            OntologyRuntimeObservationFacts.SynchronizeSingleValue(
+                firstWorld,
+                "Simulation",
+                "current_tick",
+                "Tick_1",
+                ref published);
+
+            var rebuiltWorld = new OntologyWorldState();
+            Assert.That(
+                OntologyRuntimeObservationFacts.SynchronizeSingleValue(
+                    rebuiltWorld,
+                    "Simulation",
+                    "current_tick",
+                    "Tick_1",
+                    ref published),
+                Is.True);
+            Assert.That(
+                rebuiltWorld.HasFact("Simulation", "current_tick", "Tick_1"),
+                Is.True);
+            Assert.That(
+                rebuiltWorld.IsPersistentFact(
+                    new OntologyFact("Simulation", "current_tick", "Tick_1")),
+                Is.False);
+        }
     }
 }

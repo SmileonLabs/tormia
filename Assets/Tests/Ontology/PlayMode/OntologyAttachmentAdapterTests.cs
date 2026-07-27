@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using Tormia.Ontology.Core;
 using UnityEngine;
@@ -64,6 +66,78 @@ namespace Tormia.Ontology.Tests
 
             var bootstrapObject = new GameObject("Bootstrap");
             var bootstrap = bootstrapObject.AddComponent<OntologyWorldBootstrap>();
+            var actionCandidates =
+                ScriptableObject.CreateInstance<OntologyActionCandidateDatabase>();
+            var actionEffects =
+                ScriptableObject.CreateInstance<OntologyActionEffectDatabase>();
+            SetPrivateField(
+                actionCandidates,
+                "definitions",
+                new List<OntologyActionCandidateDefinition>
+                {
+                    new()
+                    {
+                        actionVerb = OntologyActions.UnequipWearable,
+                        targetPattern = "?target",
+                        conditions = new List<OntologyCondition>
+                        {
+                            OntologyCondition.Fact(
+                                "?target",
+                                OntologyPredicates.EquippedBy,
+                                "?actor")
+                        }
+                    }
+                });
+            SetPrivateField(
+                actionEffects,
+                "definitions",
+                new List<OntologyActionEffectDefinition>
+                {
+                    new()
+                    {
+                        actionVerb = OntologyActions.UnequipWearable,
+                        subjectPattern = "?actor",
+                        objectPattern = "?target",
+                        conditions = new List<OntologyCondition>
+                        {
+                            OntologyCondition.Fact(
+                                "?target",
+                                OntologyPredicates.EquippedBy,
+                                "?actor"),
+                            OntologyCondition.Fact(
+                                "?slot",
+                                OntologyPredicates.SlotOwner,
+                                "?actor"),
+                            OntologyCondition.Fact(
+                                "?slot",
+                                OntologyPredicates.EquippedItem,
+                                "?target")
+                        },
+                        effects = new List<OntologyEffect>
+                        {
+                            OntologyEffect.RemoveFact(
+                                "?slot",
+                                OntologyPredicates.EquippedItem,
+                                "?target"),
+                            OntologyEffect.RemoveFact(
+                                "?target",
+                                OntologyPredicates.EquippedBy,
+                                "?actor"),
+                            OntologyEffect.RemoveFact(
+                                "?actor",
+                                OntologyPredicates.InteractionIntent,
+                                "?target")
+                        }
+                    }
+                });
+            SetPrivateField(
+                bootstrap,
+                "actionCandidateDatabase",
+                actionCandidates);
+            SetPrivateField(
+                bootstrap,
+                "actionEffectDatabase",
+                actionEffects);
 
             var actor = new GameObject("TestActor");
             var actorOntology = actor.AddComponent<OntologyObject>();
@@ -276,12 +350,28 @@ namespace Tormia.Ontology.Tests
                 Is.False);
 
             Object.Destroy(profile);
+            Object.Destroy(actionEffects);
+            Object.Destroy(actionCandidates);
             Object.Destroy(placedObject);
             Object.Destroy(item);
             Object.Destroy(actor);
             Object.Destroy(bootstrapObject);
             yield return null;
             yield return SceneManager.UnloadSceneAsync(testScene);
+        }
+
+        private static void SetPrivateField(
+            object target,
+            string fieldName,
+            object value)
+        {
+            var field = target
+                .GetType()
+                .GetField(
+                    fieldName,
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(target, value);
         }
     }
 }

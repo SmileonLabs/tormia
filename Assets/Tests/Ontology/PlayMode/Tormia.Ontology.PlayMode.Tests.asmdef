@@ -4,7 +4,8 @@
     "references": [
         "Tormia.Ontology.Core",
         "Tormia.Ontology.Unity",
-        "Tormia.Ontology.UI"
+        "Tormia.Ontology.UI",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
