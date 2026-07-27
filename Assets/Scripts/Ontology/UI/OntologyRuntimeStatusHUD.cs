@@ -1,22 +1,42 @@
-using System.Reflection;
-using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Tormia.Ontology.Core
 {
-    public sealed class OntologyRuntimeStatusHUD : OntologyUIPanelBase
+    public sealed class OntologyRuntimeStatusHUD : OntologyUIPanelBase, IPointerClickHandler
     {
         [SerializeField] private OntologyWorldBootstrap bootstrap;
         [SerializeField] private Text uiText;
         [SerializeField] private Component textMeshProText;
         [SerializeField] private string actorId = "Player";
         [SerializeField] private OntologyAnimationAdapter animationAdapter;
+        [Header("Editable TOV status card")]
+        [SerializeField] private TMP_Text titleText;
+        [SerializeField] private TMP_Text movementLabel;
+        [SerializeField] private TMP_Text movementValue;
+        [SerializeField] private TMP_Text interactionLabel;
+        [SerializeField] private TMP_Text interactionValue;
+        [SerializeField] private TMP_Text permissionLabel;
+        [SerializeField] private TMP_Text permissionValue;
+        [SerializeField] private TMP_Text saveLabel;
+        [SerializeField] private TMP_Text saveValue;
+        [Header("Hierarchy-authored collapse")]
+        [SerializeField] private RectTransform titleHitArea;
+        [SerializeField] private GameObject collapsibleContent;
+        [SerializeField] private RectTransform collapseShadow;
+        [SerializeField, Min(1f)] private float expandedHeight = 320f;
+        [SerializeField, Min(1f)] private float collapsedHeight = 76f;
+        [SerializeField] private OntologyInputSystemPlayerInput playerInput;
+        [SerializeField] private OntologyWorldAuthorityClient authorityClient;
+        [SerializeField] private OntologyPersistentStateCoordinator persistentStateCoordinator;
+        [SerializeField] private OntologyAvatarCheckpointController checkpointController;
+        [SerializeField, Min(0.05f)] private float refreshInterval = 0.2f;
 
-        private readonly StringBuilder builder = new StringBuilder(512);
         private TMP_Text tmpText;
-        private string lastRenderedText;
+        private float nextRefreshAt;
+        public bool IsCollapsed { get; private set; }
 
         private void Awake()
         {
@@ -29,8 +49,15 @@ namespace Tormia.Ontology.Core
             {
                 animationAdapter = FindAnyObjectByType<OntologyAnimationAdapter>();
             }
+            if (playerInput == null) playerInput = FindAnyObjectByType<OntologyInputSystemPlayerInput>();
+            if (authorityClient == null) authorityClient = FindAnyObjectByType<OntologyWorldAuthorityClient>();
+            if (persistentStateCoordinator == null) persistentStateCoordinator = FindAnyObjectByType<OntologyPersistentStateCoordinator>();
+            if (checkpointController == null) checkpointController = FindAnyObjectByType<OntologyAvatarCheckpointController>();
 
             tmpText = textMeshProText as TMP_Text;
+            var root = transform as RectTransform;
+            if (root != null && root.sizeDelta.y > collapsedHeight)
+                expandedHeight = root.sizeDelta.y;
             ApplyTheme();
         }
 
@@ -45,6 +72,8 @@ namespace Tormia.Ontology.Core
             {
                 bootstrap.WorldChanged += Refresh;
             }
+            if (authorityClient != null) authorityClient.StateChanged += Refresh;
+            OntologyLanguagePackService.LanguageChanged += Refresh;
 
             Refresh();
         }
@@ -55,45 +84,39 @@ namespace Tormia.Ontology.Core
             {
                 bootstrap.WorldChanged -= Refresh;
             }
+            if (authorityClient != null) authorityClient.StateChanged -= Refresh;
+            OntologyLanguagePackService.LanguageChanged -= Refresh;
+        }
+
+        private void Update()
+        {
+            if (Time.unscaledTime < nextRefreshAt) return;
+            nextRefreshAt = Time.unscaledTime + Mathf.Max(0.05f, refreshInterval);
+            Refresh();
         }
 
         private void Refresh()
         {
-            if (bootstrap == null || bootstrap.World == null)
+            if (playerInput == null) playerInput = FindAnyObjectByType<OntologyInputSystemPlayerInput>();
+            if (authorityClient == null) authorityClient = FindAnyObjectByType<OntologyWorldAuthorityClient>();
+            if (persistentStateCoordinator == null) persistentStateCoordinator = FindAnyObjectByType<OntologyPersistentStateCoordinator>();
+            if (checkpointController == null) checkpointController = FindAnyObjectByType<OntologyAvatarCheckpointController>();
+
+            if (titleText == null || movementValue == null)
             {
-                builder.Length = 0;
-                builder.AppendLine(Labels.hudTitle);
-                builder.AppendLine(Labels.hudWorldNotReady);
-                SetText(builder.ToString());
+                SetLegacyText();
                 return;
             }
 
-            builder.Length = 0;
-            builder.AppendLine(Labels.hudTitle);
-            AppendLine(Labels.hudCurrentTick, GetFactObject("Simulation", "current_tick"));
-            builder.AppendLine(Labels.hudDivider);
-            AppendLine(Labels.hudStandingOn, GetFactObject(actorId, "standing_on"));
-            AppendLine(Labels.hudCoreVitality, GetFactObject(actorId, "core_vitality"));
-            AppendLine(Labels.hudStatusWet, FormatBool(HasFact(actorId, "status", "Wet")));
-            AppendLine(Labels.hudStateSlowed, FormatBool(HasFact(actorId, "movement_state", "Slowed")));
-            AppendLine(Labels.hudExposedCold, FormatBool(HasFact(actorId, "exposed_to", "ColdEnvironment")));
-            builder.AppendLine(Labels.hudDivider);
-            AppendLine(Labels.hudEquippedParts, GetFactObjects(actorId, OntologyPredicates.EquippedPart));
-            AppendLine(Labels.hudPartCapabilities, GetFactObjects(actorId, OntologyPredicates.HasCapability));
-            builder.AppendLine(Labels.hudDivider);
-            AppendLine(Labels.hudAnimationIntent, GetFactObject(actorId, "animation_intent"));
-            if (animationAdapter != null)
-            {
-                AppendLine(Labels.hudSelectedIntent, FormatOptional(animationAdapter.SelectedIntent));
-                AppendLine(Labels.hudSelectedAnimation, FormatOptional(animationAdapter.SelectedAnimationId));
-                AppendLine(Labels.hudSelectedClip, FormatOptional(animationAdapter.SelectedClipName));
-            }
-            SetText(builder.ToString());
-        }
-
-        private void AppendLine(string label, string value)
-        {
-            builder.Append(label).Append(": ").AppendLine(value);
+            titleText.text = L("ui.runtime_status.title", "WORLD STATUS");
+            movementLabel.text = L("ui.runtime_status.movement", "MOVEMENT");
+            interactionLabel.text = L("ui.runtime_status.interaction", "INTERACTION");
+            permissionLabel.text = L("ui.runtime_status.permission", "PERMISSION");
+            saveLabel.text = L("ui.runtime_status.save", "SAVE");
+            movementValue.text = ResolveMovement();
+            interactionValue.text = ResolveInteraction();
+            permissionValue.text = ResolvePermission();
+            saveValue.text = ResolveSave();
         }
 
         private void ApplyTheme()
@@ -102,6 +125,9 @@ namespace Tormia.Ontology.Core
             if (background != null)
             {
                 background.color = Theme.hudBackground;
+                // The root receives the pointer and accepts it only when the
+                // authored title rectangle contains the click.
+                background.raycastTarget = true;
             }
 
             if (tmpText != null)
@@ -115,16 +141,105 @@ namespace Tormia.Ontology.Core
             }
         }
 
-        private string FormatBool(bool value)
+        private string ResolveMovement()
         {
-            return value ? Labels.trueText : Labels.falseText;
+            if (bootstrap != null && bootstrap.World != null)
+            {
+                if (HasFact(actorId, "movement_state", "Slowed"))
+                    return L("ui.runtime_status.slowed", "Slowed");
+                var mode = GetFactObject(actorId, "mobility_mode");
+                if (!string.IsNullOrWhiteSpace(mode) && mode != Labels.noneText)
+                    return mode;
+            }
+            return playerInput != null && playerInput.IsMovingIntent
+                ? L("ui.runtime_status.moving", "Moving")
+                : L("ui.runtime_status.explore", "Explore");
         }
 
-        private string FormatOptional(string value)
+        public void OnPointerClick(PointerEventData eventData)
         {
-            return string.IsNullOrWhiteSpace(value)
-                ? Labels.noneText
-                : OntologyLanguagePackService.DisplaySemanticObject(value);
+            if (titleHitArea == null || eventData == null) return;
+            if (!RectTransformUtility.RectangleContainsScreenPoint(
+                    titleHitArea,
+                    eventData.position,
+                    eventData.pressEventCamera))
+            {
+                return;
+            }
+
+            SetCollapsed(!IsCollapsed);
+        }
+
+        public void ToggleCollapsed() => SetCollapsed(!IsCollapsed);
+
+        public void SetCollapsed(bool collapsed)
+        {
+            IsCollapsed = collapsed;
+            if (collapsibleContent != null)
+                collapsibleContent.SetActive(!collapsed);
+
+            if (transform is RectTransform root)
+            {
+                var size = root.sizeDelta;
+                size.y = collapsed ? collapsedHeight : expandedHeight;
+                root.sizeDelta = size;
+            }
+            if (collapseShadow != null)
+            {
+                var shadowSize = collapseShadow.sizeDelta;
+                shadowSize.y = collapsed ? collapsedHeight : expandedHeight;
+                collapseShadow.sizeDelta = shadowSize;
+            }
+        }
+
+        private string ResolveInteraction()
+        {
+            var entityId = playerInput == null ? string.Empty : playerInput.SelectedInteractionEntityId;
+            return string.IsNullOrWhiteSpace(entityId)
+                ? L("ui.runtime_status.none", "None")
+                : OntologyLanguagePackService.DisplaySemanticObject(entityId);
+        }
+
+        private string ResolvePermission()
+        {
+            if (authorityClient == null || !authorityClient.IsAuthenticated)
+                return L("ui.runtime_status.permission.local", "Local");
+            switch ((authorityClient.CurrentWorldRole ?? string.Empty).Trim().ToLowerInvariant())
+            {
+                case "owner": return L("ui.runtime_status.permission.owner", "Owner");
+                case "editor": return L("ui.runtime_status.permission.builder", "Builder");
+                default: return L("ui.runtime_status.permission.visitor", "Visitor");
+            }
+        }
+
+        private string ResolveSave()
+        {
+            if (authorityClient == null || !authorityClient.IsAuthenticated)
+                return L("ui.runtime_status.save.local", "Local only");
+            if (checkpointController != null && checkpointController.SaveInProgress)
+                return L("ui.runtime_status.save.saving", "Saving");
+            if (persistentStateCoordinator != null)
+            {
+                switch (persistentStateCoordinator.Status)
+                {
+                    case OntologyPersistenceStatus.Dirty:
+                    case OntologyPersistenceStatus.Saving:
+                    case OntologyPersistenceStatus.Retrying:
+                        return L("ui.runtime_status.save.saving", "Saving");
+                    case OntologyPersistenceStatus.Conflict:
+                    case OntologyPersistenceStatus.Failed:
+                    case OntologyPersistenceStatus.Offline:
+                        return L("ui.runtime_status.save.attention", "Attention");
+                }
+            }
+            var status = authorityClient.LastStatus ?? string.Empty;
+            if (status.IndexOf("fail", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                status.IndexOf("error", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                status.IndexOf("reject", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return L("ui.runtime_status.save.attention", "Attention");
+            return authorityClient.IsWorldRuntimeReady
+                ? L("ui.runtime_status.save.saved", "Saved")
+                : L("ui.runtime_status.save.connecting", "Connecting");
         }
 
         private bool HasFact(string subject, string predicate, string obj)
@@ -146,51 +261,15 @@ namespace Tormia.Ontology.Core
             return Labels.noneText;
         }
 
-        private string GetFactObjects(string subject, string predicate)
+        private void SetLegacyText()
         {
-            var found = false;
-            var first = true;
-            var result = new StringBuilder();
-            foreach (var fact in bootstrap.World.Facts)
-            {
-                if (fact.Subject.ToString() != subject || fact.Predicate.ToString() != predicate)
-                {
-                    continue;
-                }
-
-                if (!first)
-                {
-                    result.Append(", ");
-                }
-
-                result.Append(
-                    OntologyLanguagePackService.DisplaySemanticObject(
-                        fact.Object.ToString()));
-                first = false;
-                found = true;
-            }
-
-            return found ? result.ToString() : Labels.noneText;
+            var value = L("ui.runtime_status.title", "WORLD STATUS") + "\n" +
+                        L("ui.runtime_status.world_not_ready", "World is not ready.");
+            if (uiText != null) uiText.text = value;
+            else if (tmpText != null) tmpText.text = value;
         }
 
-        private void SetText(string value)
-        {
-            if (string.Equals(lastRenderedText, value, System.StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            lastRenderedText = value;
-            if (uiText != null)
-            {
-                uiText.text = value;
-                return;
-            }
-
-            if (tmpText != null)
-            {
-                tmpText.text = value;
-            }
-        }
+        private static string L(string key, string fallback) =>
+            OntologyLanguagePackService.Text(key, fallback);
     }
 }

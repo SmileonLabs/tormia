@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -18,30 +19,45 @@ namespace Tormia.Ontology.Core
         [SerializeField] private OntologyWorldAuthorityAccountEntryFlow entryFlow;
         [SerializeField] private CanvasGroup panelGroup;
         [SerializeField] private OntologyAccountCharacterCard[] characterCards;
+        [SerializeField] private TMP_Text titleLabel;
+        [SerializeField] private TMP_Text helperLabel;
         [SerializeField] private TMP_Text accountLabel;
         [SerializeField] private TMP_Text statusLabel;
+        [SerializeField] private TMP_Text detailNameLabel;
+        [SerializeField] private TMP_Text detailTemplateLabel;
+        [SerializeField] private TMP_Text currentAppearanceLabel;
+        [SerializeField] private TMP_Text entryHintLabel;
+        [SerializeField] private OntologyAppearanceReviewPartSlot[] appearanceSlots;
+        [SerializeField] private OntologyCharacterPartDatabase partDatabase;
         [SerializeField] private Button continueButton;
         [SerializeField] private Button backButton;
+        [SerializeField] private Button createNewButton;
         [SerializeField] private OntologyAccountFlowNavigator navigator;
         [SerializeField] private bool startsVisible;
         [SerializeField] private UnityEvent onCharacterConfirmed;
         [SerializeField] private UnityEvent onBackRequested;
 
         private bool refreshing;
+        private OntologyWorldAuthorityAccountEntryFlow subscribedEntryFlow;
 
         public bool IsVisible => panelGroup != null && panelGroup.alpha > 0.5f && panelGroup.interactable;
+        public OntologyWorldAuthorityAccountEntryFlow EntryFlow => entryFlow;
+        public IReadOnlyList<OntologyAccountCharacterCard> CharacterCards =>
+            characterCards ?? Array.Empty<OntologyAccountCharacterCard>();
 
         private void Awake()
         {
             ResolveDependencies();
+            UpdateEntryFlowSubscription();
             BindButtons();
             SetVisible(startsVisible);
+            Refresh();
         }
 
         private void OnEnable()
         {
             ResolveDependencies();
-            if (entryFlow != null) entryFlow.StateChanged += Refresh;
+            UpdateEntryFlowSubscription();
             OntologyLanguagePackService.LanguageChanged += Refresh;
             Refresh();
         }
@@ -52,12 +68,18 @@ namespace Tormia.Ontology.Core
 
         private void OnDisable()
         {
-            if (entryFlow != null) entryFlow.StateChanged -= Refresh;
+            if (subscribedEntryFlow != null)
+            {
+                subscribedEntryFlow.StateChanged -= Refresh;
+                subscribedEntryFlow = null;
+            }
             OntologyLanguagePackService.LanguageChanged -= Refresh;
         }
 
         public void Open()
         {
+            ResolveDependencies();
+            UpdateEntryFlowSubscription();
             SetVisible(true);
             Refresh();
         }
@@ -66,10 +88,13 @@ namespace Tormia.Ontology.Core
 
         public void Refresh()
         {
-            if (entryFlow == null || refreshing) return;
+            if (refreshing) return;
+            ResolveDependencies();
+            UpdateEntryFlowSubscription();
             refreshing = true;
+            LocalizeStaticLabels();
 
-            var characters = entryFlow.Characters;
+            var characters = entryFlow?.Characters ?? Array.Empty<OntologyAuthorityPlayerCharacter>();
             for (var index = 0; index < characterCards.Length; index++)
             {
                 var card = characterCards[index];
@@ -78,18 +103,63 @@ namespace Tormia.Ontology.Core
                 var character = index < characters.Count ? characters[index] : null;
                 card.Bind(
                     character,
-                    character != null && string.Equals(character.characterId, entryFlow.SelectedCharacterId, StringComparison.Ordinal),
+                    character != null && string.Equals(character.characterId, entryFlow?.SelectedCharacterId, StringComparison.Ordinal),
                     SelectCharacter);
             }
 
             if (accountLabel != null)
-                accountLabel.text = entryFlow.CurrentAccount?.account?.displayName ?? string.Empty;
+                accountLabel.text = L("ui.account.character_select.account", "{0}")
+                    .Replace("{0}", entryFlow?.CurrentAccount?.account?.displayName ?? "-");
             if (statusLabel != null)
-                statusLabel.text = entryFlow.LastStatus ?? string.Empty;
+                statusLabel.text = entryFlow?.LastStatus ?? string.Empty;
+            var selectedCharacter = entryFlow?.CurrentCharacter;
+            if (detailNameLabel != null)
+                detailNameLabel.text = selectedCharacter?.displayName ?? "-";
+            if (detailTemplateLabel != null)
+                detailTemplateLabel.text = selectedCharacter?.templateId ?? "-";
+            BindAppearanceSlots(selectedCharacter?.equippedPartIds);
             if (continueButton != null)
-                continueButton.interactable = entryFlow.CurrentCharacter != null;
+                continueButton.interactable = selectedCharacter != null;
 
             refreshing = false;
+        }
+
+        private void LocalizeStaticLabels()
+        {
+            if (titleLabel != null) titleLabel.text = L("ui.account.character_select.title", "SELECT A CHARACTER");
+            if (helperLabel != null) helperLabel.text = L("ui.account.character_select.prompt", "Choose a character for your adventure.");
+            if (currentAppearanceLabel != null)
+                currentAppearanceLabel.text = L("ui.account.character_select.current_appearance", "CURRENT APPEARANCE");
+            if (entryHintLabel != null)
+                entryHintLabel.text = L("ui.account.character_select.entry_hint", "Enter the world with the selected appearance and profile.");
+            SetButtonLabel(continueButton, L("ui.account.character_select.continue_selected", "CONTINUE WITH THIS CHARACTER"));
+            SetButtonLabel(backButton, L("ui.account.character_select.logout", "LOG OUT"));
+            SetButtonLabel(createNewButton, L("ui.account.character_select.create_new", "CREATE NEW CHARACTER"));
+        }
+
+        private void BindAppearanceSlots(IReadOnlyList<string> equippedPartIds)
+        {
+            if (appearanceSlots == null || appearanceSlots.Length == 0) return;
+            var activeIds = new HashSet<string>(equippedPartIds ?? Array.Empty<string>(), StringComparer.Ordinal);
+            var definitions = partDatabase?.Definitions?
+                .Where(definition => definition != null && definition.visibleInCustomization
+                    && (activeIds.Count == 0 ? definition.enabledByDefault : activeIds.Contains(definition.partId)))
+                .Take(appearanceSlots.Length)
+                .ToArray() ?? Array.Empty<OntologyCharacterPartDefinition>();
+            for (var index = 0; index < appearanceSlots.Length; index++)
+                appearanceSlots[index]?.Bind(index < definitions.Length ? definitions[index] : null);
+        }
+
+        private static void SetButtonLabel(Button button, string value)
+        {
+            if (button == null) return;
+            var preferredPath = button.name == "CreateNewCharacterButton"
+                ? "CreateNewLabel"
+                : "Text (TMP)";
+            var label = button.transform.Find(preferredPath)?.GetComponent<TMP_Text>()
+                ?? button.GetComponentsInChildren<TMP_Text>(true)
+                    .FirstOrDefault(candidate => candidate.name != "PlusLabel");
+            if (label != null) label.text = value;
         }
 
         private void SelectCharacter(string characterId)
@@ -105,7 +175,7 @@ namespace Tormia.Ontology.Core
                 continueButton.onClick.AddListener(() =>
                 {
                     if (entryFlow?.CurrentCharacter == null) return;
-                    if (navigator != null) navigator.ShowAppearanceReview();
+                    if (navigator != null) navigator.ShowWorldSelection();
                     else onCharacterConfirmed?.Invoke();
                 });
             }
@@ -115,25 +185,92 @@ namespace Tormia.Ontology.Core
                 backButton.onClick.RemoveAllListeners();
                 backButton.onClick.AddListener(() =>
                 {
-                    if (navigator != null) navigator.ShowAccountEntry();
+                    entryFlow?.LogoutAccount();
+                    if (navigator != null) navigator.ShowLogin();
                     else onBackRequested?.Invoke();
                 });
+            }
+
+            if (createNewButton != null)
+            {
+                createNewButton.onClick.RemoveAllListeners();
+                createNewButton.onClick.AddListener(() => navigator?.ShowCharacterCreation());
             }
         }
 
         private void ResolveDependencies()
         {
-            if (entryFlow == null) entryFlow = FindAnyObjectByType<OntologyWorldAuthorityAccountEntryFlow>();
+            if (entryFlow == null)
+                entryFlow = FindAnyObjectByType<OntologyWorldAuthorityAccountEntryFlow>(FindObjectsInactive.Include);
             if (panelGroup == null) panelGroup = GetComponent<CanvasGroup>();
-            if (characterCards == null || characterCards.Length == 0 || AnyCardMissing())
-                characterCards = GetComponentsInChildren<OntologyAccountCharacterCard>(true);
+            if (navigator == null)
+                navigator = FindAnyObjectByType<OntologyAccountFlowNavigator>(FindObjectsInactive.Include);
+            if (partDatabase == null)
+                partDatabase = OntologyCharacterPartAdapter.FindAvailable()?.PartDatabase;
+            ResolveCharacterCards();
+            ResolveAppearanceSlots();
         }
 
-        private bool AnyCardMissing()
+        private void UpdateEntryFlowSubscription()
         {
-            foreach (var card in characterCards)
-                if (card == null) return true;
-            return false;
+            if (!isActiveAndEnabled || ReferenceEquals(subscribedEntryFlow, entryFlow)) return;
+            if (subscribedEntryFlow != null) subscribedEntryFlow.StateChanged -= Refresh;
+            subscribedEntryFlow = entryFlow;
+            if (subscribedEntryFlow != null) subscribedEntryFlow.StateChanged += Refresh;
+        }
+
+        private void ResolveCharacterCards()
+        {
+            var listRoot = transform.Find("CharacterListPanel");
+            if (listRoot == null)
+            {
+                characterCards ??= Array.Empty<OntologyAccountCharacterCard>();
+                return;
+            }
+            var resolved = new List<OntologyAccountCharacterCard>();
+            for (var index = 0; index < listRoot.childCount; index++)
+            {
+                var child = listRoot.GetChild(index);
+                if (!child.name.StartsWith("CharacterCardSlot", StringComparison.Ordinal)) continue;
+                var card = child.GetComponent<OntologyAccountCharacterCard>();
+                if (card == null && Application.isPlaying)
+                    card = child.gameObject.AddComponent<OntologyAccountCharacterCard>();
+                if (card != null) resolved.Add(card);
+            }
+
+            characterCards = resolved
+                .OrderBy(card => card.name, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        private void ResolveAppearanceSlots()
+        {
+            var appearancePanel = transform.Find("SelectedCharacterDetailPanel/CurrentAppearancePanel");
+            if (appearancePanel == null)
+            {
+                appearanceSlots ??= Array.Empty<OntologyAppearanceReviewPartSlot>();
+                return;
+            }
+
+            // Artists author the slots under a horizontal ScrollRect content
+            // container. Keep the legacy direct-child fallback so older scenes
+            // still bind correctly until they are re-authored.
+            var slotsRoot = appearancePanel.Find("AppearanceViewport/AppearanceContent")
+                ?? appearancePanel;
+            var resolved = new List<OntologyAppearanceReviewPartSlot>();
+            for (var index = 0; index < slotsRoot.childCount; index++)
+            {
+                var child = slotsRoot.GetChild(index);
+                if (!child.name.StartsWith("AppearanceSlot", StringComparison.Ordinal)) continue;
+                var slot = child.GetComponent<OntologyAppearanceReviewPartSlot>();
+                if (slot == null && Application.isPlaying)
+                    slot = child.gameObject.AddComponent<OntologyAppearanceReviewPartSlot>();
+                if (slot != null) resolved.Add(slot);
+            }
+
+            appearanceSlots = resolved
+                .OrderBy(slot => slot.name, StringComparer.Ordinal)
+                .ToArray();
         }
 
         private void SetVisible(bool visible)
@@ -143,6 +280,9 @@ namespace Tormia.Ontology.Core
             panelGroup.interactable = visible;
             panelGroup.blocksRaycasts = visible;
         }
+
+        private static string L(string key, string fallback) =>
+            OntologyLanguagePackService.Text(key, fallback);
     }
 
     /// <summary>
@@ -156,10 +296,11 @@ namespace Tormia.Ontology.Core
         [SerializeField] private GameObject selectedIndicator;
         [SerializeField] private TMP_Text nameLabel;
         [SerializeField] private TMP_Text templateLabel;
-        [SerializeField] private TMP_Text appearanceLabel;
         [SerializeField] private TMP_Text profileSummaryLabel;
 
         private string characterId;
+
+        public string CharacterId => characterId;
 
         private void Awake() => ResolveBindings();
 
@@ -173,12 +314,6 @@ namespace Tormia.Ontology.Core
 
             if (nameLabel != null) nameLabel.text = character.displayName ?? character.characterId;
             if (templateLabel != null) templateLabel.text = character.templateId ?? string.Empty;
-            if (appearanceLabel != null)
-            {
-                appearanceLabel.text = character.equippedPartIds == null || character.equippedPartIds.Length == 0
-                    ? L("ui.account.default_appearance", "Default appearance")
-                    : string.Join(", ", character.equippedPartIds);
-            }
             if (profileSummaryLabel != null)
             {
                 var relationCount = character.profileRelations == null ? 0 : character.profileRelations.Length;
@@ -187,7 +322,13 @@ namespace Tormia.Ontology.Core
                     : L("ui.account.profile_relation_count", "{0} saved profile relation(s)")
                         .Replace("{0}", relationCount.ToString());
             }
-            if (selectedIndicator != null) selectedIndicator.SetActive(selected);
+            if (selectedIndicator != null)
+            {
+                selectedIndicator.SetActive(selected);
+                var selectedLabels = selectedIndicator.GetComponentsInChildren<TMP_Text>(true);
+                foreach (var selectedLabel in selectedLabels)
+                    selectedLabel.gameObject.SetActive(false);
+            }
             if (selectButton != null)
             {
                 selectButton.onClick.RemoveAllListeners();
@@ -198,8 +339,14 @@ namespace Tormia.Ontology.Core
         private void ResolveBindings()
         {
             if (selectButton == null) selectButton = GetComponent<Button>();
-            var labels = GetComponentsInChildren<TMP_Text>(true);
-            if (nameLabel == null && labels.Length > 0) nameLabel = labels[0];
+            if (selectedIndicator == null)
+                selectedIndicator = transform.Find("SelectedIndicator")?.gameObject;
+            if (nameLabel == null)
+                nameLabel = transform.Find("CharacterName")?.GetComponent<TMP_Text>();
+            if (templateLabel == null)
+                templateLabel = transform.Find("TemplateChip/TemplateLabel")?.GetComponent<TMP_Text>();
+            if (profileSummaryLabel == null)
+                profileSummaryLabel = transform.Find("ProfileSummary")?.GetComponent<TMP_Text>();
         }
 
         private static string L(string key, string fallback) =>

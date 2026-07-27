@@ -42,7 +42,7 @@ namespace Tormia.Ontology.Core
         {
             var specs = new List<PartSpec>
             {
-                Part("Part_Body_Base", "Body 010", "Body", "Body", "Body/Body_010", true,
+                HiddenPart("Part_Body_Base", "Body 010", "Body", "Body", "Body/Body_010", true,
                     Fact("covers", "Body"), Fact("provides", "SkinSurface")),
 
                 Part("Part_Face_Base", "Usual Expression", "Face", "Faces", "Faces/Male_emotion_usual_001", true,
@@ -59,7 +59,7 @@ namespace Tormia.Ontology.Core
                 Part("Part_Hairstyle_Male_Single_006", "Hairstyle Male Single 006", "Hair", "Hairstyle", "Hairstyle Single/Hairstyle_Male_Single_006", false,
                     Fact("covers", "Head"), Fact("style", "Hair")),
 
-                BasePart("Part_TShirt_Base", "T-Shirt Base", "UpperBody", "T_Shirt", true,
+                HiddenBasePart("Part_TShirt_Base", "T-Shirt Base", "UpperBody", "T_Shirt", true,
                     Fact("covers", "Torso"), Fact("provides", "Warmth")),
 
                 Part("Part_Pants_Base", "Pants 009", "LowerBody", "Pants", "Pants/Pants_009", true,
@@ -87,17 +87,17 @@ namespace Tormia.Ontology.Core
                 Part("Part_Mascot_002", "Mascot 002", "Outerwear", "Outerwear", "Mascots/Mascot_002", false,
                     Fact("covers", "Torso"), Fact("style", "Mascot")),
 
-                Part("Part_Outfit_010", "Outfit 010", "FullBody", "Outerwear", "Outfit/Outfit_010", false,
+                Part("Part_Outfit_010", "Outfit 010", "FullBody", "Full_body", "Outfit/Outfit_010", false,
                     Fact("covers", "Torso"), Fact("covers", "LowerBody"),
                     Fact(OntologyPredicates.ConflictsWithSlot, "UpperBody"),
                     Fact(OntologyPredicates.ConflictsWithSlot, "LowerBody"),
                     Fact(OntologyPredicates.ConflictsWithSlot, "Outerwear"), Fact("style", "Outfit")),
-                LinkedPart("Part_FullBody_Base", "Costume 13", "FullBody", "Outerwear", "Costumes/Costume_13_001", "Part_Costume_13_002", true,
+                LinkedPart("Part_FullBody_Base", "Costume 13", "FullBody", "Full_body", "Costumes/Costume_13_001", "Part_Costume_13_002", true,
                     Fact("covers", "Torso"), Fact("covers", "LowerBody"),
                     Fact(OntologyPredicates.ConflictsWithSlot, "UpperBody"),
                     Fact(OntologyPredicates.ConflictsWithSlot, "LowerBody"),
                     Fact(OntologyPredicates.ConflictsWithSlot, "Outerwear"),
-                    Fact(OntologyPredicates.ConflictsWithSlot, "Headwear"), Fact("style", "Costume")),
+                    Fact("style", "Costume")),
 
                 Part("Part_Hat_Base", "Hat 010", "Headwear", "Hat", "Hat/Hat_010", false,
                     Fact("covers", "Head"), Fact("style", "Headwear")),
@@ -150,6 +150,40 @@ namespace Tormia.Ontology.Core
             return new PartSpec(id, displayName, slot, rendererPath, null, enabledByDefault, true, true, Array.Empty<string>(), facts);
         }
 
+        private static PartSpec HiddenPart(
+            string id, string displayName, string slot, string rendererPath, string assetStem,
+            bool enabledByDefault, params OntologyFactEntry[] facts)
+        {
+            return new PartSpec(
+                id,
+                displayName,
+                slot,
+                rendererPath,
+                assetStem,
+                enabledByDefault,
+                false,
+                false,
+                Array.Empty<string>(),
+                facts);
+        }
+
+        private static PartSpec HiddenBasePart(
+            string id, string displayName, string slot, string rendererPath,
+            bool enabledByDefault, params OntologyFactEntry[] facts)
+        {
+            return new PartSpec(
+                id,
+                displayName,
+                slot,
+                rendererPath,
+                null,
+                enabledByDefault,
+                false,
+                true,
+                Array.Empty<string>(),
+                facts);
+        }
+
         private static PartSpec LinkedPart(
             string id, string displayName, string slot, string rendererPath, string assetStem, string linkedPartId, bool visible,
             params OntologyFactEntry[] facts)
@@ -180,6 +214,7 @@ namespace Tormia.Ontology.Core
             element.FindPropertyRelative("icon").objectReferenceValue = LoadIcon(spec);
             element.FindPropertyRelative("material").objectReferenceValue = null;
             element.FindPropertyRelative("enabledByDefault").boolValue = spec.EnabledByDefault;
+            element.FindPropertyRelative("required").boolValue = IsRequiredSlot(spec.Slot);
             element.FindPropertyRelative("visibleInCustomization").boolValue = spec.Visible;
 
             var linkedPartIds = element.FindPropertyRelative("linkedPartIds");
@@ -197,6 +232,12 @@ namespace Tormia.Ontology.Core
                 fact.FindPropertyRelative("predicate").stringValue = spec.Facts[i].predicate;
                 fact.FindPropertyRelative("obj").stringValue = spec.Facts[i].obj;
             }
+        }
+
+        private static bool IsRequiredSlot(string slot)
+        {
+            return slot == OntologyCharacterCustomizationUiConfig.SlotBody
+                || slot == OntologyCharacterCustomizationUiConfig.SlotFace;
         }
 
         private static GameObject LoadPrefab(string assetStem)

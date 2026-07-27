@@ -4,3 +4,4 @@
 "Assets/maanetorn/Farm Game UI - Simple 2D UI/Font/LilitaOne-RegularSDF.asset" filter=lfs diff=lfs merge=lfs -text
 Assets/UI/Fonts/malgun.ttf filter=lfs diff=lfs merge=lfs -text
 Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx filter=lfs diff=lfs merge=lfs -text
+"Assets/POLY STYLE - Vegetation Pack 2/Vegetation Pack 2_URP/Art/Meshes/DemoScene/DemoScene.fbx" filter=lfs diff=lfs merge=lfs -text

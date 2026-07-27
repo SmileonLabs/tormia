@@ -32,6 +32,16 @@ MonoBehaviour:
   actionButtonFontSize: 15
   panelSize: {x: 430, y: 640}
   panelAnchoredPosition: {x: -32, y: -32}
+  actorToastSize: {x: 300, y: 76}
+  actorToastWorldOffset: {x: 0, y: 0.45, z: 0}
+  actorToastFloatOffset: {x: 0, y: 0.12, z: 0}
+  actorToastDuration: 1.35
+  actorToastFadeDuration: 0.35
+  actorToastQueueGap: 0.12
+  actorToastWorldScale: 0.004
+  actorToastReferenceDistance: 8
+  actorToastMinScale: 0.0035
+  actorToastMaxScale: 0.006
   titleAnchoredPosition: {x: 0, y: -16}
   statusAnchoredPosition: {x: 0, y: -50}
   rowsOffsetMin: {x: 16, y: 18}

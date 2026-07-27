@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tormia Ontology HUD</title>
+  <style>
+    :root {
+      --ink: #eef5ff;
+      --muted: #abb8cb;
+      --panel: rgba(8, 18, 35, .94);
+      --card: #101e34;
+      --line: #29425f;
+      --cyan: #39d7f5;
+      --purple: #8a63ff;
+      --danger: #ff6573;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #071322; color: var(--ink); font-family: Inter, "Malgun Gothic", "Noto Sans KR", sans-serif; }
+    .game {
+      position: relative; min-height: 100vh; overflow: hidden;
+      background: #4c9cd4 url("Assets/WorldEditHUD/world-preview.png") center / cover no-repeat;
+    }
+    .game::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 32%, rgba(5, 13, 26, .1) 53%, rgba(5, 13, 26, .35)); pointer-events: none; }
+    .hud {
+      position: absolute; z-index: 1; right: clamp(22px, 4vw, 72px); top: 7vh; width: min(54vw, 790px); min-width: 680px;
+      border: 1px solid #2a4a6e; border-radius: 22px; overflow: hidden;
+      background: linear-gradient(150deg, rgba(13, 28, 50, .98), var(--panel)); box-shadow: 0 28px 64px rgba(0, 0, 0, .44);
+    }
+    header { display: flex; align-items: center; gap: 15px; padding: 30px 34px 26px; border-bottom: 1px solid var(--line); }
+    .accent { width: 4px; height: 84px; border-radius: 6px; background: linear-gradient(var(--purple), #5c38d7); }
+    h1 { margin: 0; font-size: 31px; letter-spacing: -.035em; }
+    header p { margin: 6px 0 0; color: var(--muted); font-size: 18px; }
+    .close { margin-left: auto; width: 46px; height: 46px; border: 1px solid #3a5271; border-radius: 10px; color: #d9e5f4; background: #15263c; font-size: 28px; cursor: pointer; }
+    .content { padding: 28px 32px 30px; }
+    .title { display: flex; align-items: center; gap: 12px; margin: 0 0 21px; color: var(--cyan); font-size: 20px; }
+    .network { width: 28px; height: 22px; position: relative; display: inline-block; }
+    .network::before, .network::after { content: ""; position: absolute; background: var(--cyan); height: 2px; width: 15px; left: 7px; transform-origin: left; }
+    .network::before { top: 6px; transform: rotate(33deg); }.network::after { top: 16px; transform: rotate(-33deg); }
+    .network i { position: absolute; width: 8px; height: 8px; border: 2px solid var(--cyan); border-radius: 50%; background: var(--card); }
+    .network i:nth-child(1) { left: 0; top: 8px; }.network i:nth-child(2) { right: 0; top: 0; }.network i:nth-child(3) { right: 0; bottom: 0; }
+    .triple-list { padding: 18px; border: 1px solid #29435f; border-radius: 16px; background: rgba(7, 18, 34, .46); }
+    .triple { display: grid; grid-template-columns: 1.1fr 35px 1fr 35px 1fr 38px 30px; align-items: center; gap: 0; min-height: 76px; }
+    .triple + .triple { border-top: 1px solid rgba(57, 92, 125, .48); }
+    .subject, select, .object-input { height: 48px; border: 1px solid #3d5b80; border-radius: 24px; background: #17243a; color: var(--ink); font: 600 17px inherit; padding: 0 18px; }
+    .subject { display: grid; place-items: center; white-space: nowrap; }
+    select, .object-input { width: 100%; outline: none; cursor: pointer; }
+    .object-input { cursor: text; }
+    .connector { position: relative; height: 2px; margin: 0 6px; background: var(--cyan); }
+    .connector::after { content: ""; position: absolute; right: -1px; top: -4px; width: 8px; height: 8px; border-top: 2px solid var(--cyan); border-right: 2px solid var(--cyan); transform: rotate(45deg); }
+    .icon-button { width: 30px; height: 38px; padding: 0; border: 0; background: transparent; color: var(--purple); font-size: 23px; cursor: pointer; }
+    .icon-button.delete { color: var(--danger); font-size: 30px; }
+    .add { display: flex; align-items: center; justify-content: center; gap: 12px; width: 330px; height: 62px; margin: 30px auto 24px; border: 2px solid var(--cyan); border-radius: 15px; background: #11263f; color: var(--cyan); font: 700 22px inherit; cursor: pointer; }
+    .add:hover { background: #163656; }.add b { font-size: 35px; font-weight: 400; line-height: 0; }
+    .hint { display: flex; align-items: center; gap: 11px; color: var(--muted); font-size: 16px; }
+    .info { display: grid; place-items: center; width: 29px; height: 29px; border: 2px solid var(--purple); border-radius: 50%; color: #c6b9ff; font-weight: 800; }
+    @media (max-width: 900px) { .game { min-width: 920px; }.hud { transform: scale(.84); transform-origin: top right; right: 10px; top: 20px; } }
+  </style>
+</head>
+<body>
+  <main class="game">
+    <aside class="hud" aria-label="Ontology triple editor">
+      <header>
+        <span class="accent"></span>
+        <div><h1 id="object-name">Palm Tree 01</h1><p>Selected object</p></div>
+        <button class="close" aria-label="Close">×</button>
+      </header>
+      <section class="content">
+        <h2 class="title"><span class="network"><i></i><i></i><i></i></span>ONTOLOGY TRIPLES</h2>
+        <div class="triple-list" id="triple-list"></div>
+        <button class="add" id="add-triple"><b>+</b>Add triple</button>
+        <div class="hint"><span class="info">i</span><span>Subject is fixed. Edit relation and object.</span></div>
+      </section>
+    </aside>
+  </main>
+  <template id="triple-template">
+    <div class="triple">
+      <div class="subject"></div><span class="connector"></span>
+      <select class="relation" aria-label="Relation">
+        <option value="has_concept">has_concept</option>
+        <option value="located_in">located_in</option>
+        <option value="has_element">has_element</option>
+        <option value="has_state">has_state</option>
+        <option value="related_to">related_to</option>
+      </select><span class="connector"></span>
+      <input class="object-input" aria-label="Object" list="ontology-objects" placeholder="Choose or type object">
+      <button class="icon-button edit" title="Edit triple" aria-label="Edit triple">✎</button>
+      <button class="icon-button delete" title="Delete triple" aria-label="Delete triple">×</button>
+    </div>
+  </template>
+  <datalist id="ontology-objects"><option>Plant</option><option>Landmark</option><option>BeachZone</option><option>WaterRegion</option><option>Wood</option></datalist>
+  <script>
+    const subject = "Palm Tree 01";
+    const list = document.querySelector("#triple-list");
+    const template = document.querySelector("#triple-template");
+    function addTriple(relation = "has_concept", object = "") {
+      const row = template.content.firstElementChild.cloneNode(true);
+      row.querySelector(".subject").textContent = subject;
+      row.querySelector(".relation").value = relation;
+      row.querySelector(".object-input").value = object;
+      row.querySelector(".delete").addEventListener("click", () => row.remove());
+      row.querySelector(".edit").addEventListener("click", () => row.querySelector(".object-input").focus());
+      list.append(row);
+    }
+    addTriple("has_concept", "Plant");
+    addTriple("has_concept", "Landmark");
+    addTriple("located_in", "BeachZone");
+    document.querySelector("#add-triple").addEventListener("click", () => addTriple());
+  </script>
+</body>
+</html>

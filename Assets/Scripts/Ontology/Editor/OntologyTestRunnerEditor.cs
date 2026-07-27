@@ -9,7 +9,7 @@ namespace Tormia.Ontology.Editor
         private static TestRunnerApi runner;
         private static OntologyTestCallbacks callbacks;
 
-        [MenuItem("Tools/Ontology/Run Ontology Tests _F8")]
+        [MenuItem("Tools/Ontology/Run Ontology Tests %#t")]
         public static void RunOntologyTests()
         {
             runner = ScriptableObject.CreateInstance<TestRunnerApi>();

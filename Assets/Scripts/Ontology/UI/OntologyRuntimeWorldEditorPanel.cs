@@ -15,7 +15,10 @@ namespace Tormia.Ontology.Core
             Unsubscribe();
             editorController = controller;
             Bind();
-            Subscribe();
+            if (isActiveAndEnabled)
+            {
+                Subscribe();
+            }
             Refresh();
         }
 
@@ -27,6 +30,7 @@ namespace Tormia.Ontology.Core
 
         private void OnEnable() { Subscribe(); Refresh(); }
         private void OnDisable() { Unsubscribe(); }
+        private void OnDestroy() { Unsubscribe(); }
 
         private void Bind()
         {

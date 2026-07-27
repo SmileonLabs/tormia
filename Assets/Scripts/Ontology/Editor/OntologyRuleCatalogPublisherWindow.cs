@@ -9,8 +9,7 @@ namespace Tormia.Ontology.Core
 {
     /// <summary>
     /// Explicit editor-only publisher for immutable server rule definitions.
-    /// It uses the local development identity only for the local authority; a
-    /// production build gets its user identity from the authentication provider.
+    /// It reuses the Bearer session created by the normal account login flow.
     /// </summary>
     public sealed class OntologyRuleCatalogPublisherWindow : EditorWindow
     {
@@ -113,31 +112,11 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            var request = new DevelopmentUserRequest
-            {
-                externalSubject = authoritySettings.developmentSubject,
-                displayName = authoritySettings.developmentDisplayName
-            };
-            SendJson("POST", "/v1/dev/users", JsonUtility.ToJson(request), null, completed =>
-            {
-                if (completed.result != UnityWebRequest.Result.Success)
-                {
-                    status = "Local identity request failed: " + completed.error;
-                    return;
-                }
-
-                var user = JsonUtility.FromJson<DevelopmentUserResponse>(completed.downloadHandler.text);
-                if (user == null || string.IsNullOrWhiteSpace(user.userId))
-                {
-                    status = "Authority returned no development user id.";
-                    return;
-                }
-
-                PublishCatalog(user.userId, definitions);
-            });
+            if (!TryGetAccessToken(out _)) return;
+            PublishCatalog(definitions);
         }
 
-        private void PublishCatalog(string userId, IReadOnlyList<OntologyRuleDefinition> definitions)
+        private void PublishCatalog(IReadOnlyList<OntologyRuleDefinition> definitions)
         {
             var payload = new RuleCatalogPublishRequest
             {
@@ -153,7 +132,7 @@ namespace Tormia.Ontology.Core
                 "POST",
                 "/v1/content/packages/" + Uri.EscapeDataString(packageId?.Trim() ?? string.Empty) + "/rules",
                 JsonUtility.ToJson(payload),
-                userId,
+                true,
                 completed =>
                 {
                     if (completed.result != UnityWebRequest.Result.Success)
@@ -168,7 +147,7 @@ namespace Tormia.Ontology.Core
                         : "Rule catalog publish was rejected.";
                     if (result != null && result.accepted)
                     {
-                        RefreshCatalog(userId);
+                        RefreshCatalog();
                     }
                 });
             EditorPrefs.SetString(PackageIdKey, packageId ?? string.Empty);
@@ -183,36 +162,17 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            var request = new DevelopmentUserRequest
-            {
-                externalSubject = authoritySettings.developmentSubject,
-                displayName = authoritySettings.developmentDisplayName
-            };
-            SendJson("POST", "/v1/dev/users", JsonUtility.ToJson(request), null, completed =>
-            {
-                if (completed.result != UnityWebRequest.Result.Success)
-                {
-                    status = "Local identity request failed: " + completed.error;
-                    return;
-                }
-
-                var user = JsonUtility.FromJson<DevelopmentUserResponse>(completed.downloadHandler.text);
-                if (user == null || string.IsNullOrWhiteSpace(user.userId))
-                {
-                    status = "Authority returned no development user id.";
-                    return;
-                }
-                RefreshCatalog(user.userId);
-            });
+            if (!TryGetAccessToken(out _)) return;
+            RefreshCatalog();
         }
 
-        private void RefreshCatalog(string userId)
+        private void RefreshCatalog()
         {
             SendJson(
                 "GET",
                 "/v1/content/packages/" + Uri.EscapeDataString(packageId?.Trim() ?? string.Empty) + "/rules",
                 null,
-                userId,
+                true,
                 completed =>
                 {
                     if (completed.result != UnityWebRequest.Result.Success)
@@ -227,7 +187,7 @@ namespace Tormia.Ontology.Core
                 });
         }
 
-        private void SendJson(string method, string route, string json, string userId, Action<UnityWebRequest> completed)
+        private void SendJson(string method, string route, string json, bool authenticated, Action<UnityWebRequest> completed)
         {
             StopRequest();
             var baseUrl = authoritySettings.baseUrl?.Trim().TrimEnd('/');
@@ -246,9 +206,15 @@ namespace Tormia.Ontology.Core
                 pendingRequest.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(json));
                 pendingRequest.SetRequestHeader("Content-Type", "application/json");
             }
-            if (!string.IsNullOrWhiteSpace(userId))
+            if (authenticated)
             {
-                pendingRequest.SetRequestHeader("X-Tormia-User-Id", userId);
+                if (!TryGetAccessToken(out var token))
+                {
+                    pendingRequest.Dispose();
+                    pendingRequest = null;
+                    return;
+                }
+                pendingRequest.SetRequestHeader("Authorization", "Bearer " + token);
             }
             requestCompleted = completed;
             pendingRequest.SendWebRequest();
@@ -277,6 +243,22 @@ namespace Tormia.Ontology.Core
             requestCompleted = null;
         }
 
+        private bool TryGetAccessToken(out string token)
+        {
+            token = string.Empty;
+            if (authoritySettings == null || string.IsNullOrWhiteSpace(authoritySettings.baseUrl))
+            {
+                status = "Assign World Authority Settings first.";
+                return false;
+            }
+            token = PlayerPrefs.GetString(
+                OntologyWorldAuthorityClient.SessionTokenPreferenceKey(authoritySettings.baseUrl),
+                string.Empty);
+            if (!string.IsNullOrWhiteSpace(token)) return true;
+            status = "Sign in through the account UI before publishing or refreshing the rule catalog.";
+            return false;
+        }
+
         private static T FindAsset<T>() where T : UnityEngine.Object
         {
             var guid = AssetDatabase.FindAssets("t:" + typeof(T).Name).FirstOrDefault();
@@ -285,8 +267,6 @@ namespace Tormia.Ontology.Core
                 : AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guid));
         }
 
-        [Serializable] private sealed class DevelopmentUserRequest { public string externalSubject; public string displayName; }
-        [Serializable] private sealed class DevelopmentUserResponse { public string userId; }
         [Serializable] private sealed class RuleCatalogPublishRequest { public string packageVersion; public List<RuleDefinitionPublishRequest> rules; }
         [Serializable] private sealed class RuleDefinitionPublishRequest { public string ruleId; public int definitionVersion; public string payloadJson; }
         [Serializable] private sealed class RuleCatalogPublishResponse { public bool accepted; public int publishedCount; public int unchangedCount; }

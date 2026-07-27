@@ -194,7 +194,8 @@ namespace Tormia.Ontology.Editor
                 else
                 {
                     bootstrap.ResetWorld(logReport: false);
-                    var count = FindObjectsByType<OntologyObject>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+                    var count = FindObjectsByType<OntologyObject>(
+                        FindObjectsInactive.Include).Length;
                     status = $"Injected {count} Ontology Object(s) into the current world.";
                 }
             }
@@ -364,7 +365,8 @@ namespace Tormia.Ontology.Editor
             value = value.Replace(" ", "_");
 
             var usedIds = new System.Collections.Generic.HashSet<string>();
-            foreach (var existing in FindObjectsByType<OntologyObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var existing in FindObjectsByType<OntologyObject>(
+                         FindObjectsInactive.Include))
             {
                 if (existing != null && existing != targetOntology) usedIds.Add(existing.EntityId);
             }

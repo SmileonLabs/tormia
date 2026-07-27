@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1958b0e8ddcdd44bbf9768a28b225a3, type: 3}
+  m_Name: CharacterCategoryIconSet
+  m_EditorClassIdentifier: Tormia.Ontology.UI::Tormia.Ontology.Core.OntologyCharacterCategoryIconSet
+  entries:
+  - categoryId: Body
+    icon: {fileID: 21300000, guid: e3598a279120dfd4cb062d840a88f507, type: 3}
+  - categoryId: Face
+    icon: {fileID: 21300000, guid: d8d856f5bc4f89d4bb57801140c03d6f, type: 3}
+  - categoryId: Hair
+    icon: {fileID: 21300000, guid: ea397abace263ca4aa381862b37f24ca, type: 3}
+  - categoryId: UpperBody
+    icon: {fileID: 21300000, guid: 5161daf490136f04abe81ee56195df56, type: 3}
+  - categoryId: LowerBody
+    icon: {fileID: 21300000, guid: 4773583828169204b91456926fe322b1, type: 3}
+  - categoryId: Footwear
+    icon: {fileID: 21300000, guid: b4d2a291b7e408940a065090832ff642, type: 3}
+  - categoryId: Outerwear
+    icon: {fileID: 21300000, guid: a5509f43ea4dc80408dd5fda957c7988, type: 3}
+  - categoryId: FullBody
+    icon: {fileID: 21300000, guid: df31ea6cfef0eea4da86af8739fd2421, type: 3}
+  - categoryId: Headwear
+    icon: {fileID: 21300000, guid: c442105fd8be80b4eb23bb37a8b8a601, type: 3}
+  - categoryId: Eyewear
+    icon: {fileID: 21300000, guid: 77995702de198e94c86c8139560f6899, type: 3}
+  - categoryId: Handwear
+    icon: {fileID: 21300000, guid: f7f20e2beb9bc8d4386d1a687024982e, type: 3}
+  - categoryId: FacialHair
+    icon: {fileID: 21300000, guid: 6b3ea0fb2f379394b88a611be687c131, type: 3}
+  - categoryId: Accessory
+    icon: {fileID: 21300000, guid: 161d7c3dbe1d700498287dcfb69fd886, type: 3}

@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -15,11 +18,23 @@ namespace Tormia.Ontology.Core
     {
         [SerializeField] private OntologyWorldAuthorityAccountEntryFlow entryFlow;
         [SerializeField] private CanvasGroup panelGroup;
+        [SerializeField] private TMP_Text titleLabel;
+        [SerializeField] private TMP_Text helperLabel;
+        [SerializeField] private TMP_Text characterHeadingLabel;
         [SerializeField] private TMP_Text characterNameLabel;
+        [SerializeField] private TMP_Text templateHeadingLabel;
         [SerializeField] private TMP_Text templateLabel;
+        [SerializeField] private TMP_Text appearanceHeadingLabel;
         [SerializeField] private TMP_Text appearanceLabel;
+        [SerializeField] private OntologyAppearanceReviewPartSlot[] appearanceSlots;
+        [SerializeField] private OntologyCharacterPartDatabase partDatabase;
+        [SerializeField] private TMP_Text profileRelationsHeadingLabel;
         [SerializeField] private TMP_Text profileRelationsLabel;
+        [SerializeField] private TMP_Text selectedWorldHeadingLabel;
         [SerializeField] private TMP_Text selectedWorldLabel;
+        [SerializeField] private TMP_Text permissionHeadingLabel;
+        [SerializeField] private TMP_Text permissionLabel;
+        [SerializeField] private TMP_Text statusHeadingLabel;
         [SerializeField] private TMP_Text statusLabel;
         [SerializeField] private TMP_Text summaryLabel;
         [SerializeField] private Button enterWorldButton;
@@ -64,6 +79,15 @@ namespace Tormia.Ontology.Core
         {
             if (entryFlow == null) return;
             var character = entryFlow.CurrentCharacter;
+            if (titleLabel != null) titleLabel.text = L("ui.account.profile_final_review.title", "PROFILE FINAL REVIEW");
+            if (helperLabel != null) helperLabel.text = L("ui.account.profile_final_review.prompt", "Everything is ready for your adventure.");
+            if (characterHeadingLabel != null) characterHeadingLabel.text = L("ui.account.profile_final_review.character", "CHARACTER");
+            if (templateHeadingLabel != null) templateHeadingLabel.text = L("ui.account.profile_final_review.template", "TEMPLATE");
+            if (appearanceHeadingLabel != null) appearanceHeadingLabel.text = L("ui.account.profile_final_review.appearance", "APPEARANCE");
+            if (selectedWorldHeadingLabel != null) selectedWorldHeadingLabel.text = L("ui.account.profile_final_review.world", "SELECTED WORLD");
+            if (permissionHeadingLabel != null) permissionHeadingLabel.text = L("ui.account.profile_final_review.permission", "WORLD PERMISSION");
+            if (profileRelationsHeadingLabel != null) profileRelationsHeadingLabel.text = L("ui.account.profile_final_review.relations", "PROFILE RELATIONS");
+            if (statusHeadingLabel != null) statusHeadingLabel.text = L("ui.account.profile_final_review.status", "STATUS");
             if (characterNameLabel != null) characterNameLabel.text = character?.displayName ?? string.Empty;
             if (templateLabel != null) templateLabel.text = character?.templateId ?? string.Empty;
             if (appearanceLabel != null)
@@ -72,6 +96,7 @@ namespace Tormia.Ontology.Core
                     ? L("ui.account.default_appearance", "Default appearance")
                     : string.Join(", ", character.equippedPartIds);
             }
+            BindAppearanceSlots(character?.equippedPartIds);
             if (profileRelationsLabel != null)
             {
                 if (character?.profileRelations == null || character.profileRelations.Length == 0)
@@ -84,17 +109,24 @@ namespace Tormia.Ontology.Core
                     for (var index = 0; index < character.profileRelations.Length; index++)
                     {
                         var relation = character.profileRelations[index];
-                        lines[index] = relation.subjectId + " → " + relation.predicateId + " → " + relation.objectId;
+                        lines[index] = relation.subjectId + "  >  " + relation.predicateId + "  >  " + relation.objectId;
                     }
                     profileRelationsLabel.text = string.Join("\n", lines);
                 }
             }
             if (selectedWorldLabel != null)
+                selectedWorldLabel.text = ResolveSelectedWorldTitle();
+            if (permissionLabel != null)
+                permissionLabel.text = BuildPermissionLabel();
+            var canEnter = character != null
+                && !string.IsNullOrWhiteSpace(entryFlow.SelectedWorldId)
+                && !string.IsNullOrWhiteSpace(entryFlow.SelectedWorldRole);
+            if (statusLabel != null)
             {
-                var world = entryFlow.SelectedWorldId;
-                selectedWorldLabel.text = string.IsNullOrWhiteSpace(world) ? string.Empty : world;
+                statusLabel.text = string.IsNullOrWhiteSpace(entryFlow.LastStatus) && canEnter
+                    ? L("ui.account.profile_final_review.ready", "READY TO ENTER")
+                    : entryFlow.LastStatus ?? string.Empty;
             }
-            if (statusLabel != null) statusLabel.text = entryFlow.LastStatus ?? string.Empty;
             if (summaryLabel != null)
             {
                 var relations = character?.profileRelations;
@@ -113,7 +145,53 @@ namespace Tormia.Ontology.Core
                                     relationSummary;
             }
             if (enterWorldButton != null)
-                enterWorldButton.interactable = character != null && !string.IsNullOrWhiteSpace(entryFlow.SelectedWorldId);
+            {
+                enterWorldButton.interactable = canEnter;
+                var label = enterWorldButton.GetComponentInChildren<TMP_Text>(true);
+                if (label != null) label.text = L("ui.account.profile_final_review.enter", "ENTER WORLD");
+            }
+            if (backButton != null)
+            {
+                var label = backButton.GetComponentInChildren<TMP_Text>(true);
+                if (label != null) label.text = L("ui.account.back", "BACK");
+            }
+        }
+
+        private void BindAppearanceSlots(IReadOnlyList<string> equippedPartIds)
+        {
+            if (appearanceSlots == null || appearanceSlots.Length == 0) return;
+            var activeIds = new HashSet<string>(equippedPartIds ?? Array.Empty<string>(), StringComparer.Ordinal);
+            var definitions = partDatabase?.Definitions?
+                .Where(definition => definition != null && definition.visibleInCustomization
+                    && (activeIds.Count == 0 ? definition.enabledByDefault : activeIds.Contains(definition.partId)))
+                .Take(appearanceSlots.Length)
+                .ToArray() ?? Array.Empty<OntologyCharacterPartDefinition>();
+            for (var index = 0; index < appearanceSlots.Length; index++)
+                appearanceSlots[index]?.Bind(index < definitions.Length ? definitions[index] : null);
+        }
+
+        private string ResolveSelectedWorldTitle()
+        {
+            var selectedWorldId = entryFlow?.SelectedWorldId;
+            if (string.IsNullOrWhiteSpace(selectedWorldId)) return string.Empty;
+            foreach (var world in entryFlow.Worlds)
+            {
+                if (world != null && string.Equals(world.worldId, selectedWorldId, StringComparison.Ordinal))
+                    return string.IsNullOrWhiteSpace(world.title) ? selectedWorldId : world.title;
+            }
+            return selectedWorldId;
+        }
+
+        private string BuildPermissionLabel()
+        {
+            var role = entryFlow?.SelectedWorldRole;
+            if (string.IsNullOrWhiteSpace(role))
+                return L("ui.account.profile_final_review.permission_missing", "NO WORLD PERMISSION");
+            var localizedRole = L("ui.account.role_" + role.ToLowerInvariant(), role);
+            var access = entryFlow.CanEditSelectedWorld
+                ? L("ui.account.profile_final_review.edit_allowed", "WORLD EDITING ENABLED")
+                : L("ui.account.read_only", "Read only");
+            return localizedRole + "  ·  " + access;
         }
 
         private static string L(string key, string fallback) =>
@@ -126,8 +204,8 @@ namespace Tormia.Ontology.Core
                 enterWorldButton.onClick.RemoveAllListeners();
                 enterWorldButton.onClick.AddListener(() =>
                 {
-                    entryFlow?.EnterSelectedCharacterInCurrentWorld();
-                    navigator?.CloseAll();
+                    if (navigator != null) navigator.BeginWorldEntry();
+                    else entryFlow?.EnterSelectedCharacterInCurrentWorld();
                 });
             }
             if (backButton != null)
@@ -145,6 +223,10 @@ namespace Tormia.Ontology.Core
         {
             if (entryFlow == null) entryFlow = FindAnyObjectByType<OntologyWorldAuthorityAccountEntryFlow>();
             if (panelGroup == null) panelGroup = GetComponent<CanvasGroup>();
+            if (partDatabase == null)
+                partDatabase = FindAnyObjectByType<OntologyCharacterPartAdapter>()?.PartDatabase;
+            if (appearanceSlots == null || appearanceSlots.Length == 0 || appearanceSlots.Any(slot => slot == null))
+                appearanceSlots = GetComponentsInChildren<OntologyAppearanceReviewPartSlot>(true);
         }
 
         private void SetVisible(bool visible)

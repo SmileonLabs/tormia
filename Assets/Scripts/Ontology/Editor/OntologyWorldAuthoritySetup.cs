@@ -70,8 +70,7 @@ namespace Tormia.Ontology.Core
         {
             var assigned = 0;
             foreach (var placeable in Object.FindObjectsByType<OntologyPlaceableInstance>(
-                         FindObjectsInactive.Include,
-                         FindObjectsSortMode.None))
+                         FindObjectsInactive.Include))
             {
                 if (placeable == null) continue;
                 var identity = placeable.GetComponent<OntologyAuthorityEntityIdentity>();

@@ -15,6 +15,7 @@ namespace Tormia.Ontology.Core
         private string definitionId;
         private string displayNameKey;
         private string displayName;
+        private OntologyPlaceableKind placementKind = OntologyPlaceableKind.Object;
         private string category = "Nature";
         private string description;
         private GameObject prefab;
@@ -53,6 +54,7 @@ namespace Tormia.Ontology.Core
             definitionId = EditorGUILayout.TextField("Stable Id", definitionId);
             displayNameKey = EditorGUILayout.TextField("Language Key", displayNameKey);
             displayName = EditorGUILayout.TextField("Display Name", displayName);
+            placementKind = (OntologyPlaceableKind)EditorGUILayout.EnumPopup("Placement Kind", placementKind);
             category = EditorGUILayout.TextField("Category", category);
             description = EditorGUILayout.TextArea(description, GUILayout.MinHeight(38));
             prefab = (GameObject)EditorGUILayout.ObjectField("Placement Prefab", prefab, typeof(GameObject), false);
@@ -78,7 +80,10 @@ namespace Tormia.Ontology.Core
                 var entry = catalog.Definitions[i];
                 if (entry == null) continue;
                 EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button(entry.EffectiveDisplayName + "  [" + entry.category + "]", EditorStyles.miniButtonLeft)) LoadDraft(i);
+                if (GUILayout.Button(
+                        entry.EffectiveDisplayName + "  [" + entry.placementKind + " / " + entry.category + "]",
+                        EditorStyles.miniButtonLeft))
+                    LoadDraft(i);
                 if (GUILayout.Button("Remove", EditorStyles.miniButtonRight, GUILayout.Width(58))) Remove(i);
                 EditorGUILayout.EndHorizontal();
             }
@@ -165,7 +170,8 @@ namespace Tormia.Ontology.Core
         private void LoadDraft(int index)
         {
             var entry = catalog.Definitions[index];
-            selectedIndex = index; definitionId = entry.definitionId; displayNameKey = entry.displayNameKey; displayName = entry.displayName; category = entry.category;
+            selectedIndex = index; definitionId = entry.definitionId; displayNameKey = entry.displayNameKey; displayName = entry.displayName;
+            placementKind = entry.placementKind; category = entry.category;
             description = entry.description; prefab = entry.prefab; previewPrefab = entry.previewPrefab; template = entry.ontologyTemplate;
             policy = ClonePolicy(entry.placementPolicy);
             useAuthoredPreviewTransform = entry.useAuthoredPreviewTransform;
@@ -191,6 +197,7 @@ namespace Tormia.Ontology.Core
                 definitionId = definitionId.Trim(),
                 displayNameKey = displayNameKey?.Trim(),
                 displayName = displayName.Trim(),
+                placementKind = placementKind,
                 category = category.Trim(),
                 description = description,
                 prefab = prefab,
@@ -225,6 +232,7 @@ namespace Tormia.Ontology.Core
             selectedIndex = -1;
             definitionId = displayNameKey = displayName = description = string.Empty;
             category = "Nature";
+            placementKind = OntologyPlaceableKind.Object;
             prefab = previewPrefab = null;
             template = null;
             policy = new OntologyPlacementPolicy();

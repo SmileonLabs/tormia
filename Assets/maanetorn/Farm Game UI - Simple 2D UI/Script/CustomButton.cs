@@ -36,6 +36,12 @@ namespace FGUIStarter
 
         private void ApplyPressedVisual()
         {
+            // Keep authored label positions editable in the Unity Editor.
+            // Selectable state refreshes can run while editing and used to
+            // overwrite manual RectTransform adjustments with originalTextPos.
+            if (!Application.isPlaying)
+                return;
+
             if (textRect != null)
             {
                 float height = ((RectTransform)transform).rect.height;
@@ -49,6 +55,11 @@ namespace FGUIStarter
 
         private void ApplyNormalVisual()
         {
+            // Runtime pointer transitions still restore the authored position,
+            // but edit-mode inspector/selection changes must not move labels.
+            if (!Application.isPlaying)
+                return;
+
             if (textRect != null)
             {
                 textRect.anchoredPosition = originalTextPos;

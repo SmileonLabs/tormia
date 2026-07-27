@@ -22,7 +22,8 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: a1112225c43b2c94080040d61bef24c4, type: 3}
     material: {fileID: 0}
     enabledByDefault: 1
-    visibleInCustomization: 1
+    required: 1
+    visibleInCustomization: 0
     linkedPartIds: []
     facts:
     - predicate: covers
@@ -38,6 +39,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: f7db6ffdbf5115f4d8d2b808dba0b8c0, type: 3}
     material: {fileID: 0}
     enabledByDefault: 1
+    required: 1
     visibleInCustomization: 1
     linkedPartIds: []
     facts:
@@ -54,6 +56,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 40927ae01c2ab4949813deea9cb531e0, type: 3}
     material: {fileID: 0}
     enabledByDefault: 0
+    required: 1
     visibleInCustomization: 1
     linkedPartIds: []
     facts:
@@ -70,6 +73,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 220d854d6b0e7ee4b93f80d0fbb16589, type: 3}
     material: {fileID: 0}
     enabledByDefault: 0
+    required: 1
     visibleInCustomization: 1
     linkedPartIds: []
     facts:
@@ -134,7 +138,8 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: f32701f2207102b43b13910449e24624, type: 3}
     material: {fileID: 0}
     enabledByDefault: 1
-    visibleInCustomization: 1
+    required: 0
+    visibleInCustomization: 0
     linkedPartIds: []
     facts:
     - predicate: covers
@@ -150,6 +155,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: e068db6d89ab86548b3a09755864aa09, type: 3}
     material: {fileID: 0}
     enabledByDefault: 1
+    required: 0
     visibleInCustomization: 1
     linkedPartIds: []
     facts:
@@ -164,6 +170,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 120eb7ddd3231754e9082ee972156756, type: 3}
     material: {fileID: 0}
     enabledByDefault: 0
+    required: 0
     visibleInCustomization: 1
     linkedPartIds: []
     facts:
@@ -178,6 +185,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 26b73a5a987a6d6469e914369468a207, type: 3}
     material: {fileID: 0}
     enabledByDefault: 0
+    required: 0
     visibleInCustomization: 1
     linkedPartIds: []
     facts:
@@ -194,6 +202,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 2a2c6002138710743bf9a5200a284316, type: 3}
     material: {fileID: 0}
     enabledByDefault: 1
+    required: 0
     visibleInCustomization: 1
     linkedPartIds: []
     facts:
@@ -210,6 +219,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: da70b057c124b6741924e7ed7871cabd, type: 3}
     material: {fileID: 0}
     enabledByDefault: 0
+    required: 0
     visibleInCustomization: 1
     linkedPartIds: []
     facts:
@@ -226,6 +236,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 87a6ec9ea491f1e4397bbe13adce3ff5, type: 3}
     material: {fileID: 0}
     enabledByDefault: 0
+    required: 0
     visibleInCustomization: 1
     linkedPartIds: []
     facts:
@@ -242,6 +253,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 0db26d48fb731294896f6dd2d4f58e38, type: 3}
     material: {fileID: 0}
     enabledByDefault: 0
+    required: 0
     visibleInCustomization: 1
     linkedPartIds: []
     facts:
@@ -322,7 +334,7 @@ MonoBehaviour:
   - partId: Part_Outfit_010
     displayName: Outfit 010
     slot: FullBody
-    rendererPath: Outerwear
+    rendererPath: Full_body
     variantPrefab: {fileID: 7891812628822886358, guid: 1b532ce483664b4cb643729a6e427058, type: 3}
     useBaseRendererMesh: 0
     icon: {fileID: 21300000, guid: 5e83acdaa6e9e88469a77e7d3c0e59bf, type: 3}
@@ -346,7 +358,7 @@ MonoBehaviour:
   - partId: Part_FullBody_Base
     displayName: Costume 13
     slot: FullBody
-    rendererPath: Outerwear
+    rendererPath: Full_body
     variantPrefab: {fileID: 766723520473918103, guid: 9a8349ef45cf4de6af96c17609af1cf7, type: 3}
     useBaseRendererMesh: 0
     icon: {fileID: 21300000, guid: caa93dd5807c6da4fafb84be6e643ffb, type: 3}
@@ -366,8 +378,6 @@ MonoBehaviour:
       obj: LowerBody
     - predicate: conflicts_with_slot
       obj: Outerwear
-    - predicate: conflicts_with_slot
-      obj: Headwear
     - predicate: style
       obj: Costume
   - partId: Part_Hat_Base

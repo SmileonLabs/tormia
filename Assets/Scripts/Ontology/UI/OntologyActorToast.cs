@@ -11,6 +11,16 @@ namespace Tormia.Ontology.Core
         [SerializeField] private OntologyUITheme theme;
         [SerializeField] private Transform anchor;
         [SerializeField] private Camera targetCamera;
+        [Header("Editable TOV toast")]
+        [SerializeField] private Image cardBackground;
+        [SerializeField] private Image accent;
+        [SerializeField] private Image severityIcon;
+        [SerializeField] private TextMeshProUGUI titleLabel;
+        [SerializeField] private TextMeshProUGUI detailLabel;
+        [SerializeField] private Sprite infoIcon;
+        [SerializeField] private Sprite positiveIcon;
+        [SerializeField] private Sprite warningIcon;
+        [SerializeField] private Sprite negativeIcon;
 
         public enum Severity
         {
@@ -22,13 +32,15 @@ namespace Tormia.Ontology.Core
 
         private readonly struct ToastMessage
         {
-            public ToastMessage(string text, Severity severity)
+            public ToastMessage(string title, string detail, Severity severity)
             {
-                Text = text;
+                Title = title;
+                Detail = detail;
                 Severity = severity;
             }
 
-            public string Text { get; }
+            public string Title { get; }
+            public string Detail { get; }
             public Severity Severity { get; }
         }
 
@@ -82,7 +94,17 @@ namespace Tormia.Ontology.Core
             }
 
             EnsureReferences();
-            messages.Enqueue(new ToastMessage(message, severity));
+            var split = message.IndexOf(':');
+            var title = split > 0 ? message.Substring(0, split).Trim() : message.Trim();
+            var detail = split > 0 ? message.Substring(split + 1).Trim() : string.Empty;
+            Show(title, detail, severity);
+        }
+
+        public void Show(string title, string detail, Severity severity = Severity.Info)
+        {
+            if (string.IsNullOrWhiteSpace(title)) return;
+            EnsureReferences();
+            messages.Enqueue(new ToastMessage(title.Trim(), detail?.Trim() ?? string.Empty, severity));
             if (routine == null)
             {
                 routine = StartCoroutine(ShowRoutine());
@@ -103,8 +125,14 @@ namespace Tormia.Ontology.Core
             while (messages.Count > 0)
             {
                 var message = messages.Dequeue();
-                label.text = message.Text;
-                label.color = GetSeverityTextColor(message.Severity);
+                if (titleLabel != null) titleLabel.text = message.Title;
+                if (detailLabel != null)
+                {
+                    detailLabel.text = message.Detail;
+                    detailLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(message.Detail));
+                }
+                if (label != null && titleLabel == null) label.text = message.Title;
+                ApplySeverity(message.Severity);
 
                 var visibleTime = Mathf.Max(0.05f, Theme.actorToastDuration);
                 var fadeTime = Mathf.Max(0.01f, Theme.actorToastFadeDuration);
@@ -155,14 +183,17 @@ namespace Tormia.Ontology.Core
             }
 
             rectTransform = canvas.GetComponent<RectTransform>();
-            background = canvas.GetComponentInChildren<Image>(true);
+            if (cardBackground == null) cardBackground = FindImage("ToastCard");
+            background = cardBackground != null ? cardBackground : canvas.GetComponentInChildren<Image>(true);
             if (background == null)
             {
                 Debug.LogError("[OntologyActorToast] Background Image is missing from the hierarchy.", this);
                 return;
             }
 
-            label = canvas.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (titleLabel == null) titleLabel = FindText("TitleLabel");
+            if (detailLabel == null) detailLabel = FindText("DetailLabel");
+            label = titleLabel != null ? titleLabel : canvas.GetComponentInChildren<TextMeshProUGUI>(true);
             if (label == null)
             {
                 Debug.LogError("[OntologyActorToast] Text label is missing from the hierarchy.", this);
@@ -173,7 +204,7 @@ namespace Tormia.Ontology.Core
         {
             if (background != null)
             {
-                background.color = Theme.actorToastBackground;
+                if (cardBackground == null) background.color = Theme.actorToastBackground;
             }
 
             if (label != null)
@@ -181,6 +212,8 @@ namespace Tormia.Ontology.Core
                 label.color = Theme.actorToastText;
                 label.raycastTarget = false;
             }
+            if (titleLabel != null) titleLabel.raycastTarget = false;
+            if (detailLabel != null) detailLabel.raycastTarget = false;
         }
 
         private void HideImmediate()
@@ -205,6 +238,39 @@ namespace Tormia.Ontology.Core
                 default:
                     return Theme.actorToastInfoText;
             }
+        }
+
+        private void ApplySeverity(Severity severity)
+        {
+            var color = GetSeverityTextColor(severity);
+            if (titleLabel != null) titleLabel.color = new Color32(29, 48, 58, 255);
+            if (detailLabel != null) detailLabel.color = color;
+            if (label != null && titleLabel == null) label.color = color;
+            if (accent != null) accent.color = color;
+            if (severityIcon != null)
+            {
+                severityIcon.sprite = severity switch
+                {
+                    Severity.Positive => positiveIcon,
+                    Severity.Warning => warningIcon,
+                    Severity.Negative => negativeIcon,
+                    _ => infoIcon
+                };
+            }
+        }
+
+        private Image FindImage(string objectName)
+        {
+            foreach (var image in canvas.GetComponentsInChildren<Image>(true))
+                if (image.name == objectName) return image;
+            return null;
+        }
+
+        private TextMeshProUGUI FindText(string objectName)
+        {
+            foreach (var text in canvas.GetComponentsInChildren<TextMeshProUGUI>(true))
+                if (text.name == objectName) return text;
+            return null;
         }
 
         private Transform FindHeadAnchor()

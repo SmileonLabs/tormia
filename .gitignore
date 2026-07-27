@@ -8,6 +8,30 @@
 /UserSettings/
 /MemoryCaptures/
 
+# Project-local generated previews and recovery output
+/Assets/Screenshots/
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+/tmp/
+/output/
+
+# Local Asset Store samples not used by the authoritative TOV scenes
+/Assets/#NVJOB STC8/
+/Assets/#NVJOB STC8.meta
+/Assets/TerrainDemoScene_URP/
+/Assets/TerrainDemoScene_URP.meta
+/Assets/TerrainSampleAssets/
+/Assets/TerrainSampleAssets.meta
+/Assets/Scenes/CasualWorld.unity
+/Assets/Scenes/CasualWorld.unity.meta
+
+# Temporary Unity initialization scenes
+/Assets/InitTestScene*.unity
+/Assets/InitTestScene*.unity.meta
+
+# Accidental nested Unity project copy
+/tormia/
+
 # Unity generated files
 *.csproj
 *.sln

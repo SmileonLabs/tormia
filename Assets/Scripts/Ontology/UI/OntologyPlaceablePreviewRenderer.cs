@@ -47,6 +47,14 @@ namespace Tormia.Ontology.Core
                 ApplyAuthoredAdjustment(previewRoot, previewInstance, definition.previewLocalPosition, definition.previewLocalEulerAngles, definition.previewLocalScale);
         }
 
+        public void Clear()
+        {
+            if (previewInstance == null) return;
+            if (Application.isPlaying) Destroy(previewInstance);
+            else DestroyImmediate(previewInstance);
+            previewInstance = null;
+        }
+
         private void EnsureStage()
         {
             if (previewRoot == null)

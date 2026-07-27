@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using TMPro;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
@@ -12,6 +13,7 @@ namespace Tormia.Ontology.Core
     {
         [SerializeField] private OntologyCharacterPartAdapter partAdapter;
         [SerializeField] private OntologyCharacterPartDatabase partDatabase;
+        [SerializeField] private OntologyCharacterCategoryIconSet categoryIconSet;
         [SerializeField] private CanvasGroup panelCanvasGroup;
         [SerializeField] private KeyCode toggleKey = KeyCode.C;
         [SerializeField] private bool startsVisible = false;
@@ -29,15 +31,68 @@ namespace Tormia.Ontology.Core
         [SerializeField] private Button equipButton;
         [SerializeField] private Button unequipButton;
         [SerializeField] private Button closeButton;
+        [SerializeField] private bool equipOnPartSelection;
+        [SerializeField] private bool allowRuntimeToggle = true;
+        [SerializeField] private bool persistAccountAppearanceOnClose;
+        [SerializeField] private OntologyWorldAuthorityAccountEntryFlow accountEntryFlow;
 
         private string selectedCategory = string.Empty;
         private string selectedPartId = string.Empty;
         private bool isVisible;
+        private Action closedFromAccountCreation;
+        private bool embeddedInAccountCharacterCreation;
+
+        public bool IsVisible => isVisible;
+        public bool RuntimeToggleEnabled => allowRuntimeToggle;
+        public bool PersistsAccountAppearanceOnClose => persistAccountAppearanceOnClose;
+        public bool EquipOnPartSelection => equipOnPartSelection;
+        public bool HasCategoryIcons => categoryIconSet != null;
+        public OntologyCharacterPartAdapter PartAdapter => partAdapter;
+        public GameObject RuntimeToggleObject => openButton != null
+            ? openButton.gameObject
+            : toggleHintText != null ? toggleHintText.gameObject : null;
+
+        /// <summary>Opens the existing authored part picker as a step in account character creation.</summary>
+        public void OpenForAccountCharacterCreation(Action completed)
+        {
+            embeddedInAccountCharacterCreation = false;
+            closedFromAccountCreation = completed;
+            EnsureReferences();
+            partAdapter?.EnsureAppearanceInitialized();
+            SetVisible(true);
+            Rebuild();
+        }
+
+        /// <summary>
+        /// Opens this hierarchy-authored picker as the appearance layer of the
+        /// account character-creation screen. The account panel owns navigation;
+        /// this component continues to own only part selection and presentation.
+        /// </summary>
+        public void OpenEmbeddedForAccountCharacterCreation()
+        {
+            embeddedInAccountCharacterCreation = true;
+            closedFromAccountCreation = null;
+            EnsureReferences();
+            partAdapter?.EnsureAppearanceInitialized();
+            SetVisible(true);
+            if (closeButton != null) closeButton.gameObject.SetActive(false);
+            Rebuild();
+        }
+
+        public void CloseEmbeddedForAccountCharacterCreation()
+        {
+            if (!embeddedInAccountCharacterCreation) return;
+            embeddedInAccountCharacterCreation = false;
+            if (closeButton != null) closeButton.gameObject.SetActive(true);
+            SetVisible(false);
+        }
 
         private void Awake()
         {
             EnsureReferences();
             BindHierarchyReferences();
+            var editorPreview = transform.Find("EditorPreviewContent");
+            if (editorPreview != null) editorPreview.gameObject.SetActive(false);
             ApplyLocalizedStaticLabels();
             HookButtons();
             SetVisible(startsVisible);
@@ -67,7 +122,7 @@ namespace Tormia.Ontology.Core
 
         private void Update()
         {
-            if (WasTogglePressed())
+            if (allowRuntimeToggle && !embeddedInAccountCharacterCreation && WasTogglePressed())
             {
                 SetVisible(!isVisible);
             }
@@ -133,6 +188,7 @@ namespace Tormia.Ontology.Core
 
             RefreshPartGrid();
             RefreshSelectedDetails();
+            GetComponent<OntologyCharacterCreationPreviewPresenter>()?.SynchronizeNow();
         }
 
         private void RefreshPartGrid()
@@ -160,6 +216,11 @@ namespace Tormia.Ontology.Core
         private void RefreshSelectedDetails()
         {
             var definition = FindDefinition(selectedPartId);
+            var emptySelectionIcon = selectedIcon == null
+                ? null
+                : selectedIcon.transform.parent.Find("EmptySelectionIcon");
+            if (emptySelectionIcon != null)
+                emptySelectionIcon.gameObject.SetActive(definition == null);
             if (definition == null)
             {
                 if (selectedTitle != null) selectedTitle.text = OntologyCharacterCustomizationUiConfig.SelectPartTitle;
@@ -285,7 +346,37 @@ namespace Tormia.Ontology.Core
             SetButtonLabel(
                 button,
                 OntologyCharacterCustomizationUiConfig.SlotLabel(category));
-            SetButtonColor(button, category == selectedCategory ? OntologyCharacterCustomizationUiConfig.ActiveColor : OntologyCharacterCustomizationUiConfig.SurfaceColor);
+            var icon = button.transform.Find(OntologyCharacterCustomizationUiConfig.IconName)
+                ?.GetComponent<Image>();
+            var hasIcon = false;
+            if (icon != null)
+            {
+                icon.sprite = categoryIconSet == null ? null : categoryIconSet.GetIcon(category);
+                hasIcon = icon.sprite != null;
+                icon.enabled = hasIcon;
+                icon.preserveAspect = true;
+                icon.color = category == selectedCategory
+                    ? Color.white
+                    : new Color(1f, 1f, 1f, 0.88f);
+                icon.rectTransform.localScale = category == selectedCategory
+                    ? Vector3.one
+                    : Vector3.one * 0.92f;
+            }
+            var label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (label != null)
+            {
+                // The category menu is icon-only. Keep the localized label as a safe
+                // fallback when a category icon is missing or intentionally removed.
+                label.gameObject.SetActive(!hasIcon);
+            }
+            var buttonImage = button.GetComponent<Image>();
+            if (buttonImage != null)
+            {
+                buttonImage.sprite = null;
+                buttonImage.color = Color.clear;
+                buttonImage.raycastTarget = true;
+                button.targetGraphic = buttonImage;
+            }
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() =>
             {
@@ -298,9 +389,9 @@ namespace Tormia.Ontology.Core
         private void CreatePartCard(OntologyCharacterPartDefinition definition)
         {
             var isEquipped = partAdapter != null && partAdapter.IsPartEquipped(definition.partId);
+            var isSelected = definition.partId == selectedPartId;
             var hasConflict = HasConflictFact(definition);
             var hasCapability = HasCapabilityFact(definition);
-            var background = isEquipped ? OntologyCharacterCustomizationUiConfig.EquippedColor : definition.partId == selectedPartId ? OntologyCharacterCustomizationUiConfig.ActiveColor : hasConflict ? OntologyCharacterCustomizationUiConfig.ConflictColor : OntologyCharacterCustomizationUiConfig.SurfaceColor;
             if (partCardTemplate == null)
             {
                 Debug.LogError("[OntologyCharacterCustomizationPanel] PartCardTemplate is not assigned in the hierarchy.", this);
@@ -312,8 +403,27 @@ namespace Tormia.Ontology.Core
             button.gameObject.SetActive(true);
             var rect = (RectTransform)button.transform;
 
-            SetButtonColor(button, background);
-            var icon = rect.Find(OntologyCharacterCustomizationUiConfig.IconName)?.GetComponent<Image>();
+            // The card itself remains transparent so only the circular thumbnail
+            // reads as the control. State is communicated by the circular ring.
+            var cardImage = button.GetComponent<Image>();
+            if (cardImage != null)
+            {
+                cardImage.sprite = null;
+                cardImage.color = Color.clear;
+                cardImage.raycastTarget = true;
+                button.targetGraphic = cardImage;
+            }
+            var selectionOutline = rect.Find("SelectionOutline")?.GetComponent<Image>();
+            if (selectionOutline != null)
+            {
+                selectionOutline.gameObject.SetActive(isSelected || isEquipped);
+                selectionOutline.color = isEquipped
+                    ? new Color(0.64f, 0.9f, 0.49f, 1f)
+                    : new Color(0.95f, 0.57f, 0.17f, 1f);
+            }
+            var iconTransform = rect.Find("ThumbnailMask/" + OntologyCharacterCustomizationUiConfig.IconName)
+                ?? rect.Find(OntologyCharacterCustomizationUiConfig.IconName);
+            var icon = iconTransform?.GetComponent<Image>();
             if (icon != null)
             {
                 icon.sprite = definition.icon;
@@ -324,12 +434,17 @@ namespace Tormia.Ontology.Core
             if (fallback != null)
             {
                 fallback.text = OntologyCharacterCustomizationUiConfig.NoIconLabel;
-                fallback.gameObject.SetActive(definition.icon == null);
+                // Part cards are intentionally icon-only. A missing icon leaves the
+                // circular thumbnail empty instead of introducing runtime-only text.
+                fallback.gameObject.SetActive(false);
             }
 
             var label = rect.Find(OntologyCharacterCustomizationUiConfig.LabelName)?.GetComponent<TextMeshProUGUI>();
             if (label != null)
+            {
                 label.text = GetDisplayName(definition);
+                label.gameObject.SetActive(false);
+            }
 
             var state = rect.Find(OntologyCharacterCustomizationUiConfig.StateName)?.GetComponent<TextMeshProUGUI>();
             if (state != null)
@@ -338,20 +453,61 @@ namespace Tormia.Ontology.Core
                     ? OntologyCharacterCustomizationUiConfig.EquippedLabel
                     : OntologyCharacterCustomizationUiConfig.SlotLabel(definition.slot);
                 state.color = isEquipped ? OntologyCharacterCustomizationUiConfig.EquippedTextColor : OntologyCharacterCustomizationUiConfig.MutedTextColor;
+                state.gameObject.SetActive(false);
             }
 
             var badge = rect.Find(OntologyCharacterCustomizationUiConfig.BadgeName)?.GetComponent<TextMeshProUGUI>();
             if (badge != null)
             {
                 badge.text = GetBadgeText(isEquipped, hasCapability, hasConflict);
-                badge.gameObject.SetActive(!string.IsNullOrWhiteSpace(badge.text));
+                badge.gameObject.SetActive(false);
             }
 
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() =>
             {
                 selectedPartId = definition.partId;
-                RefreshPartGrid();
+                if (!equipOnPartSelection || partAdapter == null)
+                {
+                    RefreshPartGrid();
+                    RefreshSelectedDetails();
+                    return;
+                }
+
+                if (partAdapter.IsPartEquipped(definition.partId))
+                {
+                    if (partAdapter.UnequipPart(definition.partId))
+                    {
+                        SetStatus(string.Format(
+                            L("character.status.unequipped", "Unequipped: {0}"),
+                            GetDisplayName(definition)));
+                        Rebuild();
+                        return;
+                    }
+
+                    partAdapter.CanUnequipPart(definition.partId, out var unequipReason);
+                    SetStatus(string.Format(
+                        L("character.status.unequip_failed", "Unequip failed: {0} ({1})"),
+                        GetDisplayName(definition),
+                        FormatReason(unequipReason)));
+                    RefreshSelectedDetails();
+                    return;
+                }
+
+                if (partAdapter.EquipPart(definition.partId))
+                {
+                    SetStatus(string.Format(
+                        L("character.status.equipped", "Equipped: {0}"),
+                        GetDisplayName(definition)));
+                    Rebuild();
+                    return;
+                }
+
+                partAdapter.CanEquipPart(definition.partId, out var equipReason);
+                SetStatus(string.Format(
+                    L("character.status.equip_failed", "Equip failed: {0} ({1})"),
+                    GetDisplayName(definition),
+                    FormatReason(equipReason)));
                 RefreshSelectedDetails();
             });
         }
@@ -649,6 +805,8 @@ namespace Tormia.Ontology.Core
                     return L("character.failure.already_equipped", "already equipped");
                 case OntologyCharacterPartAdapter.FailureAlreadyUnequipped:
                     return L("character.failure.already_unequipped", "already unequipped");
+                case OntologyCharacterPartAdapter.FailureRequiredPart:
+                    return L("character.failure.required_part", "this required part cannot be removed");
                 default:
                     return string.IsNullOrWhiteSpace(reason)
                         ? L("character.failure.unknown", "unknown reason")
@@ -660,7 +818,7 @@ namespace Tormia.Ontology.Core
         {
             if (partAdapter == null)
             {
-                partAdapter = FindAnyObjectByType<OntologyCharacterPartAdapter>();
+                partAdapter = OntologyCharacterPartAdapter.FindAvailable();
             }
 
             if (partDatabase == null && partAdapter != null)
@@ -685,8 +843,11 @@ namespace Tormia.Ontology.Core
             categoryButtonTemplate ??= rect.Find(OntologyCharacterCustomizationUiConfig.TemplatesName + "/" + OntologyCharacterCustomizationUiConfig.CategoryButtonTemplateName)?.GetComponent<Button>();
             partCardTemplate ??= rect.Find(OntologyCharacterCustomizationUiConfig.TemplatesName + "/" + OntologyCharacterCustomizationUiConfig.PartCardTemplateName)?.GetComponent<Button>();
             closeButton ??= rect.Find(OntologyCharacterCustomizationUiConfig.HeaderName + "/" + OntologyCharacterCustomizationUiConfig.CloseButtonName)?.GetComponent<Button>();
-            openButton ??= transform.parent != null ? transform.parent.Find(OntologyCharacterCustomizationUiConfig.ToggleHintName)?.GetComponent<Button>() : null;
-            toggleHintText ??= transform.parent != null ? transform.parent.Find(OntologyCharacterCustomizationUiConfig.ToggleHintName)?.GetComponent<TextMeshProUGUI>() : null;
+            if (allowRuntimeToggle)
+            {
+                openButton ??= transform.parent != null ? transform.parent.Find(OntologyCharacterCustomizationUiConfig.ToggleHintName)?.GetComponent<Button>() : null;
+                toggleHintText ??= transform.parent != null ? transform.parent.Find(OntologyCharacterCustomizationUiConfig.ToggleHintName)?.GetComponent<TextMeshProUGUI>() : null;
+            }
             if (toggleHintText == null && openButton != null)
             {
                 toggleHintText = openButton.GetComponentInChildren<TextMeshProUGUI>(true);
@@ -727,6 +888,14 @@ namespace Tormia.Ontology.Core
                 ?.GetComponent<TMP_Text>();
             if (title != null)
                 title.text = OntologyCharacterCustomizationUiConfig.Title;
+            SetHierarchyText("CategoryArea/CategorySectionLabel",
+                L("character.ui.section.style", "STYLE"));
+            SetHierarchyText("PartGridArea/PartSectionLabel",
+                L("character.ui.section.parts", "PARTS"));
+            SetHierarchyText("DetailArea/DetailSectionLabel",
+                L("character.ui.section.selected", "SELECTED LOOK"));
+            SetHierarchyText("PreviewLabel",
+                L("character.ui.live_preview", "LIVE CHARACTER PREVIEW"));
             if (toggleHintText != null)
                 toggleHintText.text = OntologyCharacterCustomizationUiConfig.ToggleHint;
             SetButtonLabel(equipButton, OntologyCharacterCustomizationUiConfig.EquipLabel);
@@ -742,6 +911,12 @@ namespace Tormia.Ontology.Core
 
         private static string L(string key, string fallback) =>
             OntologyLanguagePackService.Text(key, fallback);
+
+        private void SetHierarchyText(string path, string value)
+        {
+            var text = transform.Find(path)?.GetComponent<TMP_Text>();
+            if (text != null) text.text = value;
+        }
 
         private void HookButtons()
         {
@@ -766,18 +941,30 @@ namespace Tormia.Ontology.Core
             if (openButton != null)
             {
                 openButton.onClick.RemoveListener(OpenPanel);
-                openButton.onClick.AddListener(OpenPanel);
+                if (allowRuntimeToggle)
+                    openButton.onClick.AddListener(OpenPanel);
             }
         }
 
-        private void OpenPanel()
+        public void OpenPanel()
         {
             SetVisible(true);
+            Rebuild();
         }
 
-        private void ClosePanel()
+        public void ClosePanel()
         {
             SetVisible(false);
+            if (persistAccountAppearanceOnClose)
+            {
+                EnsureReferences();
+                if (accountEntryFlow == null)
+                    accountEntryFlow = FindAnyObjectByType<OntologyWorldAuthorityAccountEntryFlow>();
+                accountEntryFlow?.SaveCurrentAccountAppearance();
+            }
+            var completed = closedFromAccountCreation;
+            closedFromAccountCreation = null;
+            completed?.Invoke();
         }
 
         private void SetStatus(string message)
@@ -805,11 +992,11 @@ namespace Tormia.Ontology.Core
             panelCanvasGroup.alpha = visible ? 1f : 0f;
             panelCanvasGroup.interactable = visible;
             panelCanvasGroup.blocksRaycasts = visible;
-            if (toggleHintText != null)
+            if (allowRuntimeToggle && toggleHintText != null)
             {
                 toggleHintText.gameObject.SetActive(!visible);
             }
-            if (openButton != null)
+            if (allowRuntimeToggle && openButton != null)
             {
                 openButton.gameObject.SetActive(!visible);
             }
@@ -825,6 +1012,11 @@ namespace Tormia.Ontology.Core
 
         private static void SetButtonLabel(Button button, string label)
         {
+            if (button == null)
+            {
+                return;
+            }
+
             var text = button.GetComponentInChildren<TextMeshProUGUI>(true);
             if (text != null)
             {

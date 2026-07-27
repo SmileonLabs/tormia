@@ -93,7 +93,10 @@ namespace Tormia.Ontology.Core
             Unsubscribe();
             controller = value;
             Bind();
-            Subscribe();
+            if (isActiveAndEnabled)
+            {
+                Subscribe();
+            }
             Refresh();
         }
 
@@ -140,6 +143,7 @@ namespace Tormia.Ontology.Core
         }
 
         private void OnDisable() => Unsubscribe();
+        private void OnDestroy() => Unsubscribe();
 
         private void Bind()
         {
@@ -545,6 +549,10 @@ namespace Tormia.Ontology.Core
         private void RefreshModeContainers()
         {
             var editorOpen = controller != null && controller.IsOntologyOpen;
+            ApplyTabVisual(tripleTabButton, mode == EditorMode.Triples);
+            ApplyTabVisual(ruleTabButton, mode == EditorMode.RuleBlocks);
+            ApplyTabVisual(physicalTabButton, mode == EditorMode.PhysicalBehavior);
+            ApplyTabVisual(resultTabButton, mode == EditorMode.Results);
             if (tripleScrollView != null)
                 tripleScrollView.SetActive(editorOpen &&
                     (mode == EditorMode.Triples || mode == EditorMode.RuleBlocks));
@@ -554,6 +562,14 @@ namespace Tormia.Ontology.Core
             if (resultScrollView != null)
                 resultScrollView.SetActive(editorOpen &&
                     mode == EditorMode.Results);
+        }
+
+        private static void ApplyTabVisual(Button button, bool selected)
+        {
+            if (button == null) return;
+            var visual = button.GetComponent<OntologyTabVisualState>();
+            if (visual != null)
+                visual.SetSelected(selected);
         }
 
         private void ClearRuntimeRows(RectTransform content)
