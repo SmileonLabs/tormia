@@ -91,6 +91,30 @@ namespace Tormia.Ontology.Core
             return string.IsNullOrWhiteSpace(fallback) ? key : fallback;
         }
 
+        public static string Format(
+            string key,
+            string fallback,
+            params object[] arguments)
+        {
+            var template = Text(key, fallback);
+            if (arguments == null || arguments.Length == 0)
+                return template;
+
+            try
+            {
+                return string.Format(
+                    CultureInfo.CurrentCulture,
+                    template,
+                    arguments);
+            }
+            catch (FormatException)
+            {
+                return string.IsNullOrWhiteSpace(fallback)
+                    ? template
+                    : fallback;
+            }
+        }
+
         public static bool HasText(string locale, string key)
         {
             EnsureLoaded();
@@ -132,6 +156,46 @@ namespace Tormia.Ontology.Core
             return Text(
                 "character_part." + (partId ?? string.Empty),
                 string.IsNullOrWhiteSpace(fallback) ? Nicify(partId) : fallback);
+        }
+
+        public static string CharacterTemplateName(
+            string templateId,
+            string fallback = null)
+        {
+            return Text(
+                "character_template." + (templateId ?? string.Empty),
+                string.IsNullOrWhiteSpace(fallback)
+                    ? Nicify(templateId)
+                    : fallback);
+        }
+
+        public static string FormatProfileRelation(
+            string subjectId,
+            string predicateId,
+            string objectId)
+        {
+            return Format(
+                "ui.account.profile_relation",
+                "{0}  >  {1}  >  {2}",
+                DisplaySemanticObject(subjectId),
+                Term(predicateId),
+                DisplaySemanticObject(objectId));
+        }
+
+        public static string FormatCharacterPartList(
+            IEnumerable<string> partIds,
+            string emptyKey = "ui.account.default_appearance",
+            string emptyFallback = "Default appearance")
+        {
+            if (partIds == null)
+                return Text(emptyKey, emptyFallback);
+            var values = partIds
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => CharacterPartName(value))
+                .ToArray();
+            return values.Length == 0
+                ? Text(emptyKey, emptyFallback)
+                : string.Join(", ", values);
         }
 
         public static string ActionLabel(OntologyActionCandidate candidate)
@@ -210,29 +274,44 @@ namespace Tormia.Ontology.Core
                 : fallback;
         }
 
+        public static IReadOnlyList<string> ValidateRegisteredTerms(
+            IEnumerable<string> canonicalIds,
+            OntologyTermKind expectedKind)
+        {
+            EnsureLoaded();
+            var messages = new List<string>();
+            foreach (var canonicalId in (canonicalIds ?? Array.Empty<string>())
+                         .Where(value => !string.IsNullOrWhiteSpace(value))
+                         .Select(value => value.Trim())
+                         .Where(value => !value.StartsWith("?"))
+                         .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var definition = registry.Find(canonicalId);
+                if (definition == null)
+                {
+                    messages.Add(
+                        $"Canonical {expectedKind} '{canonicalId}' is not registered.");
+                    continue;
+                }
+
+                if (expectedKind != OntologyTermKind.Unknown &&
+                    definition.Kind != expectedKind)
+                {
+                    messages.Add(
+                        $"Canonical id '{canonicalId}' is registered as " +
+                        $"{definition.Kind}, not {expectedKind}.");
+                }
+            }
+            return messages;
+        }
+
         public static string FormatInstanceName(
             OntologyPlaceableDefinition definition,
             string instanceName)
         {
-            if (definition == null)
-                return instanceName;
-            var baseName = Text(
-                definition.displayNameKey,
-                definition.EffectiveDisplayName);
-            if (string.IsNullOrWhiteSpace(instanceName) ||
-                string.IsNullOrWhiteSpace(definition.definitionId) ||
-                !instanceName.StartsWith(
-                    definition.definitionId,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return baseName;
-            }
-
-            var suffix = instanceName.Substring(definition.definitionId.Length)
-                .TrimStart('_', ' ');
-            return string.IsNullOrWhiteSpace(suffix)
-                ? baseName
-                : baseName + " " + suffix.Replace('_', ' ');
+            return OntologyEntityDisplayNameResolver.Resolve(
+                definition,
+                instanceName);
         }
 
         public static OntologyInputResolution ResolveObjectInput(
@@ -256,10 +335,28 @@ namespace Tormia.Ontology.Core
                 (IsRuleReferenceRelation(relation) &&
                  string.Equals(RuleName(value), input, StringComparison.OrdinalIgnoreCase)));
             if (!string.IsNullOrWhiteSpace(directKnown))
-                return Success(CanonicalTerm(directKnown));
+            {
+                var knownDefinition = registry.Find(relation);
+                return Success(
+                    knownDefinition?.ValueKind ==
+                    OntologyValueKind.ActionRef
+                        ? OntologyCanonicalId.NormalizeInput(directKnown)
+                        : CanonicalTerm(directKnown));
+            }
 
             var relationDefinition = registry.Find(relation);
             var valueKind = relationDefinition?.ValueKind ?? OntologyValueKind.Value;
+            if (valueKind == OntologyValueKind.ActionRef)
+            {
+                if (OntologyCanonicalId.ContainsNonAscii(input))
+                {
+                    return Failure(Text(
+                        "validation.unknown_localized_term",
+                        "This word is not registered in the ontology language pack."));
+                }
+
+                return Success(input);
+            }
             var expectedKind = ExpectedTermKind(valueKind);
             if (registry.TryResolve(
                     input,
@@ -347,12 +444,21 @@ namespace Tormia.Ontology.Core
             if (definition == null ||
                 definition.ValueKind == OntologyValueKind.UserText ||
                 definition.ValueKind == OntologyValueKind.EntityRef ||
-                definition.ValueKind == OntologyValueKind.Number)
+                definition.ValueKind == OntologyValueKind.Number ||
+                definition.ValueKind == OntologyValueKind.ActionRef)
             {
                 return value;
             }
 
             return CanonicalTerm(value);
+        }
+
+        public static OntologyCardinalityKind GetRelationCardinality(
+            string relation)
+        {
+            EnsureLoaded();
+            return registry.Find(CanonicalTerm(relation))?.Cardinality ??
+                   OntologyCardinalityKind.Unknown;
         }
 
         public static IReadOnlyList<string> GetRegisteredObjectCandidates(
@@ -543,12 +649,17 @@ namespace Tormia.Ontology.Core
                     Get(row, "value_type"),
                     true,
                     out OntologyValueKind valueKind);
+                Enum.TryParse(
+                    Get(row, "cardinality"),
+                    true,
+                    out OntologyCardinalityKind cardinality);
                 registry.AddTerm(new OntologyTermDefinition
                 {
                     CanonicalId = Get(row, "canonical_id"),
                     Kind = kind,
                     LabelKey = Get(row, "label_key"),
                     ValueKind = valueKind,
+                    Cardinality = cardinality,
                     Deprecated = ParseBool(Get(row, "deprecated")),
                     Replacement = Get(row, "replacement")
                 });

@@ -19,20 +19,75 @@ MonoBehaviour:
   - Agent
   - PlayerControlled
   - Humanoid
-  defaultFacts: []
+  - Damageable
+  - Combatant
+  defaultFacts:
+  - predicate: belongs_to_faction
+    obj: PlayerFaction
+  - predicate: current_health
+    obj: 100
+  - predicate: maximum_health
+    obj: 100
+  - predicate: is_alive
+    obj: True
+  - predicate: respawn_action
+    obj: respawn_avatar
+  - predicate: locomotion_action
+    obj: move_avatar
+  - predicate: jump_action
+    obj: jump_avatar
+  - predicate: physical_profile
+    obj: LocalCharacterController
+  - predicate: collision_role
+    obj: ActorBody
+  - predicate: collision_proxy_shape
+    obj: Capsule
+  - predicate: collision_radius
+    obj: 0.45
+  - predicate: collision_height
+    obj: 2
+  - predicate: collision_center_offset_x
+    obj: 0
+  - predicate: collision_center_offset_y
+    obj: 1
+  - predicate: collision_center_offset_z
+    obj: 0
+  - predicate: idle_animation_intent
+    obj: Idle
+  - predicate: move_animation_intent
+    obj: Locomotion
+  - predicate: sprint_speed
+    obj: 8
+  - predicate: gravity_acceleration
+    obj: -20
+  - predicate: jump_takeoff_speed
+    obj: 7
+  - predicate: ground_stick_velocity
+    obj: -1
+  - predicate: maximum_step_height
+    obj: 0.3
+  - predicate: ground_clearance
+    obj: 0.03
+  - predicate: impact_response_profile
+    obj: ControllerImpulse
   ontologyCapabilities:
   - Locomotion
   - Interaction
+  - Jump
   capabilities:
   - Locomotion
   - Jump
   - Combat
   - Dodge
+  idleAnimationIntent: Idle
+  moveAnimationIntent: Locomotion
+  fastMoveAnimationIntent: FastLocomotion
   animationIds:
   - Anim_Attack_Kick
   - Anim_Attack_Punch
   - Anim_Block_With_Hands
   - Anim_Climb_Ladder
+  - Anim_Collapse_Reaction
   - Anim_Crouch_Walk_Backward
   - Anim_Crouch_Walk_Forward
   - Anim_Crouch_Walk_Left
@@ -41,13 +96,13 @@ MonoBehaviour:
   - Anim_Death_Forward
   - Anim_Dodge_Roll
   - Anim_Dodge_Sidestep
-  - Anim_Fall
   - Anim_Hit_Reaction_Heavy
   - Anim_Hit_Reaction_Light
   - Anim_Idle_Breathing
   - Anim_Idle_Look_Around
   - Anim_Idle_Relaxed
   - Anim_Jump_End
+  - Anim_Jump_Fall
   - Anim_Jump_Loop
   - Anim_Jump_Start
   - Anim_Run_Backward
@@ -57,6 +112,12 @@ MonoBehaviour:
   - Anim_Strafe_Left
   - Anim_Strafe_Right
   - Anim_Swimming
+  - Anim_Sword_Equip
+  - Anim_Sword_HitRecovery
+  - Anim_Sword_Idle
+  - Anim_Sword_LightAttack
+  - Anim_Sword_Unequip
+  - Anim_Sword_Walk
   - Anim_Treading_Water
   - Anim_Walk_Backward
   - Anim_Walk_Forward

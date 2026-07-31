@@ -67,7 +67,11 @@ namespace Tormia.Ontology.Core
             var character = entryFlow?.CurrentCharacter;
             LocalizeStaticLabels();
             if (characterNameLabel != null) characterNameLabel.text = character?.displayName ?? "-";
-            if (templateValueLabel != null) templateValueLabel.text = character?.templateId ?? "-";
+            if (templateValueLabel != null)
+                templateValueLabel.text = character == null
+                    ? "-"
+                    : OntologyLanguagePackService.CharacterTemplateName(
+                        character.templateId);
             BindPartSlots(character);
             if (summaryLabel != null)
             {
@@ -214,9 +218,11 @@ namespace Tormia.Ontology.Core
                 icon.preserveAspect = true;
             }
             if (label != null)
-                label.text = string.IsNullOrWhiteSpace(definition.displayName)
-                    ? definition.slot ?? definition.partId
-                    : definition.displayName;
+                label.text = OntologyLanguagePackService.CharacterPartName(
+                    definition.partId,
+                    string.IsNullOrWhiteSpace(definition.displayName)
+                        ? definition.slot ?? definition.partId
+                        : definition.displayName);
         }
 
         private void ResolveBindings(bool createMask)

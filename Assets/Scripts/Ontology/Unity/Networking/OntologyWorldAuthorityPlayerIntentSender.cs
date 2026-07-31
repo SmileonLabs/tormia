@@ -1,5 +1,8 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
 using UnityEngine;
 
 namespace Tormia.Ontology.Core
@@ -16,29 +19,207 @@ namespace Tormia.Ontology.Core
         [SerializeField] private OntologyWorldZoneStreamer zoneStreamer;
         [SerializeField] private OntologyInputSystemPlayerInput playerInput;
         [SerializeField] private OntologyAuthorityEntityIdentity avatarIdentity;
-        [SerializeField, Tooltip("Disabled by default: enabling this sends transient input only, never world Facts.")]
-        private bool submitRuntimeIntents;
+        [SerializeField, Tooltip(
+            "Sends transient input only, never world Facts. Disable the " +
+            "component itself for offline preview; gameplay prediction does " +
+            "not fail open when Authority is unavailable.")]
+        private bool submitRuntimeIntents = true;
         [SerializeField, Min(1f)] private float submissionsPerSecond = 15f;
         [SerializeField, TextArea] private string lastStatus;
         [SerializeField] private bool avatarRegistered;
+        [SerializeField] private bool locomotionApproved;
         [SerializeField] private long nextSequence = 1;
+        [SerializeField] private long lastAcceptedSequence;
 
         private bool isSubmitting;
         private bool sentActiveIntent;
         private float nextSubmitAt;
+        private bool locomotionPreparationCompleted;
+        private bool hasLocomotionContractFingerprint;
+        private string locomotionContractFingerprint = string.Empty;
+        private bool jumpRequestPending;
 
         public bool AvatarRegistered => avatarRegistered;
-
+        public bool RequiresAuthorityLocomotionApproval =>
+            submitRuntimeIntents;
+        public bool CanPresentPredictedLocomotion =>
+            submitRuntimeIntents &&
+            authorityClient != null &&
+            authorityClient.IsWorldRuntimeReady &&
+            avatarRegistered &&
+            locomotionApproved;
+        public long LastAcceptedSequence => lastAcceptedSequence;
         /// <summary>Called by the durable account-entry coordinator after it
         /// completes the first-time avatar placement and registration.</summary>
         public void SetAvatarRegistered(bool value)
         {
             avatarRegistered = value;
+            if (!value)
+            {
+                locomotionApproved = false;
+                locomotionPreparationCompleted = false;
+                lastAcceptedSequence = 0;
+                ClearLocomotionContractFingerprint();
+                return;
+            }
+
+            CaptureCurrentLocomotionContract();
+        }
+
+        /// <summary>
+        /// Performs the transient, zero-motion Authority handshake required
+        /// before Unity presents local locomotion. World entry waits for this
+        /// approval while the avatar is still hidden and input-gated, so the
+        /// first visible frame cannot depend on the user's first movement
+        /// sample.
+        /// </summary>
+        public IEnumerator PrepareLocomotionPresentationRoutine(
+            string zoneKey,
+            Action<bool> completed = null)
+        {
+            ResolveDependencies();
+            locomotionApproved = false;
+            locomotionPreparationCompleted = false;
+
+            if (!submitRuntimeIntents ||
+                authorityClient == null ||
+                !authorityClient.IsWorldRuntimeReady ||
+                !avatarRegistered ||
+                string.IsNullOrWhiteSpace(zoneKey) ||
+                !TryGetAvatarId(out var avatarId) ||
+                !TryResolveLocomotionAction(out var locomotionAction))
+            {
+                SetStatus(
+                    "Authority locomotion preparation failed: the avatar, " +
+                    "Zone, action Triple, or Rule Block is unavailable.");
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            isSubmitting = true;
+            var accepted = false;
+            var sequence = nextSequence++;
+            yield return authorityClient.SendPlayerIntentRoutine(
+                avatarId,
+                zoneKey,
+                sequence,
+                Vector2.zero,
+                0f,
+                locomotionAction,
+                result =>
+                {
+                    accepted = result != null && result.accepted;
+                    if (!accepted)
+                    {
+                        SetStatus(
+                            "Authority locomotion preparation rejected: " +
+                            (result?.rejectionCode ?? "unknown"));
+                        return;
+                    }
+
+                    locomotionApproved = true;
+                    lastAcceptedSequence = sequence;
+                    sentActiveIntent = false;
+                    nextSubmitAt =
+                        Time.unscaledTime +
+                        1f / Mathf.Max(1f, submissionsPerSecond);
+                    CaptureCurrentLocomotionContract();
+                    SetStatus(
+                        "Authority locomotion preparation accepted (" +
+                        sequence + ").");
+                });
+
+            isSubmitting = false;
+            locomotionPreparationCompleted = accepted;
+            completed?.Invoke(accepted);
         }
 
         private void Awake()
         {
             ResolveDependencies();
+        }
+
+        private void OnEnable()
+        {
+            ResolveDependencies();
+            Subscribe();
+        }
+
+        private void OnDisable()
+        {
+            Unsubscribe();
+            locomotionApproved = false;
+            locomotionPreparationCompleted = false;
+            isSubmitting = false;
+            jumpRequestPending = false;
+            lastAcceptedSequence = 0;
+            ClearLocomotionContractFingerprint();
+        }
+
+        /// <summary>
+        /// Submits one non-durable jump intent. The input adapter supplies only
+        /// the current support observation; the enabled action, assigned Rule
+        /// Block, capability, physical profile, and takeoff speed remain
+        /// Authority/project data.
+        /// </summary>
+        public bool TryRequestJump(bool groundedObservation)
+        {
+            ResolveDependencies();
+            if (jumpRequestPending ||
+                !groundedObservation ||
+                authorityClient == null ||
+                !authorityClient.IsWorldRuntimeReady ||
+                playerInput == null ||
+                !TryGetAvatarId(out var avatarId) ||
+                !TryResolveJumpAction(out var jumpAction) ||
+                !TryResolveJumpTakeoffSpeed(out var takeoffSpeed))
+            {
+                return false;
+            }
+
+            jumpRequestPending = true;
+            StartCoroutine(
+                RequestJumpRoutine(
+                    avatarId,
+                    jumpAction,
+                    takeoffSpeed,
+                    groundedObservation));
+            return true;
+        }
+
+        private IEnumerator RequestJumpRoutine(
+            Guid avatarId,
+            OntologyAuthorityActionDefinitionProjection jumpAction,
+            float takeoffSpeed,
+            bool groundedObservation)
+        {
+            OntologyAuthorityRuntimeActionResult result = null;
+            yield return authorityClient.SendRuntimeActionRoutine(
+                avatarId,
+                avatarId,
+                null,
+                jumpAction,
+                value => result = value,
+                groundedObservation);
+            jumpRequestPending = false;
+
+            if (result == null || !result.accepted)
+            {
+                SetStatus(
+                    "Authority jump rejected: " +
+                    (result?.rejectionCode ?? "unknown"));
+                yield break;
+            }
+
+            if (!playerInput.ApplyApprovedJump(takeoffSpeed))
+            {
+                SetStatus(
+                    "Authority jump approval expired before local support " +
+                    "presentation could consume it.");
+                yield break;
+            }
+
+            SetStatus("Authority jump accepted.");
         }
 
         private void Update()
@@ -48,12 +229,31 @@ namespace Tormia.Ontology.Core
                 !authorityClient.IsWorldRuntimeReady || !avatarRegistered || !TryGetAvatarId(out _) ||
                 string.IsNullOrWhiteSpace(zoneStreamer == null ? string.Empty : zoneStreamer.ActiveZoneKey))
             {
+                if (RequiresAuthorityLocomotionApproval &&
+                    (authorityClient == null ||
+                     !authorityClient.IsWorldRuntimeReady ||
+                     !avatarRegistered))
+                {
+                    locomotionApproved = false;
+                }
+                return;
+            }
+
+            if (!TryResolveLocomotionAction(out var locomotionAction))
+            {
+                locomotionApproved = false;
+                SetStatus(
+                    "Authority locomotion unavailable: assign locomotion_action " +
+                    "and its Rule Block.");
                 return;
             }
 
             var move = Vector2.zero;
-            var hasMove = playerInput != null && playerInput.TryGetWorldMoveIntent(out move);
-            var jump = playerInput != null && playerInput.IsJumpIntentHeld;
+            var requestedSpeed = 0f;
+            var hasMove = playerInput != null &&
+                          playerInput.TryGetWorldMoveIntent(
+                              out move,
+                              out requestedSpeed);
             if (!hasMove)
             {
                 move = Vector2.zero;
@@ -62,15 +262,43 @@ namespace Tormia.Ontology.Core
             // A stop sample is sent once immediately. Continuing input is sampled
             // at the configured rate, while the server's short lease covers a
             // client crash or network loss without creating durable state.
-            var shouldSubmit = (hasMove || jump)
-                ? Time.unscaledTime >= nextSubmitAt
-                : sentActiveIntent;
+            // A complete contract that was invalidated by a projection
+            // transition revalidates itself with a zero-motion sample. Waiting
+            // for the user's next key press would leave collision presentation
+            // and animation in an unapproved intermediate state.
+            var shouldSubmit = ShouldSubmitRuntimeIntent(
+                locomotionPreparationCompleted,
+                locomotionApproved,
+                hasMove,
+                sentActiveIntent,
+                Time.unscaledTime,
+                nextSubmitAt);
             if (!shouldSubmit)
             {
                 return;
             }
 
-            StartCoroutine(SubmitRoutine(move, jump, hasMove || jump));
+            StartCoroutine(SubmitRoutine(
+                move,
+                requestedSpeed,
+                hasMove,
+                locomotionAction));
+        }
+
+        public static bool ShouldSubmitRuntimeIntent(
+            bool initialPreparationCompleted,
+            bool locomotionApproved,
+            bool hasMove,
+            bool sentActiveIntent,
+            float now,
+            float nextSubmitAt)
+        {
+            if (!initialPreparationCompleted)
+                return false;
+
+            return (!locomotionApproved || hasMove)
+                ? now >= nextSubmitAt
+                : sentActiveIntent;
         }
 
         [ContextMenu("Register Current Player Avatar with Authority")]
@@ -107,7 +335,11 @@ namespace Tormia.Ontology.Core
             });
         }
 
-        private IEnumerator SubmitRoutine(Vector2 move, bool jump, bool active)
+        private IEnumerator SubmitRoutine(
+            Vector2 move,
+            float requestedSpeed,
+            bool active,
+            OntologyAuthorityActionDefinitionProjection locomotionAction)
         {
             isSubmitting = true;
             if (!TryGetAvatarId(out var avatarId))
@@ -119,13 +351,30 @@ namespace Tormia.Ontology.Core
             var zoneKey = zoneStreamer.ActiveZoneKey;
             var sequence = nextSequence++;
             yield return authorityClient.SendPlayerIntentRoutine(
-                avatarId, zoneKey, sequence, move, jump, result =>
+                avatarId,
+                zoneKey,
+                sequence,
+                move,
+                requestedSpeed,
+                locomotionAction,
+                result =>
                 {
                     if (result == null || !result.accepted)
                     {
+                        locomotionApproved = false;
+                        nextSubmitAt =
+                            Time.unscaledTime +
+                            Mathf.Max(
+                                0.25f,
+                                1f / Mathf.Max(
+                                    1f,
+                                    submissionsPerSecond));
                         SetStatus("Authority input rejected: " + (result?.rejectionCode ?? "unknown"));
                         return;
                     }
+                    locomotionApproved = true;
+                    lastAcceptedSequence = sequence;
+                    CaptureCurrentLocomotionContract();
                     sentActiveIntent = active;
                     nextSubmitAt = Time.unscaledTime + 1f / Mathf.Max(1f, submissionsPerSecond);
                     SetStatus("Authority input accepted (" + sequence + ").");
@@ -139,12 +388,477 @@ namespace Tormia.Ontology.Core
             return avatarIdentity != null && avatarIdentity.TryGetGuid(out avatarId);
         }
 
+        public bool TryResolveLocomotionAction(
+            out OntologyAuthorityActionDefinitionProjection definition)
+        {
+            definition = null;
+            if (authorityClient == null ||
+                !TryGetAvatarId(out var avatarId))
+            {
+                return false;
+            }
+
+            var projection = authorityClient.CurrentProjection;
+            if (!TryResolveLocomotionActionId(
+                    projection,
+                    avatarId,
+                    out var actionId))
+            {
+                return false;
+            }
+
+            return authorityClient.TryResolveEnabledAction(
+                actionId,
+                out definition);
+        }
+
+        public bool TryResolveJumpAction(
+            out OntologyAuthorityActionDefinitionProjection definition)
+        {
+            definition = null;
+            if (authorityClient == null ||
+                !TryGetAvatarId(out var avatarId) ||
+                !TryResolveCanonicalActionId(
+                    authorityClient.CurrentProjection,
+                    avatarId,
+                    OntologyPredicates.JumpAction,
+                    out var actionId))
+            {
+                return false;
+            }
+
+            return authorityClient.TryResolveEnabledAction(
+                actionId,
+                out definition);
+        }
+
+        public static bool TryResolveLocomotionActionId(
+            OntologyAuthorityWorldProjection projection,
+            Guid avatarId,
+            out string actionId)
+        {
+            actionId = null;
+            var facts = projection?.facts;
+            if (avatarId == Guid.Empty || facts == null) return false;
+            var avatar = avatarId.ToString("D");
+            foreach (var fact in facts)
+            {
+                if (fact == null ||
+                    !string.Equals(
+                        fact.subjectEntityId,
+                        avatar,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(
+                        fact.predicateId,
+                        OntologyPredicates.LocomotionAction,
+                        StringComparison.Ordinal) ||
+                    !string.Equals(
+                        fact.objectKind,
+                        "canonical",
+                        StringComparison.Ordinal) ||
+                    string.IsNullOrWhiteSpace(
+                        fact.objectCanonicalId))
+                {
+                    continue;
+                }
+
+                var candidate = fact.objectCanonicalId.Trim();
+                if (actionId != null &&
+                    !string.Equals(
+                        actionId,
+                        candidate,
+                        StringComparison.Ordinal))
+                {
+                    actionId = null;
+                    return false;
+                }
+                actionId = candidate;
+            }
+            return !string.IsNullOrWhiteSpace(actionId);
+        }
+
+        public static bool TryResolveCanonicalActionId(
+            OntologyAuthorityWorldProjection projection,
+            Guid entityId,
+            string predicateId,
+            out string actionId)
+        {
+            actionId = null;
+            var facts = projection?.facts;
+            if (entityId == Guid.Empty ||
+                facts == null ||
+                string.IsNullOrWhiteSpace(predicateId))
+            {
+                return false;
+            }
+
+            var entity = entityId.ToString("D");
+            foreach (var fact in facts)
+            {
+                if (fact == null ||
+                    !string.Equals(
+                        fact.subjectEntityId,
+                        entity,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(
+                        fact.predicateId,
+                        predicateId,
+                        StringComparison.Ordinal) ||
+                    !string.Equals(
+                        fact.objectKind,
+                        "canonical",
+                        StringComparison.Ordinal) ||
+                    string.IsNullOrWhiteSpace(
+                        fact.objectCanonicalId))
+                {
+                    continue;
+                }
+
+                var candidate = fact.objectCanonicalId.Trim();
+                if (actionId != null &&
+                    !string.Equals(
+                        actionId,
+                        candidate,
+                        StringComparison.Ordinal))
+                {
+                    actionId = null;
+                    return false;
+                }
+                actionId = candidate;
+            }
+
+            return !string.IsNullOrWhiteSpace(actionId);
+        }
+
+        public bool TryResolveLocomotionSpeed(
+            bool sprint,
+            out float speed)
+        {
+            speed = 0f;
+            if (!TryGetAvatarId(out var avatarId))
+                return false;
+            var predicate = sprint
+                ? OntologyPredicates.SprintSpeed
+                : OntologyPredicates.MovementSpeed;
+            return TryResolveNumberFact(
+                authorityClient?.CurrentProjection,
+                avatarId,
+                predicate,
+                out speed) &&
+                speed > 0f;
+        }
+
+        public bool TryResolveGravityAcceleration(
+            out float gravityAcceleration)
+        {
+            gravityAcceleration = 0f;
+            if (!TryGetAvatarId(out var avatarId))
+                return false;
+            return TryResolveNumberFact(
+                       authorityClient?.CurrentProjection,
+                       avatarId,
+                       OntologyPredicates.GravityAcceleration,
+                       out gravityAcceleration) &&
+                    gravityAcceleration < 0f;
+        }
+
+        public bool TryResolveJumpTakeoffSpeed(out float takeoffSpeed)
+        {
+            takeoffSpeed = 0f;
+            if (!TryGetAvatarId(out var avatarId))
+                return false;
+            return TryResolveNumberFact(
+                       authorityClient?.CurrentProjection,
+                       avatarId,
+                       OntologyPredicates.JumpTakeoffSpeed,
+                       out takeoffSpeed) &&
+                   takeoffSpeed > 0f;
+        }
+
+        public bool TryResolveGroundStickVelocity(
+            out float groundStickVelocity)
+        {
+            groundStickVelocity = 0f;
+            if (!TryGetAvatarId(out var avatarId))
+                return false;
+            return TryResolveNumberFact(
+                       authorityClient?.CurrentProjection,
+                       avatarId,
+                       OntologyPredicates.GroundStickVelocity,
+                       out groundStickVelocity) &&
+                   groundStickVelocity <= 0f;
+        }
+
+        public static bool TryResolveNumberFact(
+            OntologyAuthorityWorldProjection projection,
+            Guid entityId,
+            string predicateId,
+            out float value)
+        {
+            value = 0f;
+            if (projection?.facts == null ||
+                entityId == Guid.Empty ||
+                string.IsNullOrWhiteSpace(predicateId))
+            {
+                return false;
+            }
+            var entity = entityId.ToString("D");
+            var matches = new List<string>();
+            foreach (var fact in projection.facts)
+            {
+                if (fact != null &&
+                    string.Equals(
+                        fact.subjectEntityId,
+                        entity,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(
+                        fact.predicateId,
+                        predicateId,
+                        StringComparison.Ordinal) &&
+                    string.Equals(
+                        fact.objectKind,
+                        "number",
+                        StringComparison.Ordinal) &&
+                    !string.IsNullOrWhiteSpace(
+                        fact.objectValueJson))
+                {
+                    var candidate = fact.objectValueJson.Trim();
+                    if (!matches.Contains(candidate))
+                        matches.Add(candidate);
+                }
+            }
+            return matches.Count == 1 &&
+                   float.TryParse(
+                       matches[0],
+                       NumberStyles.Float,
+                       CultureInfo.InvariantCulture,
+                       out value) &&
+                   float.IsFinite(value);
+        }
+
+        /// <summary>
+        /// Builds the projection-owned portion of the local avatar's locomotion
+        /// contract. Revisions, unrelated entities, and unrelated avatar
+        /// semantics are deliberately excluded: combat, equipment, profile, or
+        /// presentation changes must not suspend an already approved player
+        /// locomotion sample. Only the authored facts, Rule Blocks, action
+        /// identity, world, and Zone that participate in locomotion
+        /// evaluation are included.
+        /// </summary>
+        public static bool TryCreateLocomotionContractFingerprint(
+            OntologyAuthorityWorldProjection projection,
+            Guid avatarId,
+            out string fingerprint)
+        {
+            fingerprint = string.Empty;
+            if (projection == null ||
+                avatarId == Guid.Empty ||
+                !TryResolveLocomotionActionId(
+                    projection,
+                    avatarId,
+                    out var actionId))
+            {
+                return false;
+            }
+
+            var matchingActions =
+                new List<OntologyAuthorityActionDefinitionProjection>();
+            if (projection.actions != null)
+            {
+                foreach (var action in projection.actions)
+                {
+                    if (action != null &&
+                        string.Equals(
+                            action.actionId,
+                            actionId,
+                            StringComparison.Ordinal))
+                    {
+                        matchingActions.Add(action);
+                    }
+                }
+            }
+            if (matchingActions.Count != 1)
+            {
+                return false;
+            }
+
+            var avatar = avatarId.ToString("D");
+            var facts = new List<string>();
+            if (projection.facts != null)
+            {
+                foreach (var fact in projection.facts)
+                {
+                    if (fact == null ||
+                        !string.Equals(
+                            fact.subjectEntityId,
+                            avatar,
+                            StringComparison.OrdinalIgnoreCase) ||
+                        !IsLocomotionContractFact(fact))
+                    {
+                        continue;
+                    }
+
+                    facts.Add(CreateCanonicalRecord(
+                        fact.predicateId,
+                        fact.objectKind,
+                        fact.objectEntityId,
+                        fact.objectCanonicalId,
+                        fact.objectValueJson));
+                }
+            }
+            facts.Sort(StringComparer.Ordinal);
+
+            var bindings = new List<string>();
+            if (projection.ruleBindings != null)
+            {
+                foreach (var binding in projection.ruleBindings)
+                {
+                    if (binding == null ||
+                        !string.Equals(
+                            binding.targetEntityId,
+                            avatar,
+                            StringComparison.OrdinalIgnoreCase) ||
+                        !IsLocomotionContractRule(binding.ruleId))
+                    {
+                        continue;
+                    }
+
+                    bindings.Add(CreateCanonicalRecord(
+                        binding.ruleId,
+                        binding.ruleVersion.ToString(),
+                        binding.enabled ? "1" : "0",
+                        binding.parameterValuesJson));
+                }
+            }
+            bindings.Sort(StringComparer.Ordinal);
+
+            var selectedAction = matchingActions[0];
+            var builder = new StringBuilder();
+            AppendCanonicalPart(builder, projection.worldId);
+            AppendCanonicalPart(builder, projection.scopeZoneKey);
+            AppendCanonicalPart(builder, avatar);
+            AppendCanonicalPart(builder, actionId);
+            AppendCanonicalPart(builder, selectedAction.packageId);
+            AppendCanonicalPart(builder, selectedAction.packageVersion);
+            AppendCanonicalPart(
+                builder,
+                selectedAction.definitionVersion.ToString());
+            AppendCanonicalPart(
+                builder,
+                selectedAction.actorAnimationIntent);
+            AppendCanonicalRecords(builder, facts);
+            AppendCanonicalRecords(builder, bindings);
+            fingerprint = builder.ToString();
+            return true;
+        }
+
+        private static bool IsLocomotionContractFact(
+            OntologyAuthorityFactProjection fact)
+        {
+            if (fact == null)
+                return false;
+
+            switch (fact.predicateId)
+            {
+                case OntologyPredicates.LocomotionAction:
+                case OntologyPredicates.MovementSpeed:
+                case OntologyPredicates.SprintSpeed:
+                case OntologyPredicates.PhysicalProfile:
+                case OntologyPredicates.IsAlive:
+                case OntologyPredicates.GravityAcceleration:
+                    return true;
+                case OntologyPredicates.GrantsCapability:
+                    return HasCanonicalObject(fact, "Locomotion");
+                case OntologyPredicates.HasConcept:
+                    return HasCanonicalObject(
+                               fact,
+                               OntologyConcepts.Actor) ||
+                           HasCanonicalObject(
+                               fact,
+                               OntologyConcepts.PlayerControlled);
+                case OntologyPredicates.HasRuleBlock:
+                    return HasCanonicalObject(
+                        fact,
+                        OntologyRuleBlocks.MovePlayerFromIntent);
+                default:
+                    return false;
+            }
+        }
+
+        private static bool HasCanonicalObject(
+            OntologyAuthorityFactProjection fact,
+            string canonicalId)
+        {
+            return fact != null &&
+                   string.Equals(
+                       fact.objectKind,
+                       "canonical",
+                       StringComparison.Ordinal) &&
+                   string.Equals(
+                       fact.objectCanonicalId,
+                       canonicalId,
+                       StringComparison.Ordinal);
+        }
+
+        private static bool IsLocomotionContractRule(string ruleId)
+        {
+            return string.Equals(
+                ruleId,
+                OntologyRuleBlocks.MovePlayerFromIntent,
+                StringComparison.Ordinal);
+        }
+
+        public static bool ShouldInvalidateLocomotionApproval(
+            bool hasPreviousFingerprint,
+            string previousFingerprint,
+            bool hasNextFingerprint,
+            string nextFingerprint)
+        {
+            return !hasPreviousFingerprint ||
+                   !hasNextFingerprint ||
+                   !string.Equals(
+                       previousFingerprint,
+                       nextFingerprint,
+                       StringComparison.Ordinal);
+        }
+
+        private void HandleProjectionReceived(
+            OntologyAuthorityWorldProjection projection)
+        {
+            var hadPrevious = hasLocomotionContractFingerprint;
+            var previous = locomotionContractFingerprint;
+            var next = string.Empty;
+            var hasNext =
+                TryGetAvatarId(out var avatarId) &&
+                TryCreateLocomotionContractFingerprint(
+                    projection,
+                    avatarId,
+                    out next);
+
+            if (ShouldInvalidateLocomotionApproval(
+                    hadPrevious,
+                    previous,
+                    hasNext,
+                    next))
+            {
+                // A changed or incomplete avatar contract must be re-evaluated
+                // by Authority. An unrelated entity revision preserves the
+                // already-approved transient locomotion lease.
+                locomotionApproved = false;
+            }
+
+            hasLocomotionContractFingerprint = hasNext;
+            locomotionContractFingerprint =
+                hasNext ? next : string.Empty;
+        }
+
         private void ResolveDependencies()
         {
             if (authorityClient == null)
             {
                 authorityClient = GetComponent<OntologyWorldAuthorityClient>() ??
                                   FindAnyObjectByType<OntologyWorldAuthorityClient>();
+                if (isActiveAndEnabled) Subscribe();
             }
             if (zoneStreamer == null)
             {
@@ -160,9 +874,93 @@ namespace Tormia.Ontology.Core
             }
         }
 
+        private void Subscribe()
+        {
+            if (authorityClient == null) return;
+            authorityClient.ProjectionReceived -=
+                HandleProjectionReceived;
+            authorityClient.ProjectionReceived +=
+                HandleProjectionReceived;
+            CaptureCurrentLocomotionContract();
+        }
+
+        private void Unsubscribe()
+        {
+            if (authorityClient == null) return;
+            authorityClient.ProjectionReceived -=
+                HandleProjectionReceived;
+        }
+
         private void SetStatus(string value)
         {
             lastStatus = value ?? string.Empty;
+        }
+
+        private void CaptureCurrentLocomotionContract()
+        {
+            if (authorityClient == null ||
+                !TryGetAvatarId(out var avatarId) ||
+                !TryCreateLocomotionContractFingerprint(
+                    authorityClient.CurrentProjection,
+                    avatarId,
+                    out var fingerprint))
+            {
+                return;
+            }
+
+            hasLocomotionContractFingerprint = true;
+            locomotionContractFingerprint = fingerprint;
+        }
+
+        private void ClearLocomotionContractFingerprint()
+        {
+            hasLocomotionContractFingerprint = false;
+            locomotionContractFingerprint = string.Empty;
+        }
+
+        private static string CreateCanonicalRecord(
+            params string[] values)
+        {
+            var builder = new StringBuilder();
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
+                    AppendCanonicalPart(builder, value);
+                }
+            }
+            return builder.ToString();
+        }
+
+        private static void AppendCanonicalRecords(
+            StringBuilder builder,
+            IEnumerable<string> records)
+        {
+            if (records == null)
+            {
+                AppendCanonicalPart(builder, null);
+                return;
+            }
+
+            foreach (var record in records)
+            {
+                AppendCanonicalPart(builder, record);
+            }
+        }
+
+        private static void AppendCanonicalPart(
+            StringBuilder builder,
+            string value)
+        {
+            if (value == null)
+            {
+                builder.Append("-1:");
+                return;
+            }
+
+            builder.Append(value.Length);
+            builder.Append(':');
+            builder.Append(value);
         }
     }
 }

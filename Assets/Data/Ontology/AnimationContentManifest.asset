@@ -1,0 +1,1149 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c3d3b2363d885f44a11f74c206e0755, type: 3}
+  m_Name: AnimationContentManifest
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyAnimationContentManifest
+  contentVersion: 1.0.0
+  entries:
+  - animationId: Anim_Idle_Breathing
+    clip: {fileID: 7400000, guid: 3ed56c1c8d524197b0c60b0b09bb8d84, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Idle_Breathing.anim
+    deliveryKey: animations/Anim_Idle_Breathing
+    intents:
+    - Discomfort
+    - Idle
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 10
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Idle
+    - Breathing
+    - LowEnergy
+    contentVersion: 1.0.0
+    checksum: 5e9cf096b64db2ec101d1fb6687a63de
+  - animationId: Anim_Idle_Look_Around
+    clip: {fileID: 7400000, guid: c7ab98e30fdf4ecfb26a439b0cb318c5, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Idle_Look_Around.anim
+    deliveryKey: animations/Anim_Idle_Look_Around
+    intents:
+    - Alert
+    - Idle
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 15
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Idle
+    - AlertIdle
+    contentVersion: 1.0.0
+    checksum: dbe9fd48f2788391eec4b6904e3d393e
+  - animationId: Anim_Idle_Relaxed
+    clip: {fileID: 7400000, guid: c52272260b5340bbbc2512932157aac3, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Idle_Relaxed.anim
+    deliveryKey: animations/Anim_Idle_Relaxed
+    intents:
+    - Idle
+    - Rest
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    - {fileID: 11400000, guid: 6a8d0be1427f4a7eb13797f28ae6cf10, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 5
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Idle
+    - RelaxedIdle
+    contentVersion: 1.0.0
+    checksum: da701d131f9417fa6825603b811e9051
+  - animationId: Anim_Walk_Forward
+    clip: {fileID: 7400000, guid: 98b6a2eb86734f97bdcfb9fcd236f27d, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Walk_Forward.anim
+    deliveryKey: animations/Anim_Walk_Forward
+    intents:
+    - Locomotion
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    - {fileID: 11400000, guid: 6a8d0be1427f4a7eb13797f28ae6cf10, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 20
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Forward
+    - Walk
+    contentVersion: 1.0.0
+    checksum: ad283f86f4a1487f47e7bd6a6ec350cb
+  - animationId: Anim_Walk_Backward
+    clip: {fileID: 7400000, guid: 212ae36e2e204ce2844c1c4905285b65, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Walk_Backward.anim
+    deliveryKey: animations/Anim_Walk_Backward
+    intents:
+    - Locomotion
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 20
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Backward
+    - Walk
+    contentVersion: 1.0.0
+    checksum: a29137106c6f2bc401a414bf9723a350
+  - animationId: Anim_Run_Forward
+    clip: {fileID: 7400000, guid: f32e0a8fd4d44af18ae7f0562fe8cf75, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Run_Forward.anim
+    deliveryKey: animations/Anim_Run_Forward
+    intents:
+    - FastLocomotion
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 30
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Forward
+    - Run
+    - HighIntensity
+    contentVersion: 1.0.0
+    checksum: 5a9881921b02e911796f6e8a8b7f2b61
+  - animationId: Anim_Run_Backward
+    clip: {fileID: 7400000, guid: ddae1c8eb8e14567b4b6d8d41607d2db, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Run_Backward.anim
+    deliveryKey: animations/Anim_Run_Backward
+    intents:
+    - FastLocomotion
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 30
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Backward
+    - Run
+    - HighIntensity
+    contentVersion: 1.0.0
+    checksum: c41384b2b1df5eaf383fc93821f03255
+  - animationId: Anim_Run_Left
+    clip: {fileID: 7400000, guid: 543b8c31fa1141d897f189b4765741d2, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Run_Left.anim
+    deliveryKey: animations/Anim_Run_Left
+    intents:
+    - FastLocomotion
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 30
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Left
+    - Run
+    - HighIntensity
+    contentVersion: 1.0.0
+    checksum: 613fbe0ed323a92af9cd61ef26b4fe51
+  - animationId: Anim_Run_Right
+    clip: {fileID: 7400000, guid: 04e87bdc25744cfdab0e7838576047c3, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Run_Right.anim
+    deliveryKey: animations/Anim_Run_Right
+    intents:
+    - FastLocomotion
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 30
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Right
+    - Run
+    - HighIntensity
+    contentVersion: 1.0.0
+    checksum: c1d6531326e63c25af90e191f9465171
+  - animationId: Anim_Strafe_Left
+    clip: {fileID: 7400000, guid: 5a3832995d7c4cd0affdb41cd20d0fc5, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Strafe_Left.anim
+    deliveryKey: animations/Anim_Strafe_Left
+    intents:
+    - Strafe
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 25
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Left
+    - Strafe
+    contentVersion: 1.0.0
+    checksum: 3b0e60c966732fc84784b5530f12b0e2
+  - animationId: Anim_Strafe_Right
+    clip: {fileID: 7400000, guid: 50f3545cb7134cc7bbb47ed9d151c7d1, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Strafe_Right.anim
+    deliveryKey: animations/Anim_Strafe_Right
+    intents:
+    - Strafe
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 25
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Right
+    - Strafe
+    contentVersion: 1.0.0
+    checksum: 8ecd82215e281204b3a9f53ee288707d
+  - animationId: Anim_Jump_Start
+    legacyAnimationIds: []
+    clip: {fileID: 7400000, guid: 5a9a451b24024a41ab46c9aa555bc41d, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Jump_Start.anim
+    deliveryKey: animations/Anim_Jump_Start
+    intents:
+    - JumpStart
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 1
+    presentationOwner: 1
+    interruptible: 1
+    priority: 40
+    canBlend: 0
+    transitionDuration: 0.25
+    playbackStartNormalized: 0
+    playbackEndNormalized: 0.28
+    properties:
+    - Jump
+    - Airborne
+    - Start
+    contentVersion: 1.0.0
+    checksum: f84c7da174a0c681bba4865252e3b526
+  - animationId: Anim_Jump_Loop
+    legacyAnimationIds: []
+    clip: {fileID: 7400000, guid: 7cc61edbc91e4638a961fc0228920a80, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Jump_Loop.anim
+    deliveryKey: animations/Anim_Jump_Loop
+    intents:
+    - Airborne
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 1
+    rootMotionMode: 1
+    presentationOwner: 1
+    interruptible: 1
+    priority: 35
+    canBlend: 1
+    transitionDuration: 0.12
+    playbackStartNormalized: 0
+    playbackEndNormalized: 0.5
+    properties:
+    - Jump
+    - Airborne
+    - Loop
+    contentVersion: 1.0.0
+    checksum: 8bf9de8d27ea8fab1d8e9ff97f4a8a69
+  - animationId: Anim_Jump_Fall
+    legacyAnimationIds: []
+    clip: {fileID: 7400000, guid: 7cc61edbc91e4638a961fc0228920a80, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Jump_Loop.anim
+    deliveryKey: animations/Anim_Jump_Fall
+    intents:
+    - Fall
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 1
+    rootMotionMode: 1
+    presentationOwner: 1
+    interruptible: 1
+    priority: 35
+    canBlend: 1
+    transitionDuration: 0.12
+    playbackStartNormalized: 0.5
+    playbackEndNormalized: 1
+    properties:
+    - Jump
+    - Airborne
+    - Fall
+    contentVersion: 1.0.0
+    checksum: 8bf9de8d27ea8fab1d8e9ff97f4a8a69
+  - animationId: Anim_Jump_End
+    legacyAnimationIds: []
+    clip: {fileID: 7400000, guid: e234e2a5d3e04f9a8fa6d6295555c345, type: 2}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Jump_End.anim
+    deliveryKey: animations/Anim_Jump_End
+    intents:
+    - Landing
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 1
+    presentationOwner: 1
+    interruptible: 1
+    priority: 35
+    canBlend: 1
+    transitionDuration: 0.15
+    playbackStartNormalized: 0.85
+    playbackEndNormalized: 1
+    properties:
+    - Jump
+    - Landing
+    - End
+    contentVersion: 1.0.0
+    checksum: 372f18b3edfc508e8205073d81b61744
+  - animationId: Anim_Crouch_Walk_Forward
+    clip: {fileID: 9198153334671162169, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Crouch_Walk_Forward
+    intents:
+    - CautiousLocomotion
+    - ImpairedMovement
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 55
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Crouch
+    - ImpairedMovement
+    - Forward
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Crouch_Walk_Backward
+    clip: {fileID: 439784503820603027, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Crouch_Walk_Backward
+    intents:
+    - CautiousLocomotion
+    - ImpairedMovement
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 55
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Crouch
+    - ImpairedMovement
+    - Backward
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Crouch_Walk_Left
+    clip: {fileID: -7504226609968954862, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Crouch_Walk_Left
+    intents:
+    - CautiousLocomotion
+    - ImpairedMovement
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 55
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Crouch
+    - ImpairedMovement
+    - Left
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Crouch_Walk_Right
+    clip: {fileID: -7624677252082611786, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Crouch_Walk_Right
+    intents:
+    - CautiousLocomotion
+    - ImpairedMovement
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 55
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Locomotion
+    - Crouch
+    - ImpairedMovement
+    - Right
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Hit_Reaction_Light
+    clip: {fileID: 732519596084210561, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Hit_Reaction_Light
+    intents:
+    - DamageReaction
+    - Discomfort
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 60
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - DamageReaction
+    - LightSeverity
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Hit_Reaction_Heavy
+    clip: {fileID: 4298968129520807213, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Hit_Reaction_Heavy
+    intents:
+    - SevereDamageReaction
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 80
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - DamageReaction
+    - HeavySeverity
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Collapse_Reaction
+    legacyAnimationIds:
+    - Anim_Fall
+    clip: {fileID: 5917537482288442099, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Collapse_Reaction
+    intents:
+    - CollapseReaction
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 1
+    presentationOwner: 0
+    interruptible: 1
+    priority: 85
+    canBlend: 0
+    transitionDuration: 0.25
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
+    properties:
+    - CollapseReaction
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Death_Backward
+    clip: {fileID: -4950758156531648292, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Death_Backward
+    intents:
+    - DeathReaction
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 100
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - DeathReaction
+    - Backward
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Death_Forward
+    clip: {fileID: 6182763086745782283, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Death_Forward
+    intents:
+    - DeathReaction
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 100
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - DeathReaction
+    - Forward
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Attack_Punch
+    clip: {fileID: -7394484345467444417, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Attack_Punch
+    intents:
+    - Attack
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 70
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Attack
+    - Unarmed
+    - UpperBody
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Attack_Kick
+    clip: {fileID: 2771865946972476010, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Attack_Kick
+    intents:
+    - Attack
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 70
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Attack
+    - Unarmed
+    - LowerBody
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Block_With_Hands
+    clip: {fileID: -4478515264891265488, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Block_With_Hands
+    intents:
+    - Defense
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 65
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Defense
+    - Block
+    - UpperBody
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Dodge_Roll
+    clip: {fileID: 1396319113448604862, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Dodge_Roll
+    intents:
+    - Evasion
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 75
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Evasion
+    - Roll
+    - FullBody
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Dodge_Sidestep
+    clip: {fileID: 2737883252764492063, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Dodge_Sidestep
+    intents:
+    - Evasion
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 70
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Evasion
+    - Sidestep
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Climb_Ladder
+    clip: {fileID: -6200094899576005654, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
+    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
+    deliveryKey: animations/Anim_Climb_Ladder
+    intents:
+    - Traversal
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 50
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Traversal
+    - Climb
+    contentVersion: 1.0.0
+    checksum: 62b505236f4114f7fcc0738e807d582a
+  - animationId: Anim_Swimming
+    clip: {fileID: -203655887218126122, guid: 4659398749ed1334ab4d1d594ce7c168, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Swimming.fbx
+    deliveryKey: animations/Anim_Swimming
+    intents:
+    - Swimming
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 50
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Swimming
+    - Locomotion
+    contentVersion: 1.0.0
+    checksum: dc43f1ec976dd7257269960494e0d0d2
+  - animationId: Anim_Treading_Water
+    clip: {fileID: -203655887218126122, guid: f625706e23c137a4782caaf2b2a55155, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Treading Water.fbx
+    deliveryKey: animations/Anim_Treading_Water
+    intents:
+    - TreadingWater
+    actorTypes: []
+    rigTypes: []
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 95
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Swimming
+    - Idle
+    contentVersion: 1.0.0
+    checksum: f638dfee049cb3819a905a563f3bde83
+  - animationId: Anim_Sword_Equip
+    clip: {fileID: -203655887218126122, guid: 30b1e45f03f5b274b85f238b93551bd8, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/SwordEquip.fbx
+    deliveryKey: animations/Anim_Sword_Equip
+    intents:
+    - WeaponEquip
+    actorTypes:
+    - Player
+    rigTypes:
+    - Humanoid
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 80
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Combat
+    contentVersion: 1.0.0
+    checksum: 81d33d4518fa423985a25fed023db375
+  - animationId: Anim_Sword_Unequip
+    clip: {fileID: -203655887218126122, guid: 1a367f90f099bd940b28f076691cf2d5, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/SwordUnequip.fbx
+    deliveryKey: animations/Anim_Sword_Unequip
+    intents:
+    - WeaponUnequip
+    actorTypes:
+    - Player
+    rigTypes:
+    - Humanoid
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 80
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Combat
+    contentVersion: 1.0.0
+    checksum: 9c46952b1c318d3b761b4a39b939ba19
+  - animationId: Anim_Sword_Idle
+    clip: {fileID: -203655887218126122, guid: 756dcf0d740eafe4ab358987d3d8b676, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/SwordIdle.fbx
+    deliveryKey: animations/Anim_Sword_Idle
+    intents:
+    - WeaponIdle
+    actorTypes:
+    - Player
+    rigTypes:
+    - Humanoid
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 0
+    priority: 40
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Combat
+    contentVersion: 1.0.0
+    checksum: a40fe23736c6fdc75f8202c9b5368f98
+  - animationId: Anim_Sword_Walk
+    clip: {fileID: -203655887218126122, guid: b686b5a765fe3c34f9aa4dcb362ba857, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/WeaponeWalk.fbx
+    deliveryKey: animations/Anim_Sword_Walk
+    intents:
+    - WeaponWalk
+    actorTypes:
+    - Player
+    rigTypes:
+    - Humanoid
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 0
+    priority: 45
+    canBlend: 1
+    transitionDuration: 0.25
+    properties:
+    - Combat
+    contentVersion: 1.0.0
+    checksum: 06798bf2c68a3835675149b07df0ed90
+  - animationId: Anim_Sword_LightAttack
+    clip: {fileID: -203655887218126122, guid: 60bff616ce1aba14186ff054c66982d7, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/SwordLightAttack.fbx
+    deliveryKey: animations/Anim_Sword_LightAttack
+    intents:
+    - AttackLight
+    actorTypes:
+    - Player
+    rigTypes:
+    - Humanoid
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 100
+    canBlend: 0
+    transitionDuration: 0.25
+    hasContactWindow: 1
+    contactWindowStartNormalized: 0.2
+    contactWindowEndNormalized: 0.8
+    properties:
+    - Combat
+    contentVersion: 1.0.0
+    checksum: df297cdd5abcb31993ef1d450f9b8452
+  - animationId: Anim_Sword_HitRecovery
+    clip: {fileID: -203655887218126122, guid: 2490fde580c60284a806a0792a6f70b9, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/SwordHitRecovery.fbx
+    deliveryKey: animations/Anim_Sword_HitRecovery
+    intents:
+    - AttackRecovery
+    actorTypes:
+    - Player
+    rigTypes:
+    - Humanoid
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 1
+    priority: 90
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Combat
+    contentVersion: 1.0.0
+    checksum: 6a697f2f544cce8078f37aafecab6103
+  - animationId: Anim_Beholder_Idle
+    clip: {fileID: 7400000, guid: 1125a2cce46b489590671831483c9b9f, type: 3}
+    sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/IdleNormal.fbx
+    deliveryKey: animations/Anim_Beholder_Idle
+    intents:
+    - MonsterIdle
+    actorTypes:
+    - Monster
+    rigTypes:
+    - Generic
+    profiles:
+    - {fileID: 11400000, guid: 4e30835cafc484448a6e94cd19d3d308, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 0
+    priority: 20
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Combat
+    contentVersion: 1.0.0
+    checksum: 9f9262760ce4de7a4e01f34e766808bf
+  - animationId: Anim_Beholder_Hit
+    clip: {fileID: 7400000, guid: 13049e370384471a857e55bf2ab6c1aa, type: 3}
+    sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/GetHit.fbx
+    deliveryKey: animations/Anim_Beholder_Hit
+    intents:
+    - HitReaction
+    actorTypes:
+    - Monster
+    rigTypes:
+    - Generic
+    profiles:
+    - {fileID: 11400000, guid: 4e30835cafc484448a6e94cd19d3d308, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 0
+    priority: 100
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Combat
+    contentVersion: 1.0.0
+    checksum: 310c195f7a70c27e952b3fdb8f4cb3d1
+  - animationId: Anim_Beholder_Death
+    clip: {fileID: 7400000, guid: 97c47bfed40c4af58abfab0182f75594, type: 3}
+    sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/Die.fbx
+    deliveryKey: animations/Anim_Beholder_Death
+    intents:
+    - Death
+    actorTypes:
+    - Monster
+    rigTypes:
+    - Generic
+    profiles:
+    - {fileID: 11400000, guid: 4e30835cafc484448a6e94cd19d3d308, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 0
+    interruptible: 0
+    priority: 120
+    canBlend: 0
+    transitionDuration: 0.25
+    properties:
+    - Combat
+    contentVersion: 1.0.0
+    checksum: 4a50e6885f7de41f50f4adfb12104178
+  - animationId: Anim_Beholder_Attack
+    clip: {fileID: 7400000, guid: a5aa3ce397c24155845dba13bc634b36, type: 3}
+    sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/Attack01.fbx
+    deliveryKey: animations/Anim_Beholder_Attack
+    intents:
+    - MonsterAttack
+    actorTypes:
+    - Monster
+    rigTypes:
+    - Generic
+    profiles:
+    - {fileID: 11400000, guid: 4e30835cafc484448a6e94cd19d3d308, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 1
+    interruptible: 0
+    priority: 110
+    canBlend: 1
+    transitionDuration: 0.2
+    properties:
+    - Combat
+    - Attack
+    contentVersion: 1.0.0
+    checksum: 
+  - animationId: Anim_Beholder_Walk
+    clip: {fileID: 7400000, guid: 38b0b6ad62ca4f8fa72ac537c889c8dc, type: 3}
+    sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/WalkFWD.fbx
+    deliveryKey: animations/Anim_Beholder_Walk
+    intents:
+    - MonsterWalk
+    actorTypes:
+    - Monster
+    rigTypes:
+    - Generic
+    profiles:
+    - {fileID: 11400000, guid: 4e30835cafc484448a6e94cd19d3d308, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 1
+    rootMotionMode: 1
+    interruptible: 1
+    priority: 30
+    canBlend: 1
+    transitionDuration: 0.2
+    properties:
+    - Combat
+    - Locomotion
+    contentVersion: 1.0.0
+    checksum: 
+  - animationId: Anim_Beholder_Run
+    clip: {fileID: 7400000, guid: cabb129121944e2dbd3866b6deba6b9d, type: 3}
+    sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/Run.fbx
+    deliveryKey: animations/Anim_Beholder_Run
+    intents:
+    - MonsterRun
+    actorTypes:
+    - Monster
+    rigTypes:
+    - Generic
+    profiles:
+    - {fileID: 11400000, guid: 4e30835cafc484448a6e94cd19d3d308, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 1
+    loopPose: 1
+    rootMotionMode: 1
+    interruptible: 1
+    priority: 40
+    canBlend: 1
+    transitionDuration: 0.2
+    properties:
+    - Combat
+    - Locomotion
+    contentVersion: 1.0.0
+    checksum: 

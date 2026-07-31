@@ -12,9 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a7f695221ab2de4cb6b4f11b56b9647, type: 3}
   m_Name: PolyStylePlaceables
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyPlaceableCatalog
-  defaultPhysicalProfile: {fileID: 11400000, guid: 5846d380c3d64a97857d57b7b3b048b8, type: 2}
+  defaultPhysicalProfile: {fileID: 0}
   definitions:
   - definitionId: PolyStyle_Stone_1
+    placementKind: 0
     displayNameKey: object.stone_1
     displayName: Stone 1
     category: Nature
@@ -37,8 +38,15 @@ MonoBehaviour:
       defaultLocalScale: {x: 1, y: 1, z: 1}
     physicalProfile: {fileID: 11400000, guid: 5846d380c3d64a97857d57b7b3b048b8, type: 2}
     attachmentProfile: {fileID: 0}
+    semanticContractVersion: 1
+    ruleBlockMigrations: []
+    introducedFacts: []
+    introducedRuleBlocks: []
+    retiredFacts: []
+    retiredRuleBlocks: []
     defaultRuleBlocks: []
   - definitionId: PolyStyle_Stone_2
+    placementKind: 0
     displayNameKey: object.stone_2
     displayName: Stone 2
     category: Nature
@@ -61,8 +69,15 @@ MonoBehaviour:
       defaultLocalScale: {x: 1, y: 1, z: 1}
     physicalProfile: {fileID: 11400000, guid: 5846d380c3d64a97857d57b7b3b048b8, type: 2}
     attachmentProfile: {fileID: 0}
+    semanticContractVersion: 1
+    ruleBlockMigrations: []
+    introducedFacts: []
+    introducedRuleBlocks: []
+    retiredFacts: []
+    retiredRuleBlocks: []
     defaultRuleBlocks: []
   - definitionId: PolyStyle_Stone_3
+    placementKind: 0
     displayNameKey: object.stone_3
     displayName: Stone 3
     category: Nature
@@ -85,8 +100,15 @@ MonoBehaviour:
       defaultLocalScale: {x: 1, y: 1, z: 1}
     physicalProfile: {fileID: 11400000, guid: 5846d380c3d64a97857d57b7b3b048b8, type: 2}
     attachmentProfile: {fileID: 0}
+    semanticContractVersion: 1
+    ruleBlockMigrations: []
+    introducedFacts: []
+    introducedRuleBlocks: []
+    retiredFacts: []
+    retiredRuleBlocks: []
     defaultRuleBlocks: []
   - definitionId: PolyStyle_Grass_1
+    placementKind: 0
     displayNameKey: object.grass_1
     displayName: Grass 1
     category: Nature
@@ -107,10 +129,17 @@ MonoBehaviour:
       alignToSurfaceNormal: 0
       randomYawOnPlacement: 1
       defaultLocalScale: {x: 1, y: 1, z: 1}
-    physicalProfile: {fileID: 0}
+    physicalProfile: {fileID: 11400000, guid: 2f1c5edc933d4f09ae8d2d406765ab13, type: 2}
     attachmentProfile: {fileID: 0}
+    semanticContractVersion: 1
+    ruleBlockMigrations: []
+    introducedFacts: []
+    introducedRuleBlocks: []
+    retiredFacts: []
+    retiredRuleBlocks: []
     defaultRuleBlocks: []
   - definitionId: PolyStyle_Grass_2
+    placementKind: 0
     displayNameKey: object.grass_2
     displayName: Grass 2
     category: Nature
@@ -131,10 +160,17 @@ MonoBehaviour:
       alignToSurfaceNormal: 0
       randomYawOnPlacement: 1
       defaultLocalScale: {x: 1, y: 1, z: 1}
-    physicalProfile: {fileID: 0}
+    physicalProfile: {fileID: 11400000, guid: 2f1c5edc933d4f09ae8d2d406765ab13, type: 2}
     attachmentProfile: {fileID: 0}
+    semanticContractVersion: 1
+    ruleBlockMigrations: []
+    introducedFacts: []
+    introducedRuleBlocks: []
+    retiredFacts: []
+    retiredRuleBlocks: []
     defaultRuleBlocks: []
   - definitionId: PolyStyle_Environment_1
+    placementKind: 0
     displayNameKey: object.landmark_cluster
     displayName: Environment 1
     category: Landmark
@@ -155,15 +191,22 @@ MonoBehaviour:
       alignToSurfaceNormal: 0
       randomYawOnPlacement: 1
       defaultLocalScale: {x: 1, y: 1, z: 1}
-    physicalProfile: {fileID: 0}
+    physicalProfile: {fileID: 11400000, guid: 2f1c5edc933d4f09ae8d2d406765ab13, type: 2}
     attachmentProfile: {fileID: 0}
+    semanticContractVersion: 1
+    ruleBlockMigrations: []
+    introducedFacts: []
+    introducedRuleBlocks: []
+    retiredFacts: []
+    retiredRuleBlocks: []
     defaultRuleBlocks: []
   - definitionId: Inflatable_Ring_A_Simple
+    placementKind: 0
     displayNameKey: object.inflatable_ring
     displayName: Inflatable Ring
     category: Water
     description: A light inflatable ring configured by ontology data.
-    prefab: {fileID: 1048234374912673852, guid: e77be5f422cd2224aa017914268a838a, type: 3}
+    prefab: {fileID: 1048234374912673852, guid: 8ac86f43128c4c74a1d094acbd16c71a, type: 3}
     previewPrefab: {fileID: 0}
     useAuthoredPreviewTransform: 0
     previewLocalPosition: {x: 0, y: 0, z: 0}
@@ -181,6 +224,12 @@ MonoBehaviour:
       defaultLocalScale: {x: 1, y: 1, z: 1}
     physicalProfile: {fileID: 11400000, guid: 96ebaf3007414a34db02ba22e973038f, type: 2}
     attachmentProfile: {fileID: 11400000, guid: f640c493d0840a045827f30d94615524, type: 2}
+    semanticContractVersion: 2
+    ruleBlockMigrations: []
+    introducedFacts: []
+    introducedRuleBlocks: []
+    retiredFacts: []
+    retiredRuleBlocks: []
     defaultRuleBlocks:
     - ruleId: BuoyantWhenInWater
       bindingVariable: ?object
@@ -188,3 +237,960 @@ MonoBehaviour:
       bindingVariable: ?object
     - ruleId: EquippedItemGrantsTemporarySkill
       bindingVariable: ?item
+  - definitionId: BeholderBasic
+    placementKind: 2
+    displayNameKey: placeable.BeholderBasic
+    displayName: Beholder
+    category: Combat
+    description: First Authority-driven combat monster.
+    prefab: {fileID: 8190115002971765897, guid: 03e9ca4ea8104384d9026eb182261ea2, type: 3}
+    previewPrefab: {fileID: 1695502807786733843, guid: c73a559184154c75991d095521bdea87, type: 3}
+    useAuthoredPreviewTransform: 0
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: 0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: 5ca9f3047925daf47a0dddbd304b991f, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 8
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 1
+      requiredSurface: 1
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 11400000, guid: d2b5f17c0c814c7d9b25732b3f1130a2, type: 2}
+    attachmentProfile: {fileID: 0}
+    semanticContractVersion: 7
+    ruleBlockMigrations:
+    - targetContractVersion: 4
+      fromRuleId: AutonomousMeleeCombat
+      fromBindingVariable: ?actor
+      replacement:
+        ruleId: AutonomousMeleeCombat
+        bindingVariable: ?actor
+    - targetContractVersion: 5
+      fromRuleId: AutonomousMeleeCombat
+      fromBindingVariable: ?actor
+      replacement:
+        ruleId: AutonomousMeleeCombat
+        bindingVariable: ?actor
+    - targetContractVersion: 7
+      fromRuleId: AutonomousMeleeCombat
+      fromBindingVariable: ?actor
+      replacement:
+        ruleId: AutonomousMeleeCombat
+        bindingVariable: ?actor
+    introducedFacts:
+    - contractVersion: 2
+      fact:
+        predicate: has_concept
+        obj: AutonomousAgent
+    - contractVersion: 2
+      fact:
+        predicate: has_concept
+        obj: Combatant
+    - contractVersion: 2
+      fact:
+        predicate: current_health
+        obj: 30
+    - contractVersion: 2
+      fact:
+        predicate: maximum_health
+        obj: 30
+    - contractVersion: 2
+      fact:
+        predicate: is_alive
+        obj: True
+    - contractVersion: 2
+      fact:
+        predicate: belongs_to_faction
+        obj: WildMonster
+    - contractVersion: 2
+      fact:
+        predicate: hostile_to_faction
+        obj: PlayerFaction
+    - contractVersion: 2
+      fact:
+        predicate: combat_disposition
+        obj: Hostile
+    - contractVersion: 2
+      fact:
+        predicate: grants_capability
+        obj: NaturalMeleeAttack
+    - contractVersion: 2
+      fact:
+        predicate: attack_action
+        obj: autonomous_melee_attack
+    - contractVersion: 2
+      fact:
+        predicate: attack_damage
+        obj: 5
+    - contractVersion: 2
+      fact:
+        predicate: attack_range
+        obj: 2
+    - contractVersion: 2
+      fact:
+        predicate: attack_cooldown
+        obj: 1
+    - contractVersion: 2
+      fact:
+        predicate: detection_range
+        obj: 12
+    - contractVersion: 2
+      fact:
+        predicate: leash_range
+        obj: 18
+    - contractVersion: 2
+      fact:
+        predicate: movement_speed
+        obj: 2
+    - contractVersion: 2
+      fact:
+        predicate: idle_animation_intent
+        obj: MonsterIdle
+    - contractVersion: 2
+      fact:
+        predicate: move_animation_intent
+        obj: MonsterWalk
+    - contractVersion: 2
+      fact:
+        predicate: physical_profile
+        obj: AuthorityKinematic
+    - contractVersion: 4
+      fact:
+        predicate: has_concept
+        obj: AutonomousAgent
+    - contractVersion: 4
+      fact:
+        predicate: has_concept
+        obj: Combatant
+    - contractVersion: 4
+      fact:
+        predicate: current_health
+        obj: 30
+    - contractVersion: 4
+      fact:
+        predicate: maximum_health
+        obj: 30
+    - contractVersion: 4
+      fact:
+        predicate: is_alive
+        obj: True
+    - contractVersion: 4
+      fact:
+        predicate: belongs_to_faction
+        obj: WildMonster
+    - contractVersion: 4
+      fact:
+        predicate: hostile_to_faction
+        obj: PlayerFaction
+    - contractVersion: 4
+      fact:
+        predicate: target_concept
+        obj: PlayerControlled
+    - contractVersion: 4
+      fact:
+        predicate: targeting_profile
+        obj: NearestHostileWithinDetection
+    - contractVersion: 4
+      fact:
+        predicate: chase_profile
+        obj: ChaseWithinLeash
+    - contractVersion: 4
+      fact:
+        predicate: combat_disposition
+        obj: Hostile
+    - contractVersion: 4
+      fact:
+        predicate: grants_capability
+        obj: NaturalMeleeAttack
+    - contractVersion: 4
+      fact:
+        predicate: attack_action
+        obj: autonomous_melee_attack
+    - contractVersion: 4
+      fact:
+        predicate: attack_damage
+        obj: 5
+    - contractVersion: 4
+      fact:
+        predicate: attack_range
+        obj: 2
+    - contractVersion: 4
+      fact:
+        predicate: attack_cooldown
+        obj: 1
+    - contractVersion: 4
+      fact:
+        predicate: detection_range
+        obj: 12
+    - contractVersion: 4
+      fact:
+        predicate: leash_range
+        obj: 18
+    - contractVersion: 4
+      fact:
+        predicate: movement_speed
+        obj: 2
+    - contractVersion: 4
+      fact:
+        predicate: idle_animation_intent
+        obj: MonsterIdle
+    - contractVersion: 4
+      fact:
+        predicate: move_animation_intent
+        obj: MonsterWalk
+    - contractVersion: 4
+      fact:
+        predicate: hit_animation_intent
+        obj: HitReaction
+    - contractVersion: 4
+      fact:
+        predicate: death_animation_intent
+        obj: Death
+    - contractVersion: 4
+      fact:
+        predicate: hit_vfx_intent
+        obj: HitPhysicalLight
+    - contractVersion: 4
+      fact:
+        predicate: loot_table
+        obj: BeholderBasicLoot
+    - contractVersion: 4
+      fact:
+        predicate: loot_item
+        obj: OntologyDataFragment
+    - contractVersion: 4
+      fact:
+        predicate: loot_action
+        obj: collect_loot
+    - contractVersion: 4
+      fact:
+        predicate: interaction_range
+        obj: 2.5
+    - contractVersion: 4
+      fact:
+        predicate: physical_profile
+        obj: AuthorityKinematic
+    - contractVersion: 5
+      fact:
+        predicate: has_concept
+        obj: AutonomousAgent
+    - contractVersion: 5
+      fact:
+        predicate: has_concept
+        obj: Combatant
+    - contractVersion: 5
+      fact:
+        predicate: current_health
+        obj: 30
+    - contractVersion: 5
+      fact:
+        predicate: maximum_health
+        obj: 30
+    - contractVersion: 5
+      fact:
+        predicate: is_alive
+        obj: True
+    - contractVersion: 5
+      fact:
+        predicate: belongs_to_faction
+        obj: WildMonster
+    - contractVersion: 5
+      fact:
+        predicate: hostile_to_faction
+        obj: PlayerFaction
+    - contractVersion: 5
+      fact:
+        predicate: target_concept
+        obj: PlayerControlled
+    - contractVersion: 5
+      fact:
+        predicate: targeting_profile
+        obj: NearestHostileWithinDetection
+    - contractVersion: 5
+      fact:
+        predicate: chase_profile
+        obj: ChaseWithinLeash
+    - contractVersion: 5
+      fact:
+        predicate: target_action
+        obj: acquire_autonomous_target
+    - contractVersion: 5
+      fact:
+        predicate: chase_action
+        obj: chase_autonomous_target
+    - contractVersion: 5
+      fact:
+        predicate: combat_disposition
+        obj: Hostile
+    - contractVersion: 5
+      fact:
+        predicate: grants_capability
+        obj: NaturalMeleeAttack
+    - contractVersion: 5
+      fact:
+        predicate: attack_action
+        obj: autonomous_melee_attack
+    - contractVersion: 5
+      fact:
+        predicate: attack_damage
+        obj: 5
+    - contractVersion: 5
+      fact:
+        predicate: attack_range
+        obj: 2
+    - contractVersion: 5
+      fact:
+        predicate: attack_cooldown
+        obj: 1
+    - contractVersion: 5
+      fact:
+        predicate: detection_range
+        obj: 12
+    - contractVersion: 5
+      fact:
+        predicate: leash_range
+        obj: 18
+    - contractVersion: 5
+      fact:
+        predicate: movement_speed
+        obj: 2
+    - contractVersion: 5
+      fact:
+        predicate: idle_animation_intent
+        obj: MonsterIdle
+    - contractVersion: 5
+      fact:
+        predicate: move_animation_intent
+        obj: MonsterWalk
+    - contractVersion: 5
+      fact:
+        predicate: hit_animation_intent
+        obj: HitReaction
+    - contractVersion: 5
+      fact:
+        predicate: death_animation_intent
+        obj: Death
+    - contractVersion: 5
+      fact:
+        predicate: hit_vfx_intent
+        obj: HitPhysicalLight
+    - contractVersion: 5
+      fact:
+        predicate: loot_table
+        obj: BeholderBasicLoot
+    - contractVersion: 5
+      fact:
+        predicate: loot_item
+        obj: OntologyDataFragment
+    - contractVersion: 5
+      fact:
+        predicate: loot_action
+        obj: collect_loot
+    - contractVersion: 5
+      fact:
+        predicate: interaction_range
+        obj: 2.5
+    - contractVersion: 5
+      fact:
+        predicate: physical_profile
+        obj: AuthorityKinematic
+    - contractVersion: 7
+      fact:
+        predicate: has_concept
+        obj: AutonomousAgent
+    - contractVersion: 7
+      fact:
+        predicate: has_concept
+        obj: Combatant
+    - contractVersion: 7
+      fact:
+        predicate: current_health
+        obj: 30
+    - contractVersion: 7
+      fact:
+        predicate: maximum_health
+        obj: 30
+    - contractVersion: 7
+      fact:
+        predicate: is_alive
+        obj: True
+    - contractVersion: 7
+      fact:
+        predicate: belongs_to_faction
+        obj: WildMonster
+    - contractVersion: 7
+      fact:
+        predicate: hostile_to_faction
+        obj: PlayerFaction
+    - contractVersion: 7
+      fact:
+        predicate: target_concept
+        obj: PlayerControlled
+    - contractVersion: 7
+      fact:
+        predicate: targeting_profile
+        obj: NearestHostileWithinDetection
+    - contractVersion: 7
+      fact:
+        predicate: chase_profile
+        obj: ChaseWithinLeash
+    - contractVersion: 7
+      fact:
+        predicate: target_action
+        obj: acquire_autonomous_target
+    - contractVersion: 7
+      fact:
+        predicate: chase_action
+        obj: chase_autonomous_target
+    - contractVersion: 7
+      fact:
+        predicate: combat_disposition
+        obj: Hostile
+    - contractVersion: 7
+      fact:
+        predicate: grants_capability
+        obj: NaturalMeleeAttack
+    - contractVersion: 7
+      fact:
+        predicate: attack_action
+        obj: autonomous_melee_attack
+    - contractVersion: 7
+      fact:
+        predicate: attack_damage
+        obj: 5
+    - contractVersion: 7
+      fact:
+        predicate: attack_range
+        obj: 2
+    - contractVersion: 7
+      fact:
+        predicate: attack_cooldown
+        obj: 1
+    - contractVersion: 7
+      fact:
+        predicate: detection_range
+        obj: 12
+    - contractVersion: 7
+      fact:
+        predicate: leash_range
+        obj: 18
+    - contractVersion: 7
+      fact:
+        predicate: movement_speed
+        obj: 2
+    - contractVersion: 7
+      fact:
+        predicate: idle_animation_intent
+        obj: MonsterIdle
+    - contractVersion: 7
+      fact:
+        predicate: move_animation_intent
+        obj: MonsterWalk
+    - contractVersion: 7
+      fact:
+        predicate: hit_animation_intent
+        obj: HitReaction
+    - contractVersion: 7
+      fact:
+        predicate: death_animation_intent
+        obj: Death
+    - contractVersion: 7
+      fact:
+        predicate: hit_vfx_intent
+        obj: HitPhysicalLight
+    - contractVersion: 7
+      fact:
+        predicate: loot_table
+        obj: BeholderBasicLoot
+    - contractVersion: 7
+      fact:
+        predicate: loot_item
+        obj: OntologyDataFragment
+    - contractVersion: 7
+      fact:
+        predicate: loot_action
+        obj: collect_loot
+    - contractVersion: 7
+      fact:
+        predicate: interaction_range
+        obj: 2.5
+    - contractVersion: 7
+      fact:
+        predicate: physical_profile
+        obj: AuthorityKinematic
+    introducedRuleBlocks:
+    - contractVersion: 2
+      binding:
+        ruleId: AutonomousMeleeCombat
+        bindingVariable: ?actor
+    - contractVersion: 4
+      binding:
+        ruleId: AutonomousMeleeCombat
+        bindingVariable: ?actor
+    - contractVersion: 4
+      binding:
+        ruleId: AcquireNearestHostileTarget
+        bindingVariable: ?actor
+    - contractVersion: 4
+      binding:
+        ruleId: ChaseTargetWithinLeash
+        bindingVariable: ?actor
+    - contractVersion: 4
+      binding:
+        ruleId: LootBecomesAvailableOnDefeat
+        bindingVariable: ?target
+    - contractVersion: 4
+      binding:
+        ruleId: CollectAvailableLoot
+        bindingVariable: ?target
+    - contractVersion: 5
+      binding:
+        ruleId: AutonomousMeleeCombat
+        bindingVariable: ?actor
+    - contractVersion: 5
+      binding:
+        ruleId: AcquireNearestHostileTarget
+        bindingVariable: ?actor
+    - contractVersion: 5
+      binding:
+        ruleId: ChaseTargetWithinLeash
+        bindingVariable: ?actor
+    - contractVersion: 5
+      binding:
+        ruleId: LootBecomesAvailableOnDefeat
+        bindingVariable: ?target
+    - contractVersion: 5
+      binding:
+        ruleId: CollectAvailableLoot
+        bindingVariable: ?target
+    - contractVersion: 7
+      binding:
+        ruleId: AutonomousMeleeCombat
+        bindingVariable: ?actor
+    - contractVersion: 7
+      binding:
+        ruleId: AcquireNearestHostileTarget
+        bindingVariable: ?actor
+    - contractVersion: 7
+      binding:
+        ruleId: ChaseTargetWithinLeash
+        bindingVariable: ?actor
+    - contractVersion: 7
+      binding:
+        ruleId: LootBecomesAvailableOnDefeat
+        bindingVariable: ?target
+    - contractVersion: 7
+      binding:
+        ruleId: CollectAvailableLoot
+        bindingVariable: ?target
+    retiredFacts:
+    - contractVersion: 3
+      fact:
+        predicate: current_health
+        obj: 30
+      onlyWhenPredicateHasDifferentValue: 1
+    - contractVersion: 3
+      fact:
+        predicate: is_alive
+        obj: True
+      onlyWhenPredicateHasDifferentValue: 1
+    retiredRuleBlocks: []
+    defaultRuleBlocks:
+    - ruleId: AutonomousMeleeCombat
+      bindingVariable: ?actor
+    - ruleId: AcquireNearestHostileTarget
+      bindingVariable: ?actor
+    - ruleId: ChaseTargetWithinLeash
+      bindingVariable: ?actor
+    - ruleId: LootBecomesAvailableOnDefeat
+      bindingVariable: ?target
+    - ruleId: CollectAvailableLoot
+      bindingVariable: ?target
+  - definitionId: Sword01Bronze
+    placementKind: 0
+    displayNameKey: placeable.Sword01Bronze
+    displayName: Sword01Bronze
+    category: Combat
+    description: Authority-driven sword weapon.
+    prefab: {fileID: 4917077998906366696, guid: 7c2ea204ac15cce4e90a1a4f10951926, type: 3}
+    previewPrefab: {fileID: 8449004803641222730, guid: 5cdf1ac831646004288735c99ac51e4a, type: 3}
+    useAuthoredPreviewTransform: 0
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: 0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: d033090d8b8346b4785c8ab496cfa83b, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 8
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 0.4
+      requiredSurface: 1
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 11400000, guid: 08fe125eca87465eac59e621fb3d3581, type: 2}
+    attachmentProfile: {fileID: 11400000, guid: a8de882a115c46e7aa56ee0cf1ef2ed8, type: 2}
+    semanticContractVersion: 9
+    ruleBlockMigrations:
+    - targetContractVersion: 2
+      fromRuleId: AutoCarryNearbyCarryable
+      fromBindingVariable: ?object
+      replacement:
+        ruleId: EquipItemOnInteractionIntent
+        bindingVariable: ?target
+    - targetContractVersion: 7
+      fromRuleId: MeleeAttackOnPrimaryIntent
+      fromBindingVariable: ?tool
+      replacement:
+        ruleId: MeleeAttackOnPrimaryIntent
+        bindingVariable: ?tool
+    - targetContractVersion: 9
+      fromRuleId: MeleeAttackOnPrimaryIntent
+      fromBindingVariable: ?tool
+      replacement:
+        ruleId: MeleeAttackOnPrimaryIntent
+        bindingVariable: ?tool
+    introducedFacts:
+    - contractVersion: 4
+      fact:
+        predicate: attack_action
+        obj: attack
+    - contractVersion: 4
+      fact:
+        predicate: attack_range
+        obj: 3
+    - contractVersion: 4
+      fact:
+        predicate: attack_cooldown
+        obj: 1
+    - contractVersion: 5
+      fact:
+        predicate: swing_action
+        obj: swing_weapon
+    - contractVersion: 6
+      fact:
+        predicate: attack_contact_mode
+        obj: WeaponContactWindow
+    - contractVersion: 7
+      fact:
+        predicate: attack_contact_mode
+        obj: WeaponContactWindow
+    - contractVersion: 7
+      fact:
+        predicate: equip_action
+        obj: equip_weapon
+    - contractVersion: 7
+      fact:
+        predicate: unequip_action
+        obj: unequip_equipment
+    - contractVersion: 7
+      fact:
+        predicate: interaction_range
+        obj: 3
+    - contractVersion: 9
+      fact:
+        predicate: attack_contact_mode
+        obj: WeaponContactWindow
+    - contractVersion: 9
+      fact:
+        predicate: equip_action
+        obj: equip_weapon
+    - contractVersion: 9
+      fact:
+        predicate: unequip_action
+        obj: unequip_equipment
+    - contractVersion: 9
+      fact:
+        predicate: interaction_range
+        obj: 3
+    introducedRuleBlocks:
+    - contractVersion: 4
+      binding:
+        ruleId: MeleeAttackOnPrimaryIntent
+        bindingVariable: ?tool
+    - contractVersion: 5
+      binding:
+        ruleId: SwingWeaponOnPrimaryIntent
+        bindingVariable: ?tool
+    - contractVersion: 7
+      binding:
+        ruleId: UnequipItemOnInteractionIntent
+        bindingVariable: ?target
+    - contractVersion: 9
+      binding:
+        ruleId: UnequipItemOnInteractionIntent
+        bindingVariable: ?target
+    retiredFacts: []
+    retiredRuleBlocks:
+    - contractVersion: 3
+      ruleId: AutoCarryNearbyCarryable
+      bindingVariable: ?object
+    defaultRuleBlocks:
+    - ruleId: EquipItemOnInteractionIntent
+      bindingVariable: ?target
+    - ruleId: MeleeAttackOnPrimaryIntent
+      bindingVariable: ?tool
+    - ruleId: SwingWeaponOnPrimaryIntent
+      bindingVariable: ?tool
+    - ruleId: UnequipItemOnInteractionIntent
+      bindingVariable: ?target
+  - definitionId: Sword08Corrupted
+    placementKind: 0
+    displayNameKey: placeable.Sword08Corrupted
+    displayName: Sword08Corrupted
+    category: Combat
+    description: Authority-driven sword weapon.
+    prefab: {fileID: 3630235248395761229, guid: 040c5da9c4812f847a375781be44d032, type: 3}
+    previewPrefab: {fileID: 5953977592163608830, guid: fec4e7e32c83e644bbebed4c322ee643, type: 3}
+    useAuthoredPreviewTransform: 0
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: 0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: fc58925ce3eddf34d9a6646c373aad24, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 8
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 0.4
+      requiredSurface: 1
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 11400000, guid: 08fe125eca87465eac59e621fb3d3581, type: 2}
+    attachmentProfile: {fileID: 11400000, guid: a8de882a115c46e7aa56ee0cf1ef2ed8, type: 2}
+    semanticContractVersion: 9
+    ruleBlockMigrations:
+    - targetContractVersion: 2
+      fromRuleId: AutoCarryNearbyCarryable
+      fromBindingVariable: ?object
+      replacement:
+        ruleId: EquipItemOnInteractionIntent
+        bindingVariable: ?target
+    - targetContractVersion: 7
+      fromRuleId: MeleeAttackOnPrimaryIntent
+      fromBindingVariable: ?tool
+      replacement:
+        ruleId: MeleeAttackOnPrimaryIntent
+        bindingVariable: ?tool
+    - targetContractVersion: 9
+      fromRuleId: MeleeAttackOnPrimaryIntent
+      fromBindingVariable: ?tool
+      replacement:
+        ruleId: MeleeAttackOnPrimaryIntent
+        bindingVariable: ?tool
+    introducedFacts:
+    - contractVersion: 4
+      fact:
+        predicate: attack_action
+        obj: attack
+    - contractVersion: 4
+      fact:
+        predicate: attack_range
+        obj: 3
+    - contractVersion: 4
+      fact:
+        predicate: attack_cooldown
+        obj: 1
+    - contractVersion: 5
+      fact:
+        predicate: swing_action
+        obj: swing_weapon
+    - contractVersion: 6
+      fact:
+        predicate: attack_contact_mode
+        obj: WeaponContactWindow
+    - contractVersion: 7
+      fact:
+        predicate: attack_contact_mode
+        obj: WeaponContactWindow
+    - contractVersion: 7
+      fact:
+        predicate: equip_action
+        obj: equip_weapon
+    - contractVersion: 7
+      fact:
+        predicate: unequip_action
+        obj: unequip_equipment
+    - contractVersion: 7
+      fact:
+        predicate: interaction_range
+        obj: 3
+    - contractVersion: 9
+      fact:
+        predicate: attack_contact_mode
+        obj: WeaponContactWindow
+    - contractVersion: 9
+      fact:
+        predicate: equip_action
+        obj: equip_weapon
+    - contractVersion: 9
+      fact:
+        predicate: unequip_action
+        obj: unequip_equipment
+    - contractVersion: 9
+      fact:
+        predicate: interaction_range
+        obj: 3
+    introducedRuleBlocks:
+    - contractVersion: 4
+      binding:
+        ruleId: MeleeAttackOnPrimaryIntent
+        bindingVariable: ?tool
+    - contractVersion: 5
+      binding:
+        ruleId: SwingWeaponOnPrimaryIntent
+        bindingVariable: ?tool
+    - contractVersion: 7
+      binding:
+        ruleId: UnequipItemOnInteractionIntent
+        bindingVariable: ?target
+    - contractVersion: 9
+      binding:
+        ruleId: UnequipItemOnInteractionIntent
+        bindingVariable: ?target
+    retiredFacts: []
+    retiredRuleBlocks:
+    - contractVersion: 3
+      ruleId: AutoCarryNearbyCarryable
+      bindingVariable: ?object
+    defaultRuleBlocks:
+    - ruleId: EquipItemOnInteractionIntent
+      bindingVariable: ?target
+    - ruleId: MeleeAttackOnPrimaryIntent
+      bindingVariable: ?tool
+    - ruleId: SwingWeaponOnPrimaryIntent
+      bindingVariable: ?tool
+    - ruleId: UnequipItemOnInteractionIntent
+      bindingVariable: ?target
+  - definitionId: Sword15FrostVisual
+    placementKind: 0
+    displayNameKey: placeable.Sword15FrostVisual
+    displayName: Sword15FrostVisual
+    category: Combat
+    description: Authority-driven sword weapon.
+    prefab: {fileID: 510373610253576977, guid: 8b6a28b02cae1794ca545439d946a9c0, type: 3}
+    previewPrefab: {fileID: 8947079371753237599, guid: 1dbf24f8a486a5d43aa8eef186e3375d, type: 3}
+    useAuthoredPreviewTransform: 0
+    previewLocalPosition: {x: 0, y: 0, z: 0}
+    previewLocalEulerAngles: {x: 0, y: 0, z: 0}
+    previewLocalScale: {x: 1, y: 1, z: 1}
+    ontologyTemplate: {fileID: 11400000, guid: 9a9bdd8819a3cc04cbc175d878184d6e, type: 2}
+    placementPolicy:
+      maximumDistanceFromActor: 8
+      maximumSlopeAngle: 35
+      minimumDistanceFromPlacedObject: 0.4
+      requiredSurface: 1
+      allowUnclassifiedSurface: 1
+      alignToSurfaceNormal: 0
+      randomYawOnPlacement: 1
+      defaultLocalScale: {x: 1, y: 1, z: 1}
+    physicalProfile: {fileID: 11400000, guid: 08fe125eca87465eac59e621fb3d3581, type: 2}
+    attachmentProfile: {fileID: 11400000, guid: a8de882a115c46e7aa56ee0cf1ef2ed8, type: 2}
+    semanticContractVersion: 9
+    ruleBlockMigrations:
+    - targetContractVersion: 2
+      fromRuleId: AutoCarryNearbyCarryable
+      fromBindingVariable: ?object
+      replacement:
+        ruleId: EquipItemOnInteractionIntent
+        bindingVariable: ?target
+    - targetContractVersion: 7
+      fromRuleId: MeleeAttackOnPrimaryIntent
+      fromBindingVariable: ?tool
+      replacement:
+        ruleId: MeleeAttackOnPrimaryIntent
+        bindingVariable: ?tool
+    - targetContractVersion: 9
+      fromRuleId: MeleeAttackOnPrimaryIntent
+      fromBindingVariable: ?tool
+      replacement:
+        ruleId: MeleeAttackOnPrimaryIntent
+        bindingVariable: ?tool
+    introducedFacts:
+    - contractVersion: 4
+      fact:
+        predicate: attack_action
+        obj: attack
+    - contractVersion: 4
+      fact:
+        predicate: attack_range
+        obj: 3
+    - contractVersion: 4
+      fact:
+        predicate: attack_cooldown
+        obj: 1
+    - contractVersion: 5
+      fact:
+        predicate: swing_action
+        obj: swing_weapon
+    - contractVersion: 6
+      fact:
+        predicate: attack_contact_mode
+        obj: WeaponContactWindow
+    - contractVersion: 7
+      fact:
+        predicate: attack_contact_mode
+        obj: WeaponContactWindow
+    - contractVersion: 7
+      fact:
+        predicate: equip_action
+        obj: equip_weapon
+    - contractVersion: 7
+      fact:
+        predicate: unequip_action
+        obj: unequip_equipment
+    - contractVersion: 7
+      fact:
+        predicate: interaction_range
+        obj: 3
+    - contractVersion: 9
+      fact:
+        predicate: attack_contact_mode
+        obj: WeaponContactWindow
+    - contractVersion: 9
+      fact:
+        predicate: equip_action
+        obj: equip_weapon
+    - contractVersion: 9
+      fact:
+        predicate: unequip_action
+        obj: unequip_equipment
+    - contractVersion: 9
+      fact:
+        predicate: interaction_range
+        obj: 3
+    introducedRuleBlocks:
+    - contractVersion: 4
+      binding:
+        ruleId: MeleeAttackOnPrimaryIntent
+        bindingVariable: ?tool
+    - contractVersion: 5
+      binding:
+        ruleId: SwingWeaponOnPrimaryIntent
+        bindingVariable: ?tool
+    - contractVersion: 7
+      binding:
+        ruleId: UnequipItemOnInteractionIntent
+        bindingVariable: ?target
+    - contractVersion: 9
+      binding:
+        ruleId: UnequipItemOnInteractionIntent
+        bindingVariable: ?target
+    retiredFacts: []
+    retiredRuleBlocks:
+    - contractVersion: 3
+      ruleId: AutoCarryNearbyCarryable
+      bindingVariable: ?object
+    defaultRuleBlocks:
+    - ruleId: EquipItemOnInteractionIntent
+      bindingVariable: ?target
+    - ruleId: MeleeAttackOnPrimaryIntent
+      bindingVariable: ?tool
+    - ruleId: SwingWeaponOnPrimaryIntent
+      bindingVariable: ?tool
+    - ruleId: UnequipItemOnInteractionIntent
+      bindingVariable: ?target

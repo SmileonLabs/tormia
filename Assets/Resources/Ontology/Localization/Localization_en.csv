@@ -149,7 +149,7 @@ rule_description.ActivateWaveRockingEffect,A compatible object in water with the
 ui.title.ontology_editor,Ontology Editor,World ontology editor title
 ui.tab.triples,Triples,Fact editing tab
 ui.tab.rule_blocks,Rule Blocks,Rule block tab
-ui.tab.physics,Physics,Physical profile tab
+ui.tab.physics,Physical Meaning,Physical profile tab
 ui.tab.results,Results,Readable inference results tab
 ui.button.add_triple,+ Add Triple,Add a triple
 ui.button.add_rule_block,+ Add Rule Block,Add a rule block
@@ -158,7 +158,7 @@ ui.button.load_world,Load World,Load snapshot
 ui.subtitle.selected_object,Selected object,Selected object subtitle
 ui.subtitle.no_selection,Select a placed object,No selection subtitle
 ui.footer.triples,The subject is fixed. Edit the relation and value.,Triple editing help
-ui.footer.rule_blocks,A rule block enables a database rule for this object.,Rule block help
+ui.footer.rule_blocks,Quick setup connects the required triples, Rule Blocks, and Physical Meaning together.,Rule block help
 ui.footer.physics,Choose the sentence that describes what this object should do.,Physics help
 ui.footer.results,This shows current information and the rules that created it.,Results help
 ui.status.saved,World saved successfully.,Save success
@@ -179,7 +179,7 @@ result.applied_rule,Applied rule · step {0},Applied rule heading
 result.added,Added,Added fact label
 result.removed,Removed,Removed fact label
 result.changed,Changed,Changed fact label
-result.no_rule_block,No rule block is assigned. Add one to enable a database rule for this object.,No rule block
+result.no_rule_block,No Rule Block is assigned. Choose the behavior you want from Quick Setup above.,No rule block
 result.no_rules,No rules are available in the Rule Database.,No rules
 result.no_buoyancy_profile,No buoyancy profile is registered.,No buoyancy profile
 result.buoyancy_disabled,This object does not currently float.,No buoyancy
@@ -336,6 +336,7 @@ placement.status.invalid_prefab,This catalog entry has no valid prefab.,Placemen
 placement.status.instructions,Move the mouse over a valid surface then left-click to place. Q/E rotates; Esc cancels.,Placement status
 placement.status.ready,Ready: left-click to place. Q/E rotates; Esc cancels.,Placement status
 placement.status.placed,{0} was placed and its ontology data was injected.,Placement status
+placement.status.awaiting_authority,{0} placement is awaiting World Authority confirmation.,Placement status
 placement.validation.too_far,Too far away. Move your character closer.,Placement validation
 placement.validation.too_steep,This surface is too steep.,Placement validation
 placement.validation.unmarked_surface,This surface has not been marked for placement yet.,Placement validation
@@ -874,7 +875,7 @@ Buoyancy strength: {5:0.##}
 Water damping: {6:0.##}
 Submerged ratio: {7:0%}
 Surface offset: {8:0.##}",Physical behavior
-ui.rule_block.quick_action,Quick action,Rule blocks
+ui.rule_block.quick_action,Quick Setup,Integrated triples · rules · physics setup
 ui.title.rule_block_details,Rule block details,Rule blocks
 rule_preset.water_buoyancy,Apply buoyancy in water,Rule blocks
 rule_preset.auto_equip,Equip when selected nearby,Rule blocks
@@ -890,3 +891,376 @@ rule_preset.temporary_skill_setup.no_choice,Choose the skill and rule condition 
 rule_preset.temporary_skill_setup.no_rule,Add the rule block that should keep this equipment skill active first.,Rule blocks
 rule_preset.temporary_skill_setup.no_skill,No selectable skill is defined by the current ontology catalog.,Rule blocks
 rule_preset.detail.format,"{0}\n\nApplied to this placed object only.\n\nRule block: {1}\nBinding: {2}\nPhysical behavior: {3}\nConcepts: {4}\nFacts:\n{5}\nRequired existing data: {6}\n\nTemplates provide defaults only. Editing here never changes the source template.",Rule blocks
+relation.attachment_relation_predicate,attachment relation,Relation
+relation.attachment_relation_direction,attachment relation direction,Relation
+fact.attachment_relation_predicate,{0} uses {1} as its attachment relation.,Readable fact
+fact.attachment_relation_direction,{0}'s attachment relation direction is {1}.,Readable fact
+ui.account.world_entry.package_version_conflict,World entry was stopped because an older gameplay-data version conflicts with the current version. Please try again after the data is synchronized.,Account flow
+ui.account.world_entry.package_verification_failed,World entry was stopped because the gameplay data could not be verified. Please try again.,Account flow
+relation.detection_range,detection range,Relation
+relation.leash_range,leash range,Relation
+relation.hostile_to_faction,hostile faction,Relation
+relation.autonomous_attack_intent,autonomous attack intent,Relation
+relation.idle_animation_intent,idle animation intent,Relation
+relation.move_animation_intent,move animation intent,Relation
+fact.detection_range,{0}'s detection range is {1}.,Readable fact
+fact.leash_range,{0}'s pursuit limit is {1}.,Readable fact
+fact.hostile_to_faction,{0} is hostile to faction {1}.,Readable fact
+fact.autonomous_attack_intent,{0}'s autonomous attack intent is {1}.,Readable fact
+fact.idle_animation_intent,{0}'s idle animation intent is {1}.,Readable fact
+fact.move_animation_intent,{0}'s movement animation intent is {1}.,Readable fact
+concept.AutonomousAgent,autonomous actor,Concept
+concept.Combatant,combatant,Concept
+concept.Damageable,damageable target,Concept
+concept.Item,item,Concept
+concept.Monster,monster,Concept
+concept.Sword,sword,Concept
+concept.Weapon,weapon,Concept
+rule_preset.autonomous_melee_monster,Make autonomous melee monster,Rule blocks
+rule_preset.autonomous_melee_monster.description,"Adds the reusable autonomous actor, combat, faction, movement, attack and Authority-driven physical meaning contract to this object.",Rule blocks
+value.PlayerFaction,player faction,Value
+value.WildMonster,wild monster faction,Value
+value.NaturalMeleeAttack,natural melee attack,Value
+value.AuthorityKinematic,Authority-driven kinematic movement,Value
+value.LocalCharacterController,Local collision-resolved character movement,Value
+value.MonsterIdle,monster idle,Animation intent
+value.MonsterWalk,monster walk,Animation intent
+value.MonsterRun,monster run,Animation intent
+value.MonsterAttack,monster attack,Animation intent
+relation.attack_contact_mode,attack contact mode,Relation
+fact.attack_contact_mode,{0}'s attack contact mode is {1}.,Readable fact
+value.WeaponContactWindow,weapon animation contact window,Value
+category.Combat,Combat,Placeable category
+physical_profile.AuthorityKinematic,Authority-driven kinematic,Physical profile
+physical_profile.HandheldWeapon,Handheld weapon,Physical profile
+physical_profile.LocalCharacterController,Local collision-resolved character controller,Physical profile
+character_template.player,Player,Character template
+common.unknown,Unknown,Common UI
+ui.account.profile_relation,{0}  >  {1}  >  {2},Account entry
+placement.surface.AnyCollider,Any surface,World placement
+placement.surface.Ground,Ground,World placement
+placement.surface.Water,Water,World placement
+placeable.BeholderBasic,Beholder,Placeable catalog
+placeable.BeholderBasic.description,A reusable Authority-driven combat monster.,Placeable catalog
+placeable.Sword01Bronze,Bronze Sword,Placeable catalog
+placeable.Sword01Bronze.description,A reusable Authority-driven bronze sword.,Placeable catalog
+placeable.Sword08Corrupted,Corrupted Sword,Placeable catalog
+placeable.Sword08Corrupted.description,A reusable Authority-driven corrupted sword.,Placeable catalog
+placeable.Sword15FrostVisual,Frost Sword,Placeable catalog
+placeable.Sword15FrostVisual.description,A reusable Authority-driven frost sword.,Placeable catalog
+rule.AcquireNearestHostileTarget.name,Acquire nearest hostile target,Rule
+rule.AcquireNearestHostileTarget.description,Selects the nearest valid hostile target within the authored detection range.,Rule
+rule.ActivateWaveRockingEffect.name,Activate wave rocking effect,Rule
+rule.ActivateWaveRockingEffect.description,Activates the compatible wave rocking presentation when its semantic conditions are met.,Rule
+rule.ActivateWindDriftEffect.name,Activate wind drift effect,Rule
+rule.ActivateWindDriftEffect.description,Activates the compatible wind drift presentation when its semantic conditions are met.,Rule
+rule.AutonomousMeleeCombat.name,Autonomous melee combat,Rule
+rule.AutonomousMeleeCombat.description,Allows an autonomous actor to evaluate and perform its authored melee combat behavior.,Rule
+rule.ChaseTargetWithinLeash.name,Chase target within leash,Rule
+rule.ChaseTargetWithinLeash.description,Chases the selected target without exceeding the authored leash range.,Rule
+rule.CollectAvailableLoot.name,Collect available loot,Rule
+rule.CollectAvailableLoot.description,Collects loot only after the Authority marks it available.,Rule
+rule.EquipItemOnInteractionIntent.name,Equip item on interaction,Rule
+rule.EquipItemOnInteractionIntent.description,Equips an eligible item when an interaction intent is approved.,Rule
+rule.JumpPlayerFromIntent.name,Jump player from intent,Rule
+rule.JumpPlayerFromIntent.description,Produces the player jump result from an approved jump intent.,Rule
+rule.LootBecomesAvailableOnDefeat.name,Make loot available on defeat,Rule
+rule.LootBecomesAvailableOnDefeat.description,Makes authored loot available after the owning actor is defeated.,Rule
+rule.MeleeAttackOnPrimaryIntent.name,Melee attack on primary intent,Rule
+rule.MeleeAttackOnPrimaryIntent.description,Evaluates a melee attack when the primary input intent and target conditions are valid.,Rule
+rule.MovePlayerFromIntent.name,Move player from intent,Rule
+rule.MovePlayerFromIntent.description,Produces player movement from approved transient input intent.,Rule
+rule.RespawnPlayerOnDeath.name,Respawn player on death,Rule
+rule.RespawnPlayerOnDeath.description,Produces an Authority-approved respawn after the player death condition is met.,Rule
+rule.SwingWeaponOnPrimaryIntent.name,Swing weapon on primary intent,Rule
+rule.SwingWeaponOnPrimaryIntent.description,Produces a weapon swing when the primary input intent and equipment contract are valid.,Rule
+rule.UnequipItemOnInteractionIntent.name,Unequip item on interaction,Rule
+rule.UnequipItemOnInteractionIntent.description,Unequips the equipped item when an interaction intent is approved.,Rule
+ui.account.status.no_authority_client,The world service is unavailable.,Account status
+ui.account.status.sign_in_first,Sign in to an account first.,Account status
+ui.account.status.select_world_first,Select an account and world first.,Account status
+ui.account.status.preparing_world_entry,Preparing world entry.,Account status
+ui.account.status.sign_in_before_character,Sign in before creating a character.,Account status
+ui.account.status.character_already_selected,A character is already selected.,Account status
+ui.account.status.character_name_required,Enter a character name first.,Account status
+ui.account.status.template_required,Choose a character template first.,Account status
+ui.account.status.account_fields_required,Enter email display name and password.,Account status
+ui.account.status.signed_out,Signed out.,Account status
+ui.account.status.account_created,Account created. Create your character next.,Account status
+ui.account.status.signed_in,Signed in.,Account status
+ui.account.status.appearance_requires_character,Select an account and character before saving appearance.,Account status
+ui.account.status.character_selection_saved,Character selection saved.,Account status
+ui.account.status.world_selection_saved,World selection saved. Load or enter it next.,Account status
+ui.account.status.create_world_requires_account,Sign in before creating a world.,Account status
+ui.account.status.world_name_required,Enter a world name first.,Account status
+ui.account.status.world_created,World created with its Authority runtime zone.,Account status
+ui.account.status.session_restored,Account session restored.,Account status
+ui.account.status.dashboard_loaded,Loaded {0} character(s) and {1} world(s).,Account status
+ui.account.status.avatar_identity_missing,The local player does not have a stable world identity.,Account status
+ui.account.status.runtime_zone_missing,World entry stopped because no Authority runtime zone is available.,Account status
+ui.account.status.avatar_registration_failed,World entry stopped because the player avatar could not be registered.,Account status
+ui.account.status.preparing_actions,Preparing gameplay actions.,Account status
+ui.account.status.preparing_avatar_life,Preparing the player life state.,Account status
+ui.account.status.avatar_life_failed,World entry stopped because the Authority could not restore the player life state.,Account status
+ui.account.status.player_ontology_failed,World entry stopped because the player ontology contract could not be prepared.,Account status
+ui.account.status.avatar_runtime_failed,World entry stopped because the player runtime foundation could not be prepared.,Account status
+ui.account.status.operation_failed,The requested world operation failed. Please try again.,Account status
+ui.account.status.world_projection_failed,World entry was accepted but its durable world data could not be loaded.,Account status
+ui.account.status.avatar_motion_missing,World entry stopped because the Authority did not publish the player position.,Account status
+ui.account.status.recovering_changes,Recovering pending world changes.,Account status
+ui.account.status.pending_changes_waiting,The world loaded but pending changes are waiting for the Authority connection.,Account status
+ui.account.status.restoring_checkpoint,Restoring the player checkpoint.,Account status
+ui.account.status.checkpoint_failed,World entry stopped because the player checkpoint could not be restored.,Account status
+ui.account.status.entry_presentation_unavailable,World entry stopped because the local player presentation could not be prepared.,Account status
+ui.account.status.entry_presentation_failed,World entry stopped because the local player could not be grounded before activation.,Account status
+ui.account.status.locomotion_presentation_failed,World entry stopped because the Authority did not approve the player's locomotion contract.,Account status
+ui.account.status.checkpoint_confirmation_failed,World entry stopped because the prepared player checkpoint could not be confirmed.,Account status
+ui.account.status.entry_activation_failed,World entry stopped because the local player presentation could not be activated.,Account status
+ui.account.status.legacy_contract_repair_failed,World entry stopped because legacy ontology contracts could not be repaired.,Account status
+ui.account.status.entered_with_appearance,Entered the selected world with the saved appearance and profile. Gameplay actions are ready.,Account status
+ui.account.status.entered_with_relations,Entered the selected world with the saved profile relations. Gameplay actions are ready.,Account status
+ui.account.status.player_template_incomplete,World entry stopped because the authored player template and profile contract is incomplete.,Account status
+ui.account.status.character_created,Created and selected character '{0}'. Choose a world next.,Account status
+ui.account.status.appearance_saved,Account appearance profile saved.,Account status
+ui.quest_panel.authority_not_ready,The shared world is not ready. No action was applied.,Player quest panel
+ui.quest_panel.target_not_ready,This action target is not ready in the shared world.,Player quest panel
+ui.quest_panel.tool_not_ready,The required tool is not ready in the shared world.,Player quest panel
+ui.quest_panel.definition_missing,No unique enabled Authority definition exists for this action.,Player quest panel
+ui.quest_panel.action_rejected,The action was not accepted.,Player quest panel
+quest.InvestigateSmokeAndPanic.title,Investigate Smoke and Panic,Quest
+quest.InvestigateSmokeAndPanic.reason,{0} reports smoke and village panic.,Quest
+quest.InvestigateSmokeAndPanic.goal.inspect,Inspect {0} to identify the source of smoke.,Quest goal
+quest.InvestigateSmokeAndPanic.goal.help,Help {0} recover from the disturbance.,Quest goal
+quest.ColdProtectionPreparation.title,Prepare for the Cold,Quest
+quest.ColdProtectionPreparation.reason,{0} recommends protective clothing.,Quest
+quest.ColdProtectionPreparation.goal.equip,Equip {0} to gain cold protection.,Quest goal
+quest.SwampProtectionPreparation.title,Prepare for the Swamp,Quest
+quest.SwampProtectionPreparation.reason,{0} recommends swamp-resistant equipment.,Quest
+quest.SwampProtectionPreparation.goal.equip,Equip {0} to gain swamp resistance.,Quest goal
+ui.combat.status.generic.title,Combat,Combat status
+ui.combat.status.generic.detail,The combat state changed.,Combat status
+ui.combat.status.equipment_selection_required.title,Choose equipment,Combat status
+ui.combat.status.equipment_selection_required.detail,Aim at the equipped item to remove and press F.,Combat status
+ui.combat.status.loot_unavailable.title,Loot unavailable,Combat status
+ui.combat.status.loot_unavailable.detail,This object has no enabled ontology loot action.,Combat status
+ui.combat.status.loot_collected.title,Loot collected,Combat status
+ui.combat.status.loot_collected.detail,The Authority recorded the loot provenance.,Combat status
+ui.combat.status.loot_collection_failed.title,Loot collection failed,Combat status
+ui.combat.status.loot_collection_failed.detail,The Authority did not accept the loot action.,Combat status
+ui.combat.status.equip_world_not_ready.title,Cannot equip,Combat status
+ui.combat.status.equip_world_not_ready.detail,The world connection is not ready.,Combat status
+ui.combat.status.equip_player_identity_not_ready.title,Cannot equip,Combat status
+ui.combat.status.equip_player_identity_not_ready.detail,The player world identity is not ready.,Combat status
+ui.combat.status.no_equipment_nearby.title,No equipment nearby,Combat status
+ui.combat.status.no_equipment_nearby.detail,Stand near an equippable object and press F.,Combat status
+ui.combat.status.equip_rule_missing.title,Equip rule unavailable,Combat status
+ui.combat.status.equip_rule_missing.detail,The combat rule package is being prepared again.,Combat status
+ui.combat.status.no_weapon_nearby.title,No weapon nearby,Combat status
+ui.combat.status.no_weapon_nearby.detail,Stand near a weapon and press F.,Combat status
+ui.combat.status.weapon_instance_missing.title,Weapon registration failed,Combat status
+ui.combat.status.weapon_instance_missing.detail,This weapon has no world placement instance to publish.,Combat status
+ui.combat.status.weapon_publishing.title,Registering weapon,Combat status
+ui.combat.status.weapon_publishing.detail,Publishing the placed weapon before equipping it.,Combat status
+ui.combat.status.weapon_publish_failed.title,Weapon registration failed,Combat status
+ui.combat.status.weapon_publish_failed.detail,The weapon could not be published to the Authority.,Combat status
+ui.combat.status.equip_cancelled.title,Equip cancelled,Combat status
+ui.combat.status.equip_cancelled.detail,The weapon state changed while it was being registered.,Combat status
+ui.combat.status.equip_position_sync.title,Preparing equipment,Combat status
+ui.combat.status.equip_position_sync.detail,Synchronize the player position and try again.,Combat status
+ui.combat.status.weapon_equipped.title,Weapon equipped,Combat status
+ui.combat.status.weapon_equipped.detail,The selected weapon was equipped.,Combat status
+ui.combat.status.equip_failed.title,Equip failed,Combat status
+ui.combat.status.equip_failed.detail,The Authority rejected the equip request.,Combat status
+ui.combat.status.equip_actor_position_unavailable.title,Equip not ready,Combat status
+ui.combat.status.equip_actor_position_unavailable.detail,The player position is not ready on the server.,Combat status
+ui.combat.status.equip_target_position_unavailable.title,Equip not ready,Combat status
+ui.combat.status.equip_target_position_unavailable.detail,The weapon position is not ready on the server.,Combat status
+ui.combat.status.equip_target_out_of_range.title,Weapon out of range,Combat status
+ui.combat.status.equip_target_out_of_range.detail,Move closer to the weapon and try again.,Combat status
+ui.combat.status.weapon_unequipped.title,Weapon unequipped,Combat status
+ui.combat.status.weapon_unequipped.detail,The authoritative equipment relation was removed.,Combat status
+ui.combat.status.unequip_failed.title,Unequip failed,Combat status
+ui.combat.status.unequip_failed.detail,The Authority rejected the unequip request.,Combat status
+ui.combat.status.equip_rule_ready.title,Equip rule ready,Combat status
+ui.combat.status.equip_rule_ready.detail,Continuing to equip the selected weapon.,Combat status
+ui.combat.status.equip_rule_prepare_failed.title,Equip rule unavailable,Combat status
+ui.combat.status.equip_rule_prepare_failed.detail,The combat rule package could not be prepared.,Combat status
+ui.combat.status.unequip_rule_unavailable.title,Unequip rule unavailable,Combat status
+ui.combat.status.unequip_rule_unavailable.detail,The unequip rule package could not be prepared.,Combat status
+ui.world_editor.authority_update_completed,The Authority world data was updated.,World editor
+ui.world_editor.authority_update_failed,The Authority could not apply the world-data change.,World editor
+ui.title.ontology_data,Ontology Data,Ontology data editor title
+ui.placeholder.object_value,Value,Ontology object value placeholder
+ui.button.delete,Delete,Common destructive action
+physical_choice.AuthorityKinematic,Move through World Authority control,Physical behavior
+physical_result.AuthorityKinematic,This actor moves through authoritative runtime motion.,Physical behavior
+physical_choice.HandheldWeapon,Use as a handheld weapon,Physical behavior
+physical_result.HandheldWeapon,This object uses the handheld-weapon attachment and contact behavior.,Physical behavior
+relation.attack_action,attack action,Relation
+relation.attack_cooldown,attack cooldown,Relation
+relation.attack_damage,attack damage,Relation
+relation.attack_range,attack range,Relation
+relation.belongs_to_faction,faction membership,Relation
+relation.can_equip,equippable,Relation
+relation.chase_action,chase action,Relation
+relation.chase_profile,chase profile,Relation
+relation.combat_disposition,combat disposition,Relation
+relation.current_health,current health,Relation
+relation.damage_profile,damage profile,Relation
+relation.death_animation_intent,death animation,Relation
+relation.equip_action,equip action,Relation
+relation.faction,faction,Relation
+relation.gravity_acceleration,gravity acceleration,Relation
+relation.hit_animation_intent,hit animation,Relation
+relation.hit_vfx_intent,hit effect,Relation
+relation.interaction_range,interaction range,Relation
+relation.is_alive,alive,Relation
+relation.jump_action,jump action,Relation
+relation.jump_takeoff_speed,jump takeoff speed,Relation
+relation.ground_stick_velocity,ground stick velocity,Relation
+relation.maximum_step_height,maximum step height,Relation
+relation.ground_clearance,ground clearance,Relation
+relation.impact_response_profile,impact response profile,Relation
+relation.location,location,Relation
+relation.locomotion_action,locomotion action,Relation
+relation.loot_action,loot action,Relation
+relation.loot_item,loot item,Relation
+relation.loot_status,loot status,Relation
+relation.loot_table,loot table,Relation
+relation.maximum_health,maximum health,Relation
+relation.movement_speed,movement speed,Relation
+relation.collision_role,collision role,Relation
+relation.collision_proxy_shape,collision proxy shape,Relation
+relation.collision_radius,collision radius,Relation
+relation.collision_height,collision height,Relation
+relation.collision_size_x,collision width,Relation
+relation.collision_size_y,collision vertical size,Relation
+relation.collision_size_z,collision depth,Relation
+relation.collision_center_offset_x,collision center X offset,Relation
+relation.collision_center_offset_y,collision center Y offset,Relation
+relation.collision_center_offset_z,collision center Z offset,Relation
+collision_role.DynamicProp,dynamic object,Collision role
+collision_role.WalkableSupport,walkable support,Collision role
+collision_role.ActorBody,actor body,Collision role
+collision_role.InteractionTrigger,interaction trigger,Collision role
+collision_role.WaterVolume,water volume,Collision role
+collision_proxy_shape.Capsule,capsule,Collision proxy shape
+collision_proxy_shape.Box,box,Collision proxy shape
+relation.respawn_action,respawn action,Relation
+relation.semantic_contract_version,semantic contract version,Relation
+relation.swing_action,swing action,Relation
+relation.target_action,target action,Relation
+relation.target_concept,target concept,Relation
+relation.targeting_profile,targeting profile,Relation
+relation.unequip_action,unequip action,Relation
+fact.attack_action,{0}'s attack action is {1}.,Readable fact
+fact.attack_cooldown,{0}'s attack cooldown is {1}.,Readable fact
+fact.attack_damage,{0}'s attack damage is {1}.,Readable fact
+fact.attack_range,{0}'s attack range is {1}.,Readable fact
+fact.belongs_to_faction,{0} belongs to faction {1}.,Readable fact
+fact.can_equip,{0} has equippable state {1}.,Readable fact
+fact.chase_action,{0}'s chase action is {1}.,Readable fact
+fact.chase_profile,{0}'s chase profile is {1}.,Readable fact
+fact.combat_disposition,{0}'s combat disposition is {1}.,Readable fact
+fact.current_health,{0}'s current health is {1}.,Readable fact
+fact.damage_profile,{0}'s damage profile is {1}.,Readable fact
+fact.death_animation_intent,{0}'s death animation is {1}.,Readable fact
+fact.equip_action,{0}'s equip action is {1}.,Readable fact
+fact.faction,{0}'s faction is {1}.,Readable fact
+fact.gravity_acceleration,{0}'s gravity acceleration is {1}.,Readable fact
+fact.hit_animation_intent,{0}'s hit animation is {1}.,Readable fact
+fact.hit_vfx_intent,{0}'s hit effect is {1}.,Readable fact
+fact.interaction_range,{0}'s interaction range is {1}.,Readable fact
+fact.is_alive,{0}'s alive state is {1}.,Readable fact
+fact.jump_action,{0}'s jump action is {1}.,Readable fact
+fact.jump_takeoff_speed,{0}'s jump takeoff speed is {1}.,Readable fact
+fact.ground_stick_velocity,{0}'s ground stick velocity is {1}.,Readable fact
+fact.maximum_step_height,{0}'s maximum step height is {1}.,Readable fact
+fact.ground_clearance,{0}'s ground clearance is {1}.,Readable fact
+fact.impact_response_profile,{0}'s impact response profile is {1}.,Readable fact
+fact.location,{0}'s location is {1}.,Readable fact
+fact.locomotion_action,{0}'s locomotion action is {1}.,Readable fact
+fact.loot_action,{0}'s loot action is {1}.,Readable fact
+fact.loot_item,{0}'s loot item is {1}.,Readable fact
+fact.loot_status,{0}'s loot status is {1}.,Readable fact
+fact.loot_table,{0}'s loot table is {1}.,Readable fact
+fact.maximum_health,{0}'s maximum health is {1}.,Readable fact
+fact.movement_speed,{0}'s movement speed is {1}.,Readable fact
+fact.collision_role,{0}'s collision role is {1}.,Readable fact
+fact.collision_proxy_shape,{0}'s collision proxy shape is {1}.,Readable fact
+fact.collision_radius,{0}'s collision radius is {1}.,Readable fact
+fact.collision_height,{0}'s collision height is {1}.,Readable fact
+fact.collision_size_x,{0}'s collision width is {1}.,Readable fact
+fact.collision_size_y,{0}'s collision height size is {1}.,Readable fact
+fact.collision_size_z,{0}'s collision depth is {1}.,Readable fact
+fact.collision_center_offset_x,{0}'s collision center X offset is {1}.,Readable fact
+fact.collision_center_offset_y,{0}'s collision center Y offset is {1}.,Readable fact
+fact.collision_center_offset_z,{0}'s collision center Z offset is {1}.,Readable fact
+fact.respawn_action,{0}'s respawn action is {1}.,Readable fact
+fact.semantic_contract_version,{0}'s semantic contract version is {1}.,Readable fact
+fact.swing_action,{0}'s swing action is {1}.,Readable fact
+fact.target_action,{0}'s target action is {1}.,Readable fact
+fact.target_concept,{0}'s target concept is {1}.,Readable fact
+fact.targeting_profile,{0}'s targeting profile is {1}.,Readable fact
+fact.unequip_action,{0}'s unequip action is {1}.,Readable fact
+concept.EquipmentSlot,equipment slot,Concept
+value.ActorToItem,actor to item,Value
+value.ItemToActor,item to actor,Value
+value.ChaseWithinLeash,chase within leash,Value
+value.NearestHostileWithinDetection,nearest hostile within detection,Value
+value.acquire_autonomous_target,acquire autonomous target,Action
+value.autonomous_melee_attack,autonomous melee attack,Action
+value.chase_autonomous_target,chase autonomous target,Action
+value.collect_loot,collect loot,Action
+value.dismount,dismount,Action
+value.drop_carried,drop carried item,Action
+value.equip_weapon,equip weapon,Action
+value.jump_avatar,avatar jump action,Action
+value.move_avatar,avatar move action,Action
+value.respawn_avatar,respawn,Action
+value.swing_weapon,swing weapon,Action
+value.unequip_equipment,unequip equipment,Action
+value.unequip_wearable,unequip wearable,Action
+value.Available,available,State
+value.Death,death,Animation intent
+value.HitReaction,hit reaction,Animation intent
+value.Hostile,hostile,State
+value.Jump,jump capability,Capability
+value.Locomotion,locomotion capability,Capability
+value.MeleeAttack,melee attack,Capability
+value.BasicSwordDamage,basic sword damage,Damage profile
+value.BeholderBasicLoot,Beholder basic loot,Loot table
+value.HitPhysicalLight,light physical hit effect,VFX intent
+value.OntologyDataFragment,ontology data fragment,Loot item
+value.True,true,Boolean
+value.False,false,Boolean
+variable.board,board,Rule variable
+variable.carried,carried object,Rule variable
+variable.collector,collector,Rule variable
+variable.creature,creature,Rule variable
+variable.detection,detection range,Rule variable
+variable.emitter,emitter,Rule variable
+variable.equipped,equipped object,Rule variable
+variable.gravity,gravity,Rule variable
+variable.holder,holder,Rule variable
+variable.jumpheight,jump height,Rule variable
+variable.leash,chase limit,Rule variable
+variable.lootitem,loot item,Rule variable
+variable.maximumhealth,maximum health,Rule variable
+variable.mount,mount,Rule variable
+variable.npc,NPC,Rule variable
+variable.occupant,occupant,Rule variable
+variable.part,part,Rule variable
+variable.place,place,Rule variable
+variable.profile,profile,Rule variable
+variable.requiredrule,required rule,Rule variable
+variable.skill,skill,Rule variable
+variable.slot,slot,Rule variable
+variable.slotentity,slot entity,Rule variable
+variable.smokesource,smoke source,Rule variable
+variable.speed,speed,Rule variable
+variable.targetconcept,target concept,Rule variable
+variable.targetfaction,target faction,Rule variable
+variable.tick,tick,Rule variable
+variable.tile,tile,Rule variable
+variable.vitality,vitality,Rule variable

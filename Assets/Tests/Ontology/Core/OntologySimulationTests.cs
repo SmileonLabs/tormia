@@ -99,20 +99,22 @@ namespace Tormia.Ontology.Tests
         }
 
         [Test]
-        public void RemovingRuleBlockRetractsLegacyFloatingFact()
+        public void RemovingRuleBlockRetractsInferredFloatingFact()
         {
             var buoyancy = CreateDerivedBuoyancyRule();
             var world = new OntologyWorldState();
             world.AddFact("Tube", OntologyPredicates.Occupies, "Water");
-            world.AddFact(
+            world.AddFactContribution(
                 "Tube",
                 OntologyPredicates.PhysicalState,
-                OntologyObjects.Floating);
+                OntologyObjects.Floating,
+                OntologyFactOrigin.Inferred);
             var service = new OntologyWorldService();
             service.Reset(world);
 
-            // The active rule list is empty after its block is deleted. The complete
-            // database is still supplied as the derived-fact policy.
+            // Legacy durable derived facts are filtered by RestoreWorld above.
+            // During a live rebuild, only the inferred contribution is retracted;
+            // a matching durable Authority projection must remain owned by Authority.
             service.Simulate(
                 new OntologyRuleDefinition[0],
                 null,

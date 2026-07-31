@@ -89,12 +89,16 @@ namespace Tormia.Ontology.Core
             if (profileRelationsHeadingLabel != null) profileRelationsHeadingLabel.text = L("ui.account.profile_final_review.relations", "PROFILE RELATIONS");
             if (statusHeadingLabel != null) statusHeadingLabel.text = L("ui.account.profile_final_review.status", "STATUS");
             if (characterNameLabel != null) characterNameLabel.text = character?.displayName ?? string.Empty;
-            if (templateLabel != null) templateLabel.text = character?.templateId ?? string.Empty;
+            if (templateLabel != null)
+                templateLabel.text = character == null
+                    ? string.Empty
+                    : OntologyLanguagePackService.CharacterTemplateName(
+                        character.templateId);
             if (appearanceLabel != null)
             {
-                appearanceLabel.text = character?.equippedPartIds == null || character.equippedPartIds.Length == 0
-                    ? L("ui.account.default_appearance", "Default appearance")
-                    : string.Join(", ", character.equippedPartIds);
+                appearanceLabel.text =
+                    OntologyLanguagePackService.FormatCharacterPartList(
+                        character?.equippedPartIds);
             }
             BindAppearanceSlots(character?.equippedPartIds);
             if (profileRelationsLabel != null)
@@ -109,7 +113,11 @@ namespace Tormia.Ontology.Core
                     for (var index = 0; index < character.profileRelations.Length; index++)
                     {
                         var relation = character.profileRelations[index];
-                        lines[index] = relation.subjectId + "  >  " + relation.predicateId + "  >  " + relation.objectId;
+                        lines[index] =
+                            OntologyLanguagePackService.FormatProfileRelation(
+                                relation.subjectId,
+                                relation.predicateId,
+                                relation.objectId);
                     }
                     profileRelationsLabel.text = string.Join("\n", lines);
                 }
@@ -134,12 +142,17 @@ namespace Tormia.Ontology.Core
                     ? L("ui.account.no_account_profile_relations", "No saved account profile relations")
                     : L("ui.account.profile_relation_count", "{0} saved account profile relation(s)")
                         .Replace("{0}", relations.Length.ToString());
-                var appearance = character?.equippedPartIds == null || character.equippedPartIds.Length == 0
-                    ? L("ui.account.default_appearance", "Default appearance")
-                    : string.Join(", ", character.equippedPartIds);
+                var appearance =
+                    OntologyLanguagePackService.FormatCharacterPartList(
+                        character?.equippedPartIds);
                 summaryLabel.text = L("ui.account.profile_review", "PROFILE REVIEW") + "\n\n" +
                                     L("ui.account.character", "Character: {0}").Replace("{0}", character?.displayName ?? "-") + "\n" +
-                                    L("ui.account.template", "Template: {0}").Replace("{0}", character?.templateId ?? "-") + "\n" +
+                                    L("ui.account.template", "Template: {0}").Replace(
+                                        "{0}",
+                                        character == null
+                                            ? "-"
+                                            : OntologyLanguagePackService.CharacterTemplateName(
+                                                character.templateId)) + "\n" +
                                     L("ui.account.appearance", "Appearance: {0}").Replace("{0}", appearance) + "\n" +
                                     L("ui.account.world", "World: {0}").Replace("{0}", entryFlow.SelectedWorldId ?? "-") + "\n\n" +
                                     relationSummary;

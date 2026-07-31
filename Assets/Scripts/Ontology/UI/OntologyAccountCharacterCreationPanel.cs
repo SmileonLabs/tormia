@@ -72,7 +72,9 @@ namespace Tormia.Ontology.Core
                 foreach (var templateId in templateIds)
                 {
                     if (!string.IsNullOrWhiteSpace(templateId))
-                        options.Add(new TMP_Dropdown.OptionData(templateId));
+                        options.Add(new TMP_Dropdown.OptionData(
+                            OntologyLanguagePackService.CharacterTemplateName(
+                                templateId)));
                 }
                 templateDropdown.AddOptions(options);
                 templateDropdown.interactable = options.Count > 1 && !creating;

@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: HeavySinkingPhysicalProfile
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyPhysicalProfile
   profileId: HeavySinking
+  mobilityMode: 0
+  motionDriver: 0
+  collisionRole: 0
   mass: 5
   linearDamping: 0.1
   angularDamping: 0.5

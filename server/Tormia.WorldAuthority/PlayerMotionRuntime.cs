@@ -16,7 +16,15 @@ internal sealed record WorldPlayerMotionState(
     double PositionZ,
     long LastProcessedIntentSequence,
     string MotionStatus,
-    long UpdatedAtUnixMilliseconds);
+    long UpdatedAtUnixMilliseconds,
+    double VelocityX = 0d,
+    double VelocityY = 0d,
+    double VelocityZ = 0d,
+    double GroundReferenceY = 0d,
+    bool Grounded = true,
+    long ServerTick = 0,
+    Guid? LastProcessedRuntimeActionOccurrenceId = null,
+    Guid? GroundSupportEntityId = null);
 
 internal interface IWorldPlayerMotionRuntimeRegistry
 {
@@ -109,26 +117,31 @@ internal sealed class InMemoryWorldPlayerMotionRuntimeRegistry : IWorldPlayerMot
 }
 
 /// <summary>
-/// Runs a deliberately limited server kinematic pass. It accepts only active
-/// input for avatars assigned to a configured Zone, reads speed from the
-/// authored movement_speed Fact, and clamps X/Z to that Zone's durable bounds.
-/// Terrain collision, gravity, water, mounts, and movement-mode rules remain
-/// separate adapters until an authoritative collision representation exists.
+/// Integrates short-lived authoritative player motion selected by the complete
+/// locomotion ontology contract. Input and accepted runtime actions are
+/// transient; positions are resolved at a fixed tick against authored
+/// primitive proxies and remain outside durable world Facts/events.
 /// </summary>
 internal sealed class WorldPlayerMotionSimulationScheduler(
     WorldAuthorityRepository repository,
     IWorldPlayerIntentRegistry intents,
+    IWorldPlayerRuntimeActionIntentRegistry runtimeActions,
     IWorldPlayerMotionRuntimeRegistry motion,
+    IWorldZoneSessionRegistry sessions,
     IWorldZoneExecutionLeaseRegistry executionLeases,
     IWorldZoneRuntimeNotificationPublisher runtimeNotifications,
     ILogger<WorldPlayerMotionSimulationScheduler> logger) : BackgroundService
 {
-    private static readonly TimeSpan LoopInterval = TimeSpan.FromMilliseconds(200);
-    private static readonly TimeSpan LeaseDuration = TimeSpan.FromMilliseconds(750);
+    private static readonly TimeSpan LoopInterval =
+        TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan LeaseDuration =
+        TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan ZoneRefreshInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan AvatarRefreshInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan ProxyRefreshInterval = TimeSpan.FromSeconds(1);
     private readonly string ownerId = Environment.MachineName + ":motion:" + Guid.NewGuid().ToString("N");
     private readonly ConcurrentDictionary<string, AvatarCacheEntry> avatarCache = new();
+    private readonly ConcurrentDictionary<string, ProxyCacheEntry> proxyCache = new();
     private IReadOnlyList<WorldZoneScheduleDefinition> zones = Array.Empty<WorldZoneScheduleDefinition>();
     private DateTimeOffset nextZoneRefreshAt = DateTimeOffset.MinValue;
 
@@ -153,10 +166,48 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
                     if (!leaseHeld) continue;
 
                     var configurations = await GetAvatarConfigurations(zone, now, stoppingToken);
+                    var proxyConfigurations =
+                        await GetCollisionProxyConfigurations(
+                            zone,
+                            now,
+                            stoppingToken);
+                    var currentMotionStates = await motion.GetMany(
+                        zone.WorldId,
+                        configurations
+                            .Select(value => value.AvatarEntityId)
+                            .ToArray(),
+                        stoppingToken);
+                    var collisionProxies = BuildCollisionProxies(
+                        proxyConfigurations,
+                        currentMotionStates);
+                    var proxyConfigurationsByEntity =
+                        proxyConfigurations
+                            .GroupBy(value => value.EntityId)
+                            .Where(group => group.Count() == 1)
+                            .ToDictionary(
+                                group => group.Key,
+                                group => group.Single());
+                    var activeUserIds = await sessions.GetActiveUserIds(
+                        zone.WorldId,
+                        zone.ZoneKey,
+                        stoppingToken);
                     var zoneRuntimeChanged = false;
                     foreach (var configuration in configurations)
                     {
-                        zoneRuntimeChanged |= await AdvanceAvatar(configuration, zone, now, stoppingToken);
+                        // Registered ownership is durable, but simulation presence
+                        // is not. Offline avatars must stop refreshing their Redis
+                        // motion TTL so a later entry can seed from the checkpoint.
+                        if (!activeUserIds.Contains(configuration.UserId)) continue;
+                        proxyConfigurationsByEntity.TryGetValue(
+                            configuration.AvatarEntityId,
+                            out var actorProxyConfiguration);
+                        zoneRuntimeChanged |= await AdvanceAvatar(
+                            configuration,
+                            actorProxyConfiguration,
+                            collisionProxies,
+                            zone,
+                            now,
+                            stoppingToken);
                     }
 
                     if (zoneRuntimeChanged)
@@ -206,8 +257,77 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
         return configurations;
     }
 
+    private async Task<IReadOnlyList<WorldCollisionProxyConfiguration>>
+        GetCollisionProxyConfigurations(
+            WorldZoneScheduleDefinition zone,
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+    {
+        var key = zone.WorldId.ToString("N") + ":" + zone.ZoneKey;
+        if (proxyCache.TryGetValue(key, out var existing) &&
+            existing.ExpiresAt > now)
+        {
+            return existing.Configurations;
+        }
+
+        var configurations =
+            await repository.GetWorldCollisionProxyConfigurations(
+                zone.WorldId,
+                zone.ZoneKey,
+                cancellationToken);
+        proxyCache[key] = new ProxyCacheEntry(
+            configurations,
+            now + ProxyRefreshInterval);
+        return configurations;
+    }
+
+    private static IReadOnlyList<WorldCollisionProxy>
+        BuildCollisionProxies(
+            IReadOnlyList<WorldCollisionProxyConfiguration>
+                configurations,
+            IReadOnlyList<WorldPlayerMotionState> motionStates)
+    {
+        var runtimeByEntity = motionStates
+            .GroupBy(value => value.AvatarEntityId)
+            .Where(group => group.Count() == 1)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Single());
+        var proxies = new List<WorldCollisionProxy>();
+        foreach (var configuration in configurations)
+        {
+            if (!WorldCollisionProxyPolicy.TryCreate(
+                    configuration,
+                    out var proxy,
+                    out _))
+            {
+                continue;
+            }
+
+            if (runtimeByEntity.TryGetValue(
+                    configuration.EntityId,
+                    out var runtime) &&
+                string.Equals(
+                    runtime.ZoneKey,
+                    configuration.ZoneKey,
+                    StringComparison.Ordinal))
+            {
+                proxy = WorldCollisionProxyPolicy.PlaceAtEntityPosition(
+                    proxy!,
+                    configuration,
+                    runtime.PositionX,
+                    runtime.PositionY,
+                    runtime.PositionZ);
+            }
+            proxies.Add(proxy!);
+        }
+        return proxies;
+    }
+
     private async Task<bool> AdvanceAvatar(
         WorldPlayerAvatarMotionConfiguration configuration,
+        WorldCollisionProxyConfiguration? actorProxyConfiguration,
+        IReadOnlyList<WorldCollisionProxy> collisionProxies,
         WorldZoneScheduleDefinition zone,
         DateTimeOffset now,
         CancellationToken cancellationToken)
@@ -222,54 +342,502 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
             configuration.SpawnPositionZ,
             0,
             "idle",
-            now.ToUnixTimeMilliseconds());
+            now.ToUnixTimeMilliseconds(),
+            0d,
+            0d,
+            0d,
+            configuration.SpawnPositionY,
+            true,
+            0,
+            null);
         var intent = await intents.Get(configuration.WorldId, configuration.AvatarEntityId, cancellationToken);
 
-        if (configuration.MovementSpeed is not > 0d)
+        if (configuration.MovementSpeed is not > 0d ||
+            configuration.GravityAcceleration is not < 0d ||
+            configuration.GroundStickVelocity is not <= 0d ||
+            configuration.MaximumStepHeight is not >= 0d ||
+            configuration.GroundClearance is not >= 0d)
         {
-            if (existing is null || fallback.MotionStatus != "missing_movement_speed")
+            var disabled = fallback with
             {
-                await motion.Set(fallback with { MotionStatus = "missing_movement_speed", UpdatedAtUnixMilliseconds = now.ToUnixTimeMilliseconds() }, cancellationToken);
-                return true;
-            }
-            return false;
+                VelocityX = 0d,
+                VelocityY = 0d,
+                VelocityZ = 0d,
+                MotionStatus = "missing_motion_semantics",
+                UpdatedAtUnixMilliseconds =
+                    now.ToUnixTimeMilliseconds(),
+                ServerTick = fallback.ServerTick + 1
+            };
+            await motion.Set(disabled, cancellationToken);
+            return HasPresentationChange(fallback, disabled);
         }
 
-        if (intent is null || !string.Equals(intent.ZoneKey, configuration.ZoneKey, StringComparison.Ordinal))
+        if (actorProxyConfiguration is null ||
+            !WorldCollisionProxyPolicy.TryCreate(
+                actorProxyConfiguration,
+                out var actorProxyTemplate,
+                out _))
         {
-            if (existing is null || fallback.MotionStatus != "idle")
+            var disabled = fallback with
             {
-                await motion.Set(fallback with { MotionStatus = "idle", UpdatedAtUnixMilliseconds = now.ToUnixTimeMilliseconds() }, cancellationToken);
-                return true;
-            }
-            return false;
+                VelocityX = 0d,
+                VelocityY = 0d,
+                VelocityZ = 0d,
+                MotionStatus = "missing_collision_proxy",
+                UpdatedAtUnixMilliseconds =
+                    now.ToUnixTimeMilliseconds(),
+                ServerTick = fallback.ServerTick + 1
+            };
+            await motion.Set(disabled, cancellationToken);
+            return HasPresentationChange(fallback, disabled);
         }
 
-        var previousAt = DateTimeOffset.FromUnixTimeMilliseconds(fallback.UpdatedAtUnixMilliseconds);
-        var seconds = Math.Clamp((now - previousAt).TotalSeconds, 0d, LoopInterval.TotalSeconds * 1.5d);
-        var directionLength = Math.Sqrt(intent.MoveX * intent.MoveX + intent.MoveZ * intent.MoveZ);
-        var directionX = directionLength > 0.0001d ? intent.MoveX / directionLength : 0d;
-        var directionZ = directionLength > 0.0001d ? intent.MoveZ / directionLength : 0d;
-        var nextX = Math.Clamp(fallback.PositionX + directionX * configuration.MovementSpeed.Value * seconds, zone.MinX, zone.MaxX);
-        var nextZ = Math.Clamp(fallback.PositionZ + directionZ * configuration.MovementSpeed.Value * seconds, zone.MinZ, zone.MaxZ);
-        var next = fallback with
+        if (intent is not null &&
+            !string.Equals(
+                intent.ZoneKey,
+                configuration.ZoneKey,
+                StringComparison.Ordinal))
         {
-            PositionX = nextX,
-            PositionY = configuration.SpawnPositionY,
-            PositionZ = nextZ,
-            LastProcessedIntentSequence = Math.Max(fallback.LastProcessedIntentSequence, intent.Sequence),
-            MotionStatus = directionLength > 0.0001d ? "moving" : "idle",
-            UpdatedAtUnixMilliseconds = now.ToUnixTimeMilliseconds()
-        };
+            intent = null;
+        }
+        var runtimeAction = await runtimeActions.Get(
+            configuration.WorldId,
+            configuration.AvatarEntityId,
+            cancellationToken);
+        var jumpRequested =
+            runtimeAction is not null &&
+            runtimeAction.OccurrenceId !=
+            fallback.LastProcessedRuntimeActionOccurrenceId &&
+            !string.IsNullOrWhiteSpace(
+                configuration.JumpActionId) &&
+            string.Equals(
+                runtimeAction.ActionId,
+                configuration.JumpActionId,
+                StringComparison.Ordinal) &&
+            configuration.JumpTakeoffSpeed is > 0d;
+        var next = WorldPlayerMotionPolicy.ResolveAuthoritativeStep(
+            fallback,
+            intent,
+            configuration,
+            actorProxyConfiguration,
+            actorProxyTemplate!,
+            collisionProxies,
+            zone,
+            jumpRequested
+                ? runtimeAction!.OccurrenceId
+                : null,
+            LoopInterval.TotalSeconds,
+            now.ToUnixTimeMilliseconds());
         await motion.Set(next, cancellationToken);
         return existing is null ||
-               !string.Equals(fallback.MotionStatus, next.MotionStatus, StringComparison.Ordinal) ||
-               Math.Abs(fallback.PositionX - next.PositionX) > 0.0001d ||
-               Math.Abs(fallback.PositionY - next.PositionY) > 0.0001d ||
-               Math.Abs(fallback.PositionZ - next.PositionZ) > 0.0001d;
+               HasPresentationChange(fallback, next);
+    }
+
+    private static bool HasPresentationChange(
+        WorldPlayerMotionState previous,
+        WorldPlayerMotionState next)
+    {
+        return Math.Abs(previous.PositionX - next.PositionX) >
+                   0.000001d ||
+               Math.Abs(previous.PositionY - next.PositionY) >
+                   0.000001d ||
+               Math.Abs(previous.PositionZ - next.PositionZ) >
+                   0.000001d ||
+               !string.Equals(
+                   previous.MotionStatus,
+                   next.MotionStatus,
+                   StringComparison.Ordinal);
     }
 
     private sealed record AvatarCacheEntry(
         IReadOnlyList<WorldPlayerAvatarMotionConfiguration> Configurations,
         DateTimeOffset ExpiresAt);
+    private sealed record ProxyCacheEntry(
+        IReadOnlyList<WorldCollisionProxyConfiguration> Configurations,
+        DateTimeOffset ExpiresAt);
+}
+
+internal static class WorldPlayerMotionPolicy
+{
+    public static bool IsInsideZone(
+        double positionX,
+        double positionZ,
+        double minimumX,
+        double minimumZ,
+        double maximumX,
+        double maximumZ)
+    {
+        return double.IsFinite(positionX) &&
+               double.IsFinite(positionZ) &&
+               positionX >= minimumX &&
+               positionX <= maximumX &&
+               positionZ >= minimumZ &&
+               positionZ <= maximumZ;
+    }
+
+    /// <summary>
+    /// The client reports requested locomotion speed as transient input. The
+    /// authored movement_speed Fact remains the authority-owned upper bound.
+    /// </summary>
+    public static double ResolveAcceptedSpeed(float requestedSpeed, double authoredMaximumSpeed)
+    {
+        if (!float.IsFinite(requestedSpeed) || !double.IsFinite(authoredMaximumSpeed))
+            return 0d;
+        return Math.Min(
+            Math.Max(0d, requestedSpeed),
+            Math.Max(0d, authoredMaximumSpeed));
+    }
+
+    public static WorldPlayerMotionState ResolveAuthoritativeStep(
+        WorldPlayerMotionState current,
+        WorldPlayerIntent? intent,
+        WorldPlayerAvatarMotionConfiguration configuration,
+        WorldCollisionProxyConfiguration actorProxyConfiguration,
+        WorldCollisionProxy actorProxyTemplate,
+        IReadOnlyList<WorldCollisionProxy> collisionProxies,
+        WorldZoneScheduleDefinition zone,
+        Guid? acceptedRuntimeActionOccurrenceId,
+        double deltaSeconds,
+        long nowUnixMilliseconds)
+    {
+        var delta = double.IsFinite(deltaSeconds)
+            ? Math.Clamp(deltaSeconds, 0d, 0.1d)
+            : 0d;
+        var maximumStepHeight =
+            configuration.MaximumStepHeight ?? 0d;
+        var groundClearance =
+            configuration.GroundClearance ?? 0d;
+        var groundReferenceY = current.GroundReferenceY;
+        var groundSupportEntityId =
+            current.GroundSupportEntityId;
+        var grounded = current.Grounded;
+        var velocityY = current.VelocityY;
+        var positionY = current.PositionY;
+        WorldCollisionProxy? supportAtStart = null;
+        if (grounded &&
+            WorldCollisionProxyPolicy.TryResolveHighestWalkableSupport(
+                actorProxyTemplate,
+                actorProxyConfiguration,
+                current.PositionX,
+                current.PositionZ,
+                current.PositionY - maximumStepHeight,
+                current.PositionY + maximumStepHeight,
+                groundClearance,
+                collisionProxies,
+                out supportAtStart,
+                out var initialSupportY))
+        {
+            positionY = initialSupportY;
+            groundReferenceY = initialSupportY;
+            groundSupportEntityId =
+                supportAtStart!.EntityId;
+        }
+        else if (grounded)
+        {
+            // Durable checkpoint height is not implicit ground. Removing the
+            // authored WalkableSupport therefore removes grounding.
+            grounded = false;
+            groundReferenceY = 0d;
+            groundSupportEntityId = null;
+        }
+
+        var consumedOccurrence =
+            current.LastProcessedRuntimeActionOccurrenceId;
+        if (acceptedRuntimeActionOccurrenceId.HasValue)
+        {
+            consumedOccurrence =
+                acceptedRuntimeActionOccurrenceId.Value;
+            if (grounded &&
+                configuration.JumpTakeoffSpeed is > 0d)
+            {
+                velocityY =
+                    configuration.JumpTakeoffSpeed.Value;
+                grounded = false;
+            }
+        }
+
+        if (grounded && velocityY <= 0d)
+        {
+            velocityY =
+                configuration.GroundStickVelocity ?? 0d;
+        }
+        else
+        {
+            velocityY +=
+                (configuration.GravityAcceleration ?? 0d) *
+                delta;
+            positionY += velocityY * delta;
+        }
+
+        var directionX = intent?.MoveX ?? 0d;
+        var directionZ = intent?.MoveZ ?? 0d;
+        var directionLength = Math.Sqrt(
+            directionX * directionX +
+            directionZ * directionZ);
+        if (directionLength > 1d)
+        {
+            directionX /= directionLength;
+            directionZ /= directionLength;
+            directionLength = 1d;
+        }
+        var acceptedSpeed =
+            intent is null || configuration.MovementSpeed is not > 0d
+                ? 0d
+                : ResolveAcceptedSpeed(
+                    intent.MoveSpeed,
+                    configuration.MovementSpeed.Value);
+        if (directionLength <= 0.0001d ||
+            acceptedSpeed <= 0d)
+        {
+            directionX = 0d;
+            directionZ = 0d;
+        }
+        else
+        {
+            directionX /= directionLength;
+            directionZ /= directionLength;
+        }
+
+        var positionX = current.PositionX;
+        var positionZ = current.PositionZ;
+        ResolvePlanarMovement(
+            ref positionX,
+            positionY,
+            ref positionZ,
+            directionX * acceptedSpeed * delta,
+            directionZ * acceptedSpeed * delta,
+            actorProxyConfiguration,
+            actorProxyTemplate,
+            collisionProxies,
+            zone);
+
+        if (grounded)
+        {
+            if (WorldCollisionProxyPolicy
+                    .TryResolveHighestWalkableSupport(
+                        actorProxyTemplate,
+                        actorProxyConfiguration,
+                        positionX,
+                        positionZ,
+                        positionY - maximumStepHeight,
+                        positionY + maximumStepHeight,
+                        groundClearance,
+                        collisionProxies,
+                        out var resolvedSupport,
+                        out var resolvedSupportY))
+            {
+                positionY = resolvedSupportY;
+                groundReferenceY = resolvedSupportY;
+                groundSupportEntityId =
+                    resolvedSupport!.EntityId;
+            }
+            else if (WorldCollisionProxyPolicy
+                         .TryResolveHighestWalkableSupport(
+                             actorProxyTemplate,
+                             actorProxyConfiguration,
+                             positionX,
+                             positionZ,
+                             positionY + maximumStepHeight,
+                             double.MaxValue,
+                             groundClearance,
+                             collisionProxies,
+                             out _,
+                             out _))
+            {
+                // A WalkableSupport top above the authored step limit behaves
+                // as a side wall. Retain the previous supported position.
+                positionX = current.PositionX;
+                positionZ = current.PositionZ;
+                if (supportAtStart != null)
+                {
+                    positionY = groundReferenceY;
+                }
+            }
+            else
+            {
+                // Walking beyond the authored support begins a real fall.
+                grounded = false;
+                groundReferenceY = 0d;
+                groundSupportEntityId = null;
+                velocityY =
+                    (configuration.GravityAcceleration ?? 0d) *
+                    delta;
+                positionY =
+                    current.PositionY + velocityY * delta;
+            }
+        }
+        else if (velocityY <= 0d &&
+                 WorldCollisionProxyPolicy
+                     .TryResolveHighestWalkableSupport(
+                         actorProxyTemplate,
+                         actorProxyConfiguration,
+                         positionX,
+                         positionZ,
+                         positionY,
+                         current.PositionY,
+                         groundClearance,
+                         collisionProxies,
+                         out var landingSupport,
+                         out var landingY))
+        {
+            positionY = landingY;
+            groundReferenceY = landingY;
+            groundSupportEntityId =
+                landingSupport!.EntityId;
+            velocityY =
+                configuration.GroundStickVelocity ?? 0d;
+            grounded = true;
+        }
+        var velocityX = delta > 0d
+            ? (positionX - current.PositionX) / delta
+            : 0d;
+        var velocityZ = delta > 0d
+            ? (positionZ - current.PositionZ) / delta
+            : 0d;
+        var hasPlanarVelocity =
+            Math.Abs(velocityX) > 0.0001d ||
+            Math.Abs(velocityZ) > 0.0001d;
+        var motionStatus = !grounded
+            ? "airborne"
+            : hasPlanarVelocity
+                ? "moving"
+                : "idle";
+
+        return current with
+        {
+            PositionX = positionX,
+            PositionY = positionY,
+            PositionZ = positionZ,
+            VelocityX = velocityX,
+            VelocityY = velocityY,
+            VelocityZ = velocityZ,
+            GroundReferenceY = groundReferenceY,
+            Grounded = grounded,
+            GroundSupportEntityId = groundSupportEntityId,
+            LastProcessedIntentSequence =
+                intent is null
+                    ? current.LastProcessedIntentSequence
+                    : Math.Max(
+                        current.LastProcessedIntentSequence,
+                        intent.Sequence),
+            LastProcessedRuntimeActionOccurrenceId =
+                consumedOccurrence,
+            MotionStatus = motionStatus,
+            UpdatedAtUnixMilliseconds = nowUnixMilliseconds,
+            ServerTick = current.ServerTick + 1
+        };
+    }
+
+    private static void ResolvePlanarMovement(
+        ref double positionX,
+        double positionY,
+        ref double positionZ,
+        double displacementX,
+        double displacementZ,
+        WorldCollisionProxyConfiguration actorConfiguration,
+        WorldCollisionProxy actorProxyTemplate,
+        IReadOnlyList<WorldCollisionProxy> collisionProxies,
+        WorldZoneScheduleDefinition zone)
+    {
+        var distance = Math.Sqrt(
+            displacementX * displacementX +
+            displacementZ * displacementZ);
+        var substeps = Math.Max(
+            1,
+            (int)Math.Ceiling(distance / 0.2d));
+        var stepX = displacementX / substeps;
+        var stepZ = displacementZ / substeps;
+        for (var index = 0; index < substeps; index++)
+        {
+            if (TryResolveCandidate(
+                    positionX + stepX,
+                    positionY,
+                    positionZ + stepZ,
+                    actorConfiguration,
+                    actorProxyTemplate,
+                    collisionProxies,
+                    zone,
+                    out var resolvedX,
+                    out var resolvedZ))
+            {
+                positionX = resolvedX;
+                positionZ = resolvedZ;
+                continue;
+            }
+
+            if (TryResolveCandidate(
+                    positionX + stepX,
+                    positionY,
+                    positionZ,
+                    actorConfiguration,
+                    actorProxyTemplate,
+                    collisionProxies,
+                    zone,
+                    out resolvedX,
+                    out resolvedZ))
+            {
+                positionX = resolvedX;
+                positionZ = resolvedZ;
+            }
+            if (TryResolveCandidate(
+                    positionX,
+                    positionY,
+                    positionZ + stepZ,
+                    actorConfiguration,
+                    actorProxyTemplate,
+                    collisionProxies,
+                    zone,
+                    out resolvedX,
+                    out resolvedZ))
+            {
+                positionX = resolvedX;
+                positionZ = resolvedZ;
+            }
+        }
+    }
+
+    private static bool TryResolveCandidate(
+        double desiredPositionX,
+        double positionY,
+        double desiredPositionZ,
+        WorldCollisionProxyConfiguration actorConfiguration,
+        WorldCollisionProxy actorProxyTemplate,
+        IReadOnlyList<WorldCollisionProxy> collisionProxies,
+        WorldZoneScheduleDefinition zone,
+        out double resolvedPositionX,
+        out double resolvedPositionZ)
+    {
+        if (!WorldCollisionProxyPolicy
+                .TryClampEntityPositionInsideZone(
+                    actorProxyTemplate,
+                    actorConfiguration,
+                    desiredPositionX,
+                    desiredPositionZ,
+                    zone.MinX,
+                    zone.MinZ,
+                    zone.MaxX,
+                    zone.MaxZ,
+                    out resolvedPositionX,
+                    out resolvedPositionZ))
+        {
+            return false;
+        }
+
+        var actor = WorldCollisionProxyPolicy.PlaceAtEntityPosition(
+            actorProxyTemplate,
+            actorConfiguration,
+            resolvedPositionX,
+            positionY,
+            resolvedPositionZ);
+        foreach (var obstacle in collisionProxies)
+        {
+            if (WorldCollisionProxyPolicy.BlocksActorMotion(
+                    actor,
+                    obstacle))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 }

@@ -1,54 +1,70 @@
-# TOV Actor Animation 인수인계
+# TOV Actor Animation Handoff / 배우 애니메이션 인수인계
 
-## 현재 상태
+## Current production path / 현재 생산 경로
 
-- 브랜치: `main`
-- 최신 기능 커밋: `4a33504 feat: add unified actor animation setup wizard`
-- Actor Profile 온톨로지 동기화 커밋: `67e2f03 feat: sync actor profiles into ontology facts`
-- 최신 Actor Profile: `Assets/Data/Ontology/Actors/PlayerProfile.asset`
-- 원격 저장소: `origin/main`
+1. Open `Tools → Ontology → Animation Content → Production Line`.
+2. `Create / Migrate` seeds the manifest only when it is empty.
+3. Edit `Assets/Data/Ontology/AnimationContentManifest.asset`.
+4. Assign a canonical animation ID, intent, clip, actor/rig compatibility,
+   actor profile, playback policy, provenance and content version.
+5. Run `Validate + Synchronize`.
+6. The tool generates `AnimationDatabase.asset` and each actor profile's
+   animation repertoire. Runtime adapters resolve those projections.
 
-## Unity에서 시작하기
+1. `Tools → Ontology → Animation Content → Production Line`을 엽니다.
+2. `Create / Migrate`는 매니페스트가 비어 있을 때만 최초 데이터를 만듭니다.
+3. `Assets/Data/Ontology/AnimationContentManifest.asset`을 편집합니다.
+4. canonical 애니메이션 ID·의도·클립·배우/리그 호환성·배우 프로필·재생
+   정책·출처·콘텐츠 버전을 지정합니다.
+5. `Validate + Synchronize`를 실행합니다.
+6. 도구가 `AnimationDatabase.asset`과 각 배우 프로필의 애니메이션
+   레퍼토리를 생성하고 런타임 어댑터가 그 투영을 해석합니다.
 
-1. Unity 6 프로젝트를 열고 `Assets/ithappy/Creative_Characters_FREE/Scenes/Demonstration.unity`를 연다.
-2. 메뉴에서 `Tools → Ontology → Actor Animation Setup Wizard`를 연다.
-3. `Actor Object`에 `OntologyPlayer` 루트 오브젝트를 지정한다.
-4. `Actor Type = Player`, `Rig Type = Humanoid`, `Actor Id = Player`로 둔다.
-5. `Animation Database`는 `Assets/Data/Ontology/AnimationDatabase.asset`을 지정한다.
-6. `Apply Setup`을 누른다.
-7. `Inject Ontology Data`를 누르면 Actor 타입/리그/능력이 월드 사실로 주입된다.
-8. `Preview Intent`에 `Idle`, `Locomotion`, `Attack`, `DeathReaction`을 입력해 후보 애니메이션을 확인한다.
+## Runtime ownership / 런타임 소유권
 
-## Wizard가 자동으로 처리하는 것
+- Authority action definitions own accepted transient gameplay action intent.
+- Authority equipment relations own persistent equipped state.
+- Unity ephemeral observations own idle, locomotion, jump, fall and landing
+  presentation state. They never become durable Facts.
+- Actor profiles explicitly grant animation repertoire membership.
+- The manifest owns clips, layers, masks, looping, root motion and transitions.
+- Gameplay capabilities are not animation metadata gates.
 
-- Actor Profile 생성 또는 갱신
-- `OntologyAnimationAdapter` 추가 및 연결
-- 자식 Animator 자동 검색
-- `OntologyActorProfileFactSynchronizer` 추가 및 연결
-- World Bootstrap, Animation Database, Actor ID 설정
-- `actor_type`, `rig_type`, `animation_capability` 사실 주입
+- Authority 행동 정의가 승인된 일시 게임플레이 행동 의도를 소유합니다.
+- Authority 장착 관계가 지속 장착 상태를 소유합니다.
+- Unity 일시 관찰이 Idle·이동·점프·낙하·착지 표현을 소유하며 영속 Fact로
+  저장하지 않습니다.
+- 배우 프로필이 애니메이션 레퍼토리를 명시적으로 허용합니다.
+- 매니페스트가 클립·레이어·마스크·반복·루트 모션·전환을 소유합니다.
+- 게임플레이 capability를 애니메이션 메타데이터 필터로 사용하지 않습니다.
 
-## NPC/몬스터 추가
+## UGC review / UGC 검토
 
-- NPC: `Actor Type = NPC`, 적절한 NPC 오브젝트, `Rig Type = Humanoid`
-- 몬스터: `Actor Type = Monster`, 몬스터 오브젝트, `Rig Type = Quadruped` 또는 `Flying`
-- Wizard의 `Profile`을 비워 두면 Actor ID 기반 새 프로필을 자동 생성한다.
-- 애니메이션 정의의 `actorTypes`, `rigTypes`, `requiredCapabilities`가 후보 필터로 사용된다.
+Open `Tools → Ontology → Animation Content → UGC Review`. Development-time
+submissions accept FBX files only, require attribution and license metadata,
+and enter `Assets/UGC/Staging/Animations`. Validation must pass before explicit
+approval moves content to `Assets/UGC/Approved/Animations` and registers it in
+the manifest.
 
-## 데이터 흐름
+`Tools → Ontology → Animation Content → UGC Review`를 엽니다. 개발 단계
+제출은 FBX만 허용하고 출처·라이선스 메타데이터가 필요하며
+`Assets/UGC/Staging/Animations`에 격리됩니다. 검증을 통과하고 명시적으로
+승인해야 `Assets/UGC/Approved/Animations`로 이동하여 매니페스트에
+등록됩니다.
 
-```text
-World Fact → Ontology Rule → animation_intent → AnimationDatabase → Adapter → Animator
-```
+This editor workflow is the trusted internal foundation. Shipping arbitrary
+user uploads at runtime still requires a separate server-side virus scan,
+license policy, rig/clip conversion build worker, immutable bundle publishing,
+and signed delivery catalog.
 
-## 현재 알려진 경고
+이 에디터 흐름은 신뢰 가능한 내부 기반입니다. 임의 사용자 파일을 런타임에
+배포하려면 별도 서버의 악성 파일 검사, 라이선스 정책, 리그·클립 변환 빌드
+워커, 불변 번들 발행, 서명된 배포 카탈로그가 추가로 필요합니다.
 
-- `CustomButton.isHeld` CS0414: 외부 UI 에셋의 미사용 필드 경고
-- `MaterialLocation.External is obsolete`: 일부 외부 FBX Import 설정 경고
-- `MCP-FOR-UNITY StdioBridgeHost started`: 정상적인 MCP 시작 정보
+## Verification / 검증
 
-## 작업 시 주의
-
-- `ProjectSettings/EntitiesClientSettings.asset`, `ProjectSettings/ShaderGraphSettings.asset`, `opencode.json`은 로컬 환경 파일로 현재 커밋 대상이 아니다.
-- `OntologyDebugCanvas.prefab`은 Unity UI 설정을 실행하면 큰 직렬화 diff가 발생할 수 있으므로, 의도적으로 UI 변경을 포함할 때만 별도 검토 후 커밋한다.
-- 다른 PC에서는 먼저 `git clone` 또는 `git pull`, Unity 6 프로젝트 열기, 패키지 임포트 완료를 기다린 후 작업한다.
+- Run `scripts/verify-development.ps1`.
+- Run `OntologyAnimationProductionLineTests` in Unity EditMode.
+- Confirm no new Unity Console errors.
+- When Authority services are expected, run development verification with
+  `-RequireServices` and the combat Authority smoke.

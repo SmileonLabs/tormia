@@ -1,3 +1,4 @@
+using System.IO;
 using NUnit.Framework;
 using Tormia.Ontology.Core;
 using UnityEngine;
@@ -35,6 +36,9 @@ namespace Tormia.Ontology.Tests
                 attachment.profileId = "WaistInflatableRing";
                 attachment.kind = OntologyAttachmentKind.Wearable;
                 attachment.slotId = "Waist";
+                attachment.relationPredicate = OntologyPredicates.EquippedBy;
+                attachment.relationDirection =
+                    OntologyAttachmentRelationDirection.ItemToActor;
                 attachment.actorAnchorBone = HumanBodyBones.Hips;
 
                 var definition = new OntologyPlaceableDefinition
@@ -79,6 +83,9 @@ namespace Tormia.Ontology.Tests
                 attachment.profileId = "BackCarry";
                 attachment.kind = OntologyAttachmentKind.Carryable;
                 attachment.slotId = "Back";
+                attachment.relationPredicate = OntologyPredicates.CarriedBy;
+                attachment.relationDirection =
+                    OntologyAttachmentRelationDirection.ItemToActor;
 
                 var definition = new OntologyPlaceableDefinition
                 {
@@ -145,6 +152,7 @@ namespace Tormia.Ontology.Tests
                 attachment.profileId = "WaistItem";
                 attachment.kind = OntologyAttachmentKind.Wearable;
                 attachment.slotId = "Waist";
+                attachment.relationPredicate = OntologyPredicates.EquippedBy;
 
                 var definition = new OntologyPlaceableDefinition
                 {
@@ -162,6 +170,96 @@ namespace Tormia.Ontology.Tests
                 Object.DestroyImmediate(template);
                 Object.DestroyImmediate(attachment);
             }
+        }
+
+        [Test]
+        public void WeaponProfileRequiresAuthoredGripPoint()
+        {
+            var template =
+                ScriptableObject.CreateInstance<OntologyMapObjectTemplate>();
+            var attachment =
+                ScriptableObject.CreateInstance<OntologyAttachmentProfile>();
+            var prefab = new GameObject("ProjectOwnedWeapon");
+            try
+            {
+                template.concepts = new[]
+                {
+                    OntologyConcepts.Weapon,
+                    OntologyConcepts.Carryable
+                };
+                template.facts = new[]
+                {
+                    Fact(
+                        OntologyPredicates.AttachmentProfile,
+                        "RightHandCarry"),
+                    Fact(OntologyPredicates.HasSlot, "RightHand"),
+                    Fact(
+                        OntologyPredicates.PickupBehavior,
+                        OntologyObjects.SelectThenCarry)
+                };
+                attachment.profileId = "RightHandCarry";
+                attachment.kind = OntologyAttachmentKind.Carryable;
+                attachment.slotId = "RightHand";
+                attachment.relationPredicate =
+                    OntologyPredicates.EquippedItem;
+                attachment.relationDirection =
+                    OntologyAttachmentRelationDirection.ActorToItem;
+                attachment.requireItemGripPoint = true;
+                var definition = new OntologyPlaceableDefinition
+                {
+                    definitionId = "WeaponWithoutGrip",
+                    prefab = prefab,
+                    ontologyTemplate = template,
+                    attachmentProfile = attachment
+                };
+
+                Assert.That(
+                    OntologyPlaceableSemanticValidator.Validate(definition),
+                    Has.Some.Contains("OntologyAttachmentGripPoint"));
+
+                var gripPoint = new GameObject("Grip")
+                    .AddComponent<OntologyAttachmentGripPoint>();
+                gripPoint.transform.SetParent(prefab.transform, false);
+                Assert.That(
+                    OntologyPlaceableSemanticValidator.Validate(definition),
+                    Has.Some.Contains("calibrated"));
+                gripPoint.MarkCalibrated();
+                Assert.That(
+                    OntologyPlaceableSemanticValidator.Validate(definition),
+                    Is.Empty);
+            }
+            finally
+            {
+                Object.DestroyImmediate(prefab);
+                Object.DestroyImmediate(template);
+                Object.DestroyImmediate(attachment);
+            }
+        }
+
+        [Test]
+        public void EntrySemanticRepairUsesRevisionRetryTransport()
+        {
+            const string bridgePath =
+                "Assets/Scripts/Ontology/Unity/Networking/" +
+                "OntologyWorldAuthorityBridge.cs";
+            var source = File.ReadAllText(bridgePath);
+            var methodStart = source.IndexOf(
+                "private IEnumerator PublishDefaultMeaningPackage",
+                System.StringComparison.Ordinal);
+            var methodEnd = source.IndexOf(
+                "private static OntologyRuleBlockBinding[]",
+                methodStart,
+                System.StringComparison.Ordinal);
+            var methodSource = source.Substring(
+                methodStart,
+                methodEnd - methodStart);
+
+            StringAssert.Contains(
+                "SendCommandWithRevisionRetryRoutine",
+                methodSource);
+            StringAssert.DoesNotContain(
+                "SendCommandRoutine(",
+                methodSource);
         }
 
         private static OntologyFactEntry Fact(string predicate, string obj)

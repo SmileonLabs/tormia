@@ -33,6 +33,18 @@ namespace Tormia.Ontology.Core
 
         public void Configure(OntologyPhysicalProfile profile)
         {
+            if (profile != null &&
+                !RequiresRigidbodyPresentation(profile))
+            {
+                if (baselineCaptured)
+                {
+                    RestorePhysicalPresentation(
+                        releaseOwnership: true);
+                }
+                physicalProfile = profile;
+                return;
+            }
+
             if (physicalProfile == profile && baselineCaptured)
             {
                 return;
@@ -84,7 +96,8 @@ namespace Tormia.Ontology.Core
 
         private void ApplyPhysicalProfile()
         {
-            if (physicalProfile == null)
+            if (physicalProfile == null ||
+                !RequiresRigidbodyPresentation(physicalProfile))
             {
                 return;
             }
@@ -113,15 +126,25 @@ namespace Tormia.Ontology.Core
             targetBody.detectCollisions = true;
             targetBody.constraints = physicalProfile.constraints;
 
-            var anchored =
-                physicalProfile.mobilityMode == OntologyPhysicalMobilityMode.Anchored;
-            targetBody.useGravity = !anchored;
-            targetBody.isKinematic = anchored;
-            if (anchored)
+            var dynamic =
+                physicalProfile.mobilityMode == OntologyPhysicalMobilityMode.Dynamic;
+            targetBody.useGravity = dynamic;
+            if (!dynamic && !targetBody.isKinematic)
             {
                 targetBody.linearVelocity = Vector3.zero;
                 targetBody.angularVelocity = Vector3.zero;
             }
+            targetBody.isKinematic = !dynamic;
+        }
+
+        public static bool RequiresRigidbodyPresentation(
+            OntologyPhysicalProfile profile)
+        {
+            return profile != null &&
+                   (profile.motionDriver ==
+                    OntologyMotionDriver.Rigidbody ||
+                    profile.motionDriver ==
+                    OntologyMotionDriver.AuthorityKinematic);
         }
 
         private void CapturePhysicalBaseline()
@@ -295,8 +318,11 @@ namespace Tormia.Ontology.Core
             {
                 if (createdBody)
                 {
-                    targetBody.linearVelocity = Vector3.zero;
-                    targetBody.angularVelocity = Vector3.zero;
+                    if (!targetBody.isKinematic)
+                    {
+                        targetBody.linearVelocity = Vector3.zero;
+                        targetBody.angularVelocity = Vector3.zero;
+                    }
                     targetBody.useGravity = false;
                     targetBody.isKinematic = true;
                     targetBody.detectCollisions = false;

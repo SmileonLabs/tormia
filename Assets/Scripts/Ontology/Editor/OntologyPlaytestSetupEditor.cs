@@ -1,4 +1,3 @@
-using ithappy.Creative_Characters_FREE.Controller;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -124,20 +123,6 @@ namespace Tormia.Ontology.Core.Editor
                 EditorUtility.SetDirty(rootAnimator);
             }
 
-            var characterMover = playerObject.GetComponent<CharacterMover>();
-            if (characterMover != null)
-            {
-                characterMover.enabled = false;
-                EditorUtility.SetDirty(characterMover);
-            }
-
-            var legacyInput = playerObject.GetComponent<MovePlayerInput>();
-            if (legacyInput != null)
-            {
-                legacyInput.enabled = false;
-                EditorUtility.SetDirty(legacyInput);
-            }
-
             var visualAnimator = ConfigureVisualAnimator(playerObject);
             GetOrAdd<OntologyInputSystemPlayerInput>(playerObject);
 
@@ -158,13 +143,6 @@ namespace Tormia.Ontology.Core.Editor
             SetFactEntry(transientFacts.GetArrayElementAtIndex(4), "animation_intent", "Discomfort");
             trackerSerialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(tracker);
-
-            var controller = GetOrAdd<OntologyPlayerController>(playerObject);
-            var controllerSerialized = new SerializedObject(controller);
-            controllerSerialized.FindProperty("bootstrap").objectReferenceValue = bootstrap;
-            controllerSerialized.FindProperty("actorId").stringValue = "Player";
-            controllerSerialized.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(controller);
 
             var animationAdapter = GetOrAdd<OntologyAnimationAdapter>(playerObject);
             var animationSerialized = new SerializedObject(animationAdapter);

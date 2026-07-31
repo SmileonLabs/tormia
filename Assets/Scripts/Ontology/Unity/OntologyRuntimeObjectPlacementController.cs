@@ -27,6 +27,7 @@ namespace Tormia.Ontology.Core
         private bool hasValidPreview;
         private Vector3 previewPosition;
         private Quaternion previewRotation;
+        private Vector3 previewSurfacePoint;
         private Vector3 previewSurfaceNormal = Vector3.up;
         private OntologyPlacementSurfaceKind? previewSurfaceKind;
         private float yawOffset;
@@ -75,10 +76,43 @@ namespace Tormia.Ontology.Core
 
         private void Update()
         {
+            if (ReleaseStalePlacementCapture())
+            {
+                return;
+            }
+
             if (!IsPlacing) return;
             IsPlacementInputCaptured = true;
             UpdatePreviewFromPointer();
             HandlePlacementInput();
+        }
+
+        private bool ReleaseStalePlacementCapture()
+        {
+            if (activeDefinition == null)
+            {
+                if (!IsPlacementInputCaptured)
+                {
+                    return false;
+                }
+
+                IsPlacementInputCaptured = false;
+                StateChanged?.Invoke();
+                return true;
+            }
+
+            if (activeDefinition.IsValid && previewObject != null)
+            {
+                return false;
+            }
+
+            // A play-mode/domain transition can invalidate the transient
+            // definition or preview while leaving the static input owner set.
+            // Placement without both authored data and its preview is no longer
+            // a valid operation, so release player input through the normal
+            // cancellation path.
+            CancelPlacement();
+            return true;
         }
 
         public bool BeginPlacement(OntologyPlaceableDefinition definition)
@@ -365,6 +399,7 @@ namespace Tormia.Ontology.Core
                     identity.SetGuid(restoredGuid);
                 }
                 EnsureSemanticAdapters(instance, definition);
+                ResetPhysicalMotion(instance);
 
                 if (record.ruleBlocks != null && record.ruleBlocks.Count > 0)
                 {
@@ -398,6 +433,11 @@ namespace Tormia.Ontology.Core
                     var ledger = instance.GetComponent<OntologySemanticContributionLedger>() ??
                                  instance.AddComponent<OntologySemanticContributionLedger>();
                     ledger.ReplaceFromRecords(record.semanticContributions);
+                    // Older saves may contain preset contribution records but
+                    // no catalog-baseline ownership. Merge the data-authored
+                    // baseline for only the default bindings that are still
+                    // active; intentionally removed defaults stay removed.
+                    RecordDefaultSemanticContributions(instance, definition);
                 }
                 else
                 {
@@ -732,6 +772,7 @@ namespace Tormia.Ontology.Core
                 ? normal.normalized
                 : Vector3.up;
             previewSurfaceKind = observedSurfaceKind;
+            previewSurfacePoint = point;
             previewPosition = point;
             previewRotation = policy.alignToSurfaceNormal
                 ? Quaternion.FromToRotation(Vector3.up, normal) * Quaternion.Euler(0f, yawOffset, 0f)
@@ -917,19 +958,39 @@ namespace Tormia.Ontology.Core
             if (!hasValidPreview || activeDefinition == null) return;
             var definition = activeDefinition;
             var policy = GetPolicy(definition);
+            var placementPosition =
+                previewSurfaceKind == OntologyPlacementSurfaceKind.Water
+                    ? previewPosition
+                    : CalculateFinalPlacementPosition(
+                        definition,
+                        previewSurfacePoint,
+                        previewSurfaceNormal,
+                        previewRotation,
+                        policy.defaultLocalScale);
+            var authorityBridge = FindAnyObjectByType<OntologyWorldAuthorityBridge>();
+            if (authorityBridge != null &&
+                authorityBridge.TryRequestAuthorityPlacement(
+                    definition,
+                    placementPosition,
+                    previewRotation,
+                    policy.defaultLocalScale))
+            {
+                SetStatusKey(
+                    "placement.status.awaiting_authority",
+                    "{0} placement is awaiting World Authority confirmation.",
+                    definition.LocalizedDisplayName);
+                CancelPlacement();
+                return;
+            }
+
             var root = GetPlacedObjectsRoot();
-            var instance = Instantiate(definition.prefab, previewPosition, previewRotation, root);
+            var instance = Instantiate(
+                definition.prefab,
+                placementPosition,
+                previewRotation,
+                root);
             instance.name = GenerateUniqueInstanceName(definition.definitionId);
             instance.transform.localScale = policy.defaultLocalScale;
-            Physics.SyncTransforms();
-            if (previewSurfaceKind != OntologyPlacementSurfaceKind.Water)
-            {
-                instance.transform.position = CalculateSurfaceSupportedPosition(
-                    instance,
-                    previewPosition,
-                    previewSurfaceNormal);
-                Physics.SyncTransforms();
-            }
             var record = instance.GetComponent<OntologyPlaceableInstance>() ?? instance.AddComponent<OntologyPlaceableInstance>();
             record.Configure(definition.definitionId);
             var identity = instance.GetComponent<OntologyAuthorityEntityIdentity>() ??
@@ -938,6 +999,16 @@ namespace Tormia.Ontology.Core
             ApplyOntologyTemplate(instance, definition);
             ApplyDefaultRuleBlocks(instance, definition);
             EnsureSemanticAdapters(instance, definition);
+            Physics.SyncTransforms();
+            if (previewSurfaceKind != OntologyPlacementSurfaceKind.Water)
+            {
+                instance.transform.position = CalculateSurfaceSupportedPosition(
+                    instance,
+                    previewSurfacePoint,
+                    previewSurfaceNormal);
+                Physics.SyncTransforms();
+            }
+            ResetPhysicalMotion(instance);
             if (bootstrap == null) bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             var ontologyObject = instance.GetComponent<OntologyObject>();
             if (bootstrap != null && ontologyObject != null)
@@ -992,6 +1063,7 @@ namespace Tormia.Ontology.Core
             ApplyOntologyTemplate(instance, definition);
             ApplyDefaultRuleBlocks(instance, definition);
             EnsureSemanticAdapters(instance, definition);
+            ResetPhysicalMotion(instance);
             if (bootstrap == null) bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             var ontologyObject = instance.GetComponent<OntologyObject>();
             if (bootstrap != null && ontologyObject != null)
@@ -999,6 +1071,63 @@ namespace Tormia.Ontology.Core
                 bootstrap.RegisterSceneObject(ontologyObject, runSimulation: true);
             }
             return record;
+        }
+
+        private Vector3 CalculateFinalPlacementPosition(
+            OntologyPlaceableDefinition definition,
+            Vector3 surfacePoint,
+            Vector3 surfaceNormal,
+            Quaternion rotation,
+            Vector3 localScale)
+        {
+            if (definition?.prefab == null)
+            {
+                return surfacePoint;
+            }
+
+            var measurement = Instantiate(
+                definition.prefab,
+                surfacePoint,
+                rotation);
+            measurement.name = "__PlacementMeasurement";
+            measurement.hideFlags = HideFlags.HideAndDontSave;
+            measurement.transform.localScale = localScale;
+            ApplyOntologyTemplate(measurement, definition);
+            EnsureSemanticAdapters(measurement, definition);
+            Physics.SyncTransforms();
+            var resolved = CalculateSurfaceSupportedPosition(
+                measurement,
+                surfacePoint,
+                surfaceNormal);
+            measurement.SetActive(false);
+            if (Application.isPlaying)
+            {
+                Destroy(measurement);
+            }
+            else
+            {
+                DestroyImmediate(measurement);
+            }
+            return resolved;
+        }
+
+        private static void ResetPhysicalMotion(GameObject target)
+        {
+            var body = target == null
+                ? null
+                : target.GetComponent<OntologyPhysicalBodyAdapter>()?.TargetBody;
+            if (body == null)
+            {
+                return;
+            }
+
+            body.position = target.transform.position;
+            body.rotation = target.transform.rotation;
+            if (!body.isKinematic)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+            }
         }
 
         private Transform GetPlacedObjectsRoot()
@@ -1126,7 +1255,7 @@ namespace Tormia.Ontology.Core
             OntologyPlaceableDefinition definition)
         {
             if (target == null || definition?.defaultRuleBlocks == null ||
-                bootstrap?.RuleBlockPresetDatabase == null)
+                definition.defaultRuleBlocks.Count == 0)
             {
                 return;
             }
@@ -1136,66 +1265,94 @@ namespace Tormia.Ontology.Core
             if (ontology == null || assignment == null) return;
             var ledger = target.GetComponent<OntologySemanticContributionLedger>() ??
                          target.AddComponent<OntologySemanticContributionLedger>();
-            foreach (var binding in definition.defaultRuleBlocks.Where(value =>
-                         value != null &&
-                         !string.IsNullOrWhiteSpace(value.ruleId) &&
-                         !string.IsNullOrWhiteSpace(value.bindingVariable)))
-            {
-                if (!assignment.Bindings.Any(value => value != null &&
-                    value.ruleId == binding.ruleId &&
-                    value.bindingVariable == binding.bindingVariable))
+            var activeDefaultBindings = definition.defaultRuleBlocks
+                .Where(binding =>
+                    binding != null &&
+                    !string.IsNullOrWhiteSpace(binding.ruleId) &&
+                    assignment.Bindings.Any(value =>
+                        value != null &&
+                        value.ruleId == binding.ruleId &&
+                        NormalizeBindingVariable(value.bindingVariable) ==
+                        NormalizeBindingVariable(binding.bindingVariable)))
+                .Select(binding => new OntologyRuleBlockBinding
                 {
-                    continue;
-                }
+                    ruleId = binding.ruleId,
+                    bindingVariable = NormalizeBindingVariable(
+                        binding.bindingVariable)
+                })
+                .ToArray();
+            if (activeDefaultBindings.Length == 0) return;
 
-                var preset = bootstrap.RuleBlockPresetDatabase.Presets.FirstOrDefault(value =>
-                    value != null && value.primaryRuleId == binding.ruleId &&
-                    value.bindingVariable == binding.bindingVariable);
-                if (preset == null) continue;
-
-                var concepts = preset.requiredConcepts
-                    .Where(value => ontology.Concepts.Contains(value))
-                    .ToList();
-                var facts = preset.requiredFacts
-                    .Where(value => value != null && ontology.Facts.Any(existing =>
+            var template = definition.ontologyTemplate;
+            var concepts = (template?.concepts ?? Array.Empty<string>())
+                .Where(value =>
+                    !string.IsNullOrWhiteSpace(value) &&
+                    ontology.Concepts.Contains(value))
+                .Distinct()
+                .ToList();
+            var facts = (template?.facts ??
+                         Array.Empty<OntologyFactEntry>())
+                .Where(value =>
+                    value != null &&
+                    ontology.Facts.Any(existing =>
                         existing != null &&
                         existing.predicate == value.predicate &&
                         existing.obj == value.obj))
-                    .Select(value => new OntologyFactEntry
-                    {
-                        predicate = value.predicate,
-                        obj = value.obj
-                    })
-                    .ToList();
-                if (!string.IsNullOrWhiteSpace(preset.physicalProfileId) &&
-                    ontology.Facts.Any(value => value != null &&
-                        value.predicate == OntologyPredicates.PhysicalProfile &&
-                        value.obj == preset.physicalProfileId))
+                .Select(value => new OntologyFactEntry
                 {
-                    facts.Add(new OntologyFactEntry
-                    {
-                        predicate = OntologyPredicates.PhysicalProfile,
-                        obj = preset.physicalProfileId
-                    });
-                    var profile = bootstrap.PhysicalProfileDatabase?.Find(
-                        preset.physicalProfileId);
-                    if (profile != null && profile.supportsBuoyancy &&
-                        ontology.Concepts.Contains(OntologyConcepts.FloatableObject) &&
-                        !concepts.Contains(OntologyConcepts.FloatableObject))
-                    {
-                        concepts.Add(OntologyConcepts.FloatableObject);
-                    }
-                }
+                    predicate = value.predicate,
+                    obj = value.obj
+                })
+                .ToList();
+            AddOwnedProfileFact(
+                facts,
+                ontology,
+                OntologyPredicates.PhysicalProfile,
+                definition.physicalProfile?.profileId);
+            AddOwnedProfileFact(
+                facts,
+                ontology,
+                OntologyPredicates.AttachmentProfile,
+                definition.attachmentProfile?.profileId);
 
-                if (concepts.Count == 0 && facts.Count == 0) continue;
-                ledger.AddContribution(
-                    "template_rule:" + definition.definitionId + ":" +
-                    binding.ruleId + ":" + binding.bindingVariable,
-                    concepts,
-                    facts,
-                    new[] { binding });
-            }
+            ledger.AddContribution(
+                "template_semantic_baseline:" + definition.definitionId +
+                ":v" + Mathf.Max(1, definition.semanticContractVersion),
+                concepts,
+                facts,
+                activeDefaultBindings);
         }
+
+        private static void AddOwnedProfileFact(
+            ICollection<OntologyFactEntry> facts,
+            OntologyObject ontology,
+            string predicate,
+            string profileId)
+        {
+            if (facts == null || ontology == null ||
+                string.IsNullOrWhiteSpace(predicate) ||
+                string.IsNullOrWhiteSpace(profileId) ||
+                facts.Any(value =>
+                    value != null &&
+                    value.predicate == predicate &&
+                    value.obj == profileId) ||
+                !ontology.Facts.Any(value =>
+                    value != null &&
+                    value.predicate == predicate &&
+                    value.obj == profileId))
+            {
+                return;
+            }
+
+            facts.Add(new OntologyFactEntry
+            {
+                predicate = predicate,
+                obj = profileId
+            });
+        }
+
+        private static string NormalizeBindingVariable(string value) =>
+            string.IsNullOrWhiteSpace(value) ? "?target" : value;
 
         private static OntologyFactEntry[] CloneFacts(OntologyFactEntry[] source)
         {

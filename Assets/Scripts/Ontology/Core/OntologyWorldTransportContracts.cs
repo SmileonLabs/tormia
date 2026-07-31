@@ -11,14 +11,22 @@ namespace Tormia.Ontology.Core
     {
         public const string PlaceEntity = "place_entity";
         public const string MoveEntity = "move_entity";
+        public const string RetireEntity = "retire_entity";
         public const string SetAuthoredFact = "set_authored_fact";
         public const string RetractAuthoredFact = "retract_authored_fact";
         public const string AddRuleBlock = "add_rule_block";
         public const string RemoveRuleBlock = "remove_rule_block";
+        public const string ApplyMeaningPackage = "apply_meaning_package";
         public const string DefineZone = "define_zone";
+        public const string RegisterPlayerAvatar = "register_player_avatar";
         public const string EquipEntity = "equip_entity";
         public const string UnequipEntity = "unequip_entity";
         public const string SaveAvatarCheckpoint = "save_avatar_checkpoint";
+        public const string MigrateLegacyEquipmentRelations =
+            "migrate_legacy_equipment_relations";
+        public const string MigrateUnassignedEntityZones =
+            "migrate_unassigned_entity_zones";
+        public const string ExecuteAction = "execute_action";
     }
 
     /// <summary>

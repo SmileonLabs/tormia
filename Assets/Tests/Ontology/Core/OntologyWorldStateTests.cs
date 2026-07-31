@@ -135,6 +135,52 @@ namespace Tormia.Ontology.Tests
         }
 
         [Test]
+        public void DerivedCleanupPreservesMatchingAuthorityDurableResult()
+        {
+            var world = new OntologyWorldState();
+            world.AddFact("Sword", OntologyPredicates.EquippedBy, "Player");
+            world.AddFactContribution(
+                "Sword",
+                OntologyPredicates.EquippedBy,
+                "Player",
+                OntologyFactOrigin.Inferred);
+            var rule = new OntologyRuleDefinition
+            {
+                id = "DerivedAttachment"
+            };
+            rule.conditions.Add(
+                OntologyCondition.Fact(
+                    "?item",
+                    OntologyPredicates.EquippedBy,
+                    "?actor"));
+            rule.effects.Add(
+                OntologyEffect.AddFact(
+                    "?item",
+                    OntologyPredicates.EquippedBy,
+                    "?actor"));
+
+            Assert.That(
+                OntologyDerivedFactPolicy.RemoveFrom(
+                    world,
+                    new[] { rule }),
+                Is.EqualTo(1));
+            Assert.That(
+                world.HasFact(
+                    "Sword",
+                    OntologyPredicates.EquippedBy,
+                    "Player"),
+                Is.True,
+                "Inference cleanup must not erase the Authority projection.");
+            Assert.That(
+                world.IsPersistentFact(
+                    new OntologyFact(
+                        "Sword",
+                        OntologyPredicates.EquippedBy,
+                        "Player")),
+                Is.True);
+        }
+
+        [Test]
         public void RuntimeObservationRetractionPreservesDurableContributionAddedLater()
         {
             var world = new OntologyWorldState();

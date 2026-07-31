@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Npgsql;
 using NpgsqlTypes;
 using Tormia.Ontology.Core;
@@ -70,12 +71,13 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
 
             // Re-serialize before hashing/storage so whitespace or client JSON field
             // order cannot create a false new version of the same ontology rule.
-            var canonicalPayload = JsonSerializer.Serialize(definition, RuleJson);
+            var canonicalPayload = SerializeCanonicalRulePayload(definition);
             validated.Add(new ValidatedRule(
                 ruleId,
                 requestRule.DefinitionVersion,
                 canonicalPayload,
-                Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalPayload))).ToLowerInvariant()));
+                Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalPayload))).ToLowerInvariant(),
+                ResolveDurableResultPredicates(definition)));
         }
 
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
@@ -97,10 +99,24 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
                 if (outcome == InsertOutcome.Conflict)
                 {
                     await transaction.RollbackAsync(cancellationToken);
-                    return Rejected("rule_definition_version_conflict");
+                    return Rejected(
+                        "rule_definition_version_conflict:" +
+                        rule.Id + ":" + rule.Version);
                 }
                 if (outcome == InsertOutcome.Inserted) published++;
                 else unchanged++;
+
+                // Older rows predate explicit result-lifetime metadata. A
+                // newly published immutable Rule Block is the data-owned
+                // migration contract for those rows: only facts produced by a
+                // binding of the same Rule ID and a predicate now declared as
+                // DurableState are promoted. No gameplay predicate is encoded
+                // in Authority code.
+                await PromoteLegacyDurableRuleResults(
+                    connection,
+                    transaction,
+                    rule,
+                    cancellationToken);
             }
 
             await transaction.CommitAsync(cancellationToken);
@@ -112,6 +128,68 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
             throw;
         }
     }
+
+    internal static string SerializeCanonicalRulePayload(
+        OntologyRuleDefinition definition)
+    {
+        var canonicalPayload = JsonSerializer.Serialize(definition, RuleJson);
+        var node = JsonNode.Parse(canonicalPayload) as JsonObject;
+        if (node == null)
+            return canonicalPayload;
+
+        // Optional schema fields added after an immutable Rule Block version
+        // was published must preserve the legacy wire meaning when they carry
+        // only their default value. Configured values remain first-class
+        // immutable content.
+        if (string.IsNullOrWhiteSpace(
+                definition.runtimePresentation?.actorAnimationIntent))
+        {
+            node.Remove("runtimePresentation");
+        }
+
+        if (node["effects"] is JsonArray effects)
+        {
+            foreach (var effectNode in effects)
+            {
+                if (effectNode is not JsonObject effect ||
+                    effect["resultLifetime"] is not JsonValue lifetime)
+                {
+                    continue;
+                }
+
+                var isRuleBound =
+                    lifetime.TryGetValue<int>(out var numericLifetime) &&
+                    numericLifetime ==
+                    (int)OntologyRuleResultLifetime.RuleBound;
+                if (!isRuleBound &&
+                    lifetime.TryGetValue<string>(out var namedLifetime))
+                {
+                    isRuleBound = string.Equals(
+                        namedLifetime,
+                        nameof(OntologyRuleResultLifetime.RuleBound),
+                        StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (isRuleBound)
+                    effect.Remove("resultLifetime");
+            }
+        }
+
+        return node.ToJsonString(RuleJson);
+    }
+
+    internal static string[] ResolveDurableResultPredicates(
+        OntologyRuleDefinition definition) =>
+        definition?.effects?
+            .Where(effect =>
+                effect != null &&
+                effect.resultLifetime ==
+                OntologyRuleResultLifetime.DurableState &&
+                !string.IsNullOrWhiteSpace(effect.predicate))
+            .Select(effect => effect.predicate.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray() ?? [];
 
     public async Task<ContentRuleCatalogReadResult> GetPublishedRules(
         string packageId,
@@ -162,10 +240,9 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
     }
 
     /// <summary>
-    /// Publishes the deliberately small first authoritative-action contract. The
-    /// definition owns the predicate; clients can later submit only actor/target/tool
-    /// entity IDs. Conditions and structured effects remain future server-evaluator
-    /// work and are rejected here rather than being interpreted differently by Unity.
+    /// Publishes immutable authoritative action definitions. Clients submit only
+    /// actor/target/tool identities; conditions and durable mutations remain owned
+    /// by the versioned definition and the server evaluator.
     /// </summary>
     public async Task<ContentActionCatalogPublishResult> PublishActionEffects(
         string packageId,
@@ -193,10 +270,11 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
             catch (JsonException) { return new ContentActionCatalogPublishResult(false, "invalid_action_definition_json", 0, 0, null); }
 
             if (definition is null || !string.Equals(definition.actionVerb?.Trim(), actionId, StringComparison.Ordinal) ||
-                !IsSupportedAuthoritativeAction(definition))
+                !AuthoritativeActionEvaluator.IsSupportedDefinition(definition, out _))
                 return new ContentActionCatalogPublishResult(false, "unsupported_authoritative_action_definition", 0, 0, null);
 
-            var canonicalPayload = JsonSerializer.Serialize(definition, RuleJson);
+            var canonicalPayload =
+                SerializeCanonicalActionPayload(definition);
             validated.Add(new ValidatedAction(actionId, action.DefinitionVersion, canonicalPayload,
                 Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalPayload))).ToLowerInvariant()));
         }
@@ -246,14 +324,30 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
         return new ContentActionCatalogReadResult(null, actions);
     }
 
+    internal static string SerializeCanonicalActionPayload(
+        OntologyActionEffectDefinition definition)
+    {
+        var canonicalPayload = JsonSerializer.Serialize(definition, RuleJson);
+        var node = JsonNode.Parse(canonicalPayload) as JsonObject;
+        if (node == null)
+            return canonicalPayload;
+
+        // A default-only observation constraint was added after existing
+        // immutable action versions were published. Omitting false preserves
+        // their original wire checksum, while true remains authored immutable
+        // content for actions such as grounded jump.
+        if (definition.runtimeConstraints
+                ?.requiresGroundedObservation != true &&
+            node["runtimeConstraints"] is JsonObject constraints)
+        {
+            constraints.Remove("requiresGroundedObservation");
+        }
+
+        return node.ToJsonString(RuleJson);
+    }
+
     private static ContentRuleCatalogPublishResult Rejected(string code) =>
         new(false, code, 0, 0, null);
-
-    private static bool IsSupportedAuthoritativeAction(OntologyActionEffectDefinition definition) =>
-        definition.conditions is not { Count: > 0 } && definition.effects is not { Count: > 0 } &&
-        SemanticId.IsValid(definition.actionVerb) && SemanticId.IsValid(definition.predicate) &&
-        (definition.subjectPattern is "?actor") &&
-        (definition.objectPattern is "?target" or "?tool");
 
     private static async Task<bool> EnsurePackageAccess(
         NpgsqlConnection connection,
@@ -317,6 +411,7 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
                 ('rule', @ruleId, @definitionVersion, @packageId,
                  @packageVersion, CAST(@payload AS jsonb), @checksum, true)
             ON CONFLICT (definition_kind, definition_id, definition_version)
+                WHERE definition_kind <> 'action_effect'
             DO NOTHING;
             """;
         await using (var command = new NpgsqlCommand(insert, connection, transaction))
@@ -344,13 +439,48 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
         check.Parameters.AddWithValue("definitionVersion", rule.Version);
         await using var reader = await check.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken) ||
-            !string.Equals(reader.GetString(0), packageId, StringComparison.Ordinal) ||
             !string.Equals(reader.GetString(1), rule.Checksum, StringComparison.Ordinal) ||
             !reader.GetBoolean(2))
         {
             return InsertOutcome.Conflict;
         }
+
+        // Canonical Rule Blocks are globally identified by id + version.
+        // An identical immutable definition may be reused by another package;
+        // a different payload at the same identity remains a hard conflict.
         return InsertOutcome.Unchanged;
+    }
+
+    private static async Task PromoteLegacyDurableRuleResults(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        ValidatedRule rule,
+        CancellationToken cancellationToken)
+    {
+        if (rule.DurableResultPredicates.Length == 0)
+        {
+            return;
+        }
+
+        const string promote = """
+            UPDATE world_facts AS fact
+            SET rule_result_lifetime = 'durable_state'
+            FROM world_rule_bindings AS binding
+            WHERE fact.source_rule_binding_id = binding.binding_id
+              AND binding.rule_id = @ruleId
+              AND fact.predicate_id = ANY(@predicateIds)
+              AND fact.source_type = 'action'
+              AND fact.retracted_revision IS NULL
+              AND fact.rule_result_lifetime = 'rule_bound';
+            """;
+        await using var command =
+            new NpgsqlCommand(promote, connection, transaction);
+        command.Parameters.AddWithValue("ruleId", rule.Id);
+        command.Parameters.AddWithValue(
+            "predicateIds",
+            NpgsqlDbType.Array | NpgsqlDbType.Text,
+            rule.DurableResultPredicates);
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static async Task<InsertOutcome> InsertImmutableAction(NpgsqlConnection connection, NpgsqlTransaction transaction, string packageId, string packageVersion, ValidatedAction action, CancellationToken cancellationToken)
@@ -358,7 +488,11 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
         const string insert = """
             INSERT INTO content_definitions (definition_kind, definition_id, definition_version, package_id, package_version, payload, checksum, is_published)
             VALUES ('action_effect', @actionId, @definitionVersion, @packageId, @packageVersion, CAST(@payload AS jsonb), @checksum, true)
-            ON CONFLICT (definition_kind, definition_id, definition_version) DO NOTHING;
+            ON CONFLICT
+                (definition_kind, definition_id, definition_version,
+                 package_id, package_version)
+                WHERE definition_kind = 'action_effect'
+            DO NOTHING;
             """;
         await using (var command = new NpgsqlCommand(insert, connection, transaction))
         {
@@ -368,18 +502,29 @@ internal sealed class ContentCatalogRepository(NpgsqlDataSource dataSource)
             if (await command.ExecuteNonQueryAsync(cancellationToken) == 1) return InsertOutcome.Inserted;
         }
         const string existing = """
-            SELECT package_id, checksum, is_published FROM content_definitions
-            WHERE definition_kind = 'action_effect' AND definition_id = @actionId AND definition_version = @definitionVersion;
+            SELECT checksum, is_published FROM content_definitions
+            WHERE definition_kind = 'action_effect'
+              AND definition_id = @actionId
+              AND definition_version = @definitionVersion
+              AND package_id = @packageId
+              AND package_version = @packageVersion;
             """;
         await using var check = new NpgsqlCommand(existing, connection, transaction);
         check.Parameters.AddWithValue("actionId", action.Id); check.Parameters.AddWithValue("definitionVersion", action.Version);
+        check.Parameters.AddWithValue("packageId", packageId); check.Parameters.AddWithValue("packageVersion", packageVersion);
         await using var reader = await check.ExecuteReaderAsync(cancellationToken);
-        return await reader.ReadAsync(cancellationToken) && string.Equals(reader.GetString(0), packageId, StringComparison.Ordinal) &&
-               string.Equals(reader.GetString(1), action.Checksum, StringComparison.Ordinal) && reader.GetBoolean(2)
+        return await reader.ReadAsync(cancellationToken) &&
+               string.Equals(reader.GetString(0), action.Checksum, StringComparison.Ordinal) &&
+               reader.GetBoolean(1)
             ? InsertOutcome.Unchanged : InsertOutcome.Conflict;
     }
 
-    private sealed record ValidatedRule(string Id, int Version, string PayloadJson, string Checksum);
+    private sealed record ValidatedRule(
+        string Id,
+        int Version,
+        string PayloadJson,
+        string Checksum,
+        string[] DurableResultPredicates);
     private sealed record ValidatedAction(string Id, int Version, string PayloadJson, string Checksum);
     private enum InsertOutcome { Inserted, Unchanged, Conflict }
 }

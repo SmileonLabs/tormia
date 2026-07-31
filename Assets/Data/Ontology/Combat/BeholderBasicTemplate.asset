@@ -1,0 +1,82 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ca941766d42bcb4f9f8dbf3d8afeef4, type: 3}
+  m_Name: BeholderBasicTemplate
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyMapObjectTemplate
+  description: Basic ontology combat monster.
+  concepts:
+  - Actor
+  - AutonomousAgent
+  - Monster
+  - Combatant
+  - Damageable
+  facts:
+  - predicate: physical_profile
+    obj: AuthorityKinematic
+  - predicate: current_health
+    obj: 30
+  - predicate: maximum_health
+    obj: 30
+  - predicate: is_alive
+    obj: True
+  - predicate: belongs_to_faction
+    obj: WildMonster
+  - predicate: hostile_to_faction
+    obj: PlayerFaction
+  - predicate: target_concept
+    obj: PlayerControlled
+  - predicate: targeting_profile
+    obj: NearestHostileWithinDetection
+  - predicate: chase_profile
+    obj: ChaseWithinLeash
+  - predicate: target_action
+    obj: acquire_autonomous_target
+  - predicate: chase_action
+    obj: chase_autonomous_target
+  - predicate: combat_disposition
+    obj: Hostile
+  - predicate: grants_capability
+    obj: NaturalMeleeAttack
+  - predicate: attack_action
+    obj: autonomous_melee_attack
+  - predicate: attack_damage
+    obj: 5
+  - predicate: attack_range
+    obj: 2
+  - predicate: attack_cooldown
+    obj: 1
+  - predicate: detection_range
+    obj: 12
+  - predicate: leash_range
+    obj: 18
+  - predicate: movement_speed
+    obj: 2
+  - predicate: idle_animation_intent
+    obj: MonsterIdle
+  - predicate: move_animation_intent
+    obj: MonsterWalk
+  - predicate: hit_animation_intent
+    obj: HitReaction
+  - predicate: death_animation_intent
+    obj: Death
+  - predicate: hit_vfx_intent
+    obj: HitPhysicalLight
+  - predicate: loot_table
+    obj: BeholderBasicLoot
+  - predicate: loot_item
+    obj: OntologyDataFragment
+  - predicate: loot_action
+    obj: collect_loot
+  - predicate: interaction_range
+    obj: 2.5
+  retiredConcepts: []
+  retiredFacts: []

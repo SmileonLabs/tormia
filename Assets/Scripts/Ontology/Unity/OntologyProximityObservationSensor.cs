@@ -221,9 +221,9 @@ namespace Tormia.Ontology.Core
 
             if (bootstrap != null)
             {
-                bootstrap.EntityRegistry.TryGetSingleWithConcept(
-                    OntologyConcepts.Actor,
-                    out actorObject);
+                actorObject =
+                    OntologySemanticAdapterSynchronizer
+                        .ResolvePresentationActor(bootstrap);
             }
         }
 

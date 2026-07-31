@@ -134,10 +134,10 @@ namespace Tormia.Ontology.Core
 
                 var label = row.GetComponentInChildren<TMP_Text>(true);
                 if (label != null)
-                    label.text = quest.Title;
+                    label.text = LocalizedQuestTitle(quest);
                 var description = FindText(row.transform, "DescriptionLabel");
                 if (description != null)
-                    description.text = string.IsNullOrWhiteSpace(quest.Reason) ? quest.Title : quest.Reason;
+                    description.text = LocalizedQuestReason(quest);
                 var status = FindText(row.transform, "StatusBadge/StatusLabel");
                 if (status != null)
                     status.text = quest.IsCompleted
@@ -200,7 +200,9 @@ namespace Tormia.Ontology.Core
                     if (actionEmptyLabel != null)
                     {
                         actionEmptyLabel.text =
-                            "The shared-world authority is not ready. No local action was applied.";
+                            OntologyLanguagePackService.Text(
+                                "ui.quest_panel.authority_not_ready",
+                                "The shared world is not ready. No action was applied.");
                     }
                     return;
                 }
@@ -218,7 +220,10 @@ namespace Tormia.Ontology.Core
             var target = FindAuthorityIdentity(candidate.Action.TargetId.Value);
             if (actor == null || target == null || !actor.TryGetGuid(out var actorId) || !target.TryGetGuid(out var targetId))
             {
-                if (actionEmptyLabel != null) actionEmptyLabel.text = "This action target is not ready in the shared world.";
+                if (actionEmptyLabel != null)
+                    actionEmptyLabel.text = OntologyLanguagePackService.Text(
+                        "ui.quest_panel.target_not_ready",
+                        "This action target is not ready in the shared world.");
                 yield break;
             }
             Guid? toolId = null;
@@ -227,7 +232,10 @@ namespace Tormia.Ontology.Core
                 var tool = FindAuthorityIdentity(candidate.Action.ToolId.Value);
                 if (tool == null || !tool.TryGetGuid(out var resolvedTool))
                 {
-                    if (actionEmptyLabel != null) actionEmptyLabel.text = "The required tool is not ready in the shared world.";
+                    if (actionEmptyLabel != null)
+                        actionEmptyLabel.text = OntologyLanguagePackService.Text(
+                            "ui.quest_panel.tool_not_ready",
+                            "The required tool is not ready in the shared world.");
                     yield break;
                 }
                 toolId = resolvedTool;
@@ -242,7 +250,9 @@ namespace Tormia.Ontology.Core
                 if (actionEmptyLabel != null)
                 {
                     actionEmptyLabel.text =
-                        "No unique enabled Authority definition exists for this action.";
+                        OntologyLanguagePackService.Text(
+                            "ui.quest_panel.definition_missing",
+                            "No unique enabled Authority definition exists for this action.");
                 }
                 yield break;
             }
@@ -253,7 +263,14 @@ namespace Tormia.Ontology.Core
             yield return authorityClient.SendCommandRoutine(command, value => result = value);
             if (result == null || !result.accepted)
             {
-                if (actionEmptyLabel != null) actionEmptyLabel.text = "Action was not accepted: " + (result?.rejectionCode ?? "unknown");
+                Debug.LogWarning(
+                    "[OntologyQuestAction] Authority rejected action: " +
+                    (result?.rejectionCode ?? "unknown"),
+                    this);
+                if (actionEmptyLabel != null)
+                    actionEmptyLabel.text = OntologyLanguagePackService.Text(
+                        "ui.quest_panel.action_rejected",
+                        "The action was not accepted.");
                 yield break;
             }
             yield return authorityClient.LoadWorldRoutine();
@@ -322,11 +339,11 @@ namespace Tormia.Ontology.Core
             if (selectedQuestTitleLabel != null)
                 selectedQuestTitleLabel.text = quest == null
                     ? OntologyLanguagePackService.Text("ui.quest_panel.no_selection", "No quest selected")
-                    : quest.Title;
+                    : LocalizedQuestTitle(quest);
             if (selectedQuestReasonLabel != null)
                 selectedQuestReasonLabel.text = quest == null
                     ? OntologyLanguagePackService.Text("ui.quest_panel.select_prompt", "Select an active quest.")
-                    : string.IsNullOrWhiteSpace(quest.Reason) ? quest.Title : quest.Reason;
+                    : LocalizedQuestReason(quest);
             if (selectedQuestStatusLabel != null)
                 selectedQuestStatusLabel.text = quest == null
                     ? "-"
@@ -353,6 +370,41 @@ namespace Tormia.Ontology.Core
             }
 
             return Mathf.Clamp01((float)completedGoalCount / quest.Goals.Count);
+        }
+
+        private static string LocalizedQuestTitle(OntologyQuest quest)
+        {
+            if (quest == null)
+                return string.Empty;
+            return string.IsNullOrWhiteSpace(quest.TitleKey)
+                ? quest.Title
+                : OntologyLanguagePackService.Text(
+                    quest.TitleKey,
+                    quest.Title);
+        }
+
+        private static string LocalizedQuestReason(OntologyQuest quest)
+        {
+            if (quest == null)
+                return string.Empty;
+            var fallback = string.IsNullOrWhiteSpace(quest.Reason)
+                ? LocalizedQuestTitle(quest)
+                : quest.Reason;
+            if (string.IsNullOrWhiteSpace(quest.ReasonKey))
+                return fallback;
+
+            var source = quest.ReasonArguments;
+            var arguments = new object[source == null ? 0 : source.Count];
+            for (var index = 0; index < arguments.Length; index++)
+            {
+                arguments[index] =
+                    OntologyLanguagePackService.DisplaySemanticObject(
+                        source[index]);
+            }
+            return OntologyLanguagePackService.Format(
+                quest.ReasonKey,
+                fallback,
+                arguments);
         }
 
         private void SetEmptyLabels(bool questsEmpty, bool actionsEmpty)

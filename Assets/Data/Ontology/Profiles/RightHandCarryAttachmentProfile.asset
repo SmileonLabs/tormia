@@ -15,6 +15,10 @@ MonoBehaviour:
   profileId: RightHandCarry
   kind: 2
   slotId: RightHand
+  relationPredicate: equipped_by
+  relationDirection: 0
+  actorSocketId: RightHand
+  requireItemGripPoint: 1
   actorAnchorBone: 18
   actorAnchorPath:
   mountPointPath:
@@ -28,5 +32,11 @@ MonoBehaviour:
   disableWorldPhysicsWhileAttached: 1
   disableWorldCollidersWhileAttached: 1
   disableActorControllerWhileMounted: 1
+  detachInteractionLocalCenter: {x: 0, y: 0, z: 0}
+  detachInteractionLocalSize: {x: 1, y: 1, z: 1}
   detachForwardDistance: 1.75
   detachVerticalOffset: 0.25
+  detachSurfaceClearance: 0.05
+  detachSurfaceProbeHeight: 20
+  detachSurfaceProbeDistance: 60
+  detachActorClearance: 0.25

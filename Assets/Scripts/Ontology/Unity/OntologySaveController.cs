@@ -43,13 +43,14 @@ namespace Tormia.Ontology.Core
 
         private void Start()
         {
-            if (autoLoadLocalSnapshot && !AuthorityOwnsCurrentWorld() && File.Exists(ResolveLoadPath()))
+            if (autoLoadLocalSnapshot && !AuthorityManagesPersistence() &&
+                File.Exists(ResolveLoadPath()))
                 LoadSnapshot();
         }
 
         private void Update()
         {
-            if (!autoSaveLocalSnapshot || AuthorityOwnsCurrentWorld() ||
+            if (!autoSaveLocalSnapshot || AuthorityManagesPersistence() ||
                 Time.unscaledTime < nextAutosaveAt) return;
             nextAutosaveAt = Time.unscaledTime + Mathf.Max(5f, localAutosaveIntervalSeconds);
             SaveSnapshot();
@@ -57,13 +58,13 @@ namespace Tormia.Ontology.Core
 
         private void OnApplicationPause(bool paused)
         {
-            if (paused && autoSaveLocalSnapshot && !AuthorityOwnsCurrentWorld())
+            if (paused && autoSaveLocalSnapshot && !AuthorityManagesPersistence())
                 SaveSnapshot();
         }
 
         private void OnApplicationQuit()
         {
-            if (autoSaveLocalSnapshot && !AuthorityOwnsCurrentWorld())
+            if (autoSaveLocalSnapshot && !AuthorityManagesPersistence())
                 SaveSnapshot();
         }
 
@@ -181,8 +182,17 @@ namespace Tormia.Ontology.Core
             }
         }
 
-        private bool AuthorityOwnsCurrentWorld() =>
-            authorityClient != null && authorityClient.IsWorldRuntimeReady;
+        /// <summary>
+        /// A configured Authority client owns durable world persistence even
+        /// before login completes. Readiness is a connection state, not a signal
+        /// that local snapshots may temporarily become the world source.
+        /// </summary>
+        public static bool ShouldUseLocalSnapshot(
+            bool authorityClientConfigured) =>
+            !authorityClientConfigured;
+
+        private bool AuthorityManagesPersistence() =>
+            !ShouldUseLocalSnapshot(authorityClient != null);
 
         private string ResolveLoadPath()
         {

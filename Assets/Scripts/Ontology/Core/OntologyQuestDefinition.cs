@@ -7,7 +7,9 @@ namespace Tormia.Ontology.Core
     public sealed class OntologyQuestDefinition
     {
         public string id;
+        public string titleKey;
         public string title;
+        public string reasonKey;
         public string reasonFormat;
         public string hookPredicate;
         public string hookObject;
@@ -21,6 +23,7 @@ namespace Tormia.Ontology.Core
         public string sourceObject;
         public string actionVerb;
         public string completionPredicate;
+        public string descriptionKey;
         public string descriptionFormat;
         public string targetPattern = "?target";
         public List<OntologyCondition> conditions = new();

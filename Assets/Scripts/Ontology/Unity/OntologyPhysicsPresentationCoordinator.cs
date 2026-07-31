@@ -64,8 +64,11 @@ namespace Tormia.Ontology.Core
                 CaptureWorldBaseline();
                 if (targetBody != null && disablePhysics)
                 {
-                    targetBody.linearVelocity = Vector3.zero;
-                    targetBody.angularVelocity = Vector3.zero;
+                    if (!targetBody.isKinematic)
+                    {
+                        targetBody.linearVelocity = Vector3.zero;
+                        targetBody.angularVelocity = Vector3.zero;
+                    }
                     targetBody.useGravity = false;
                     targetBody.isKinematic = true;
                 }
@@ -107,7 +110,9 @@ namespace Tormia.Ontology.Core
             // be disabled. Restoring the body with residual motion would carry a previous
             // contact impulse into the new world position, producing an artificial launch.
             // This is presentation cleanup only; ontology state remains unchanged.
-            if (targetBody != null && disablePhysics)
+            if (targetBody != null &&
+                disablePhysics &&
+                !targetBody.isKinematic)
             {
                 targetBody.linearVelocity = Vector3.zero;
                 targetBody.angularVelocity = Vector3.zero;
@@ -129,8 +134,11 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            targetBody.linearVelocity = Vector3.zero;
-            targetBody.angularVelocity = Vector3.zero;
+            if (!targetBody.isKinematic)
+            {
+                targetBody.linearVelocity = Vector3.zero;
+                targetBody.angularVelocity = Vector3.zero;
+            }
             Physics.SyncTransforms();
         }
 
@@ -156,8 +164,11 @@ namespace Tormia.Ontology.Core
                 CaptureWorldBaseline();
                 if (targetBody != null)
                 {
-                    targetBody.linearVelocity = Vector3.zero;
-                    targetBody.angularVelocity = Vector3.zero;
+                    if (!targetBody.isKinematic)
+                    {
+                        targetBody.linearVelocity = Vector3.zero;
+                        targetBody.angularVelocity = Vector3.zero;
+                    }
                     targetBody.useGravity = false;
                     targetBody.isKinematic = true;
                 }

@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6160eb9fa225b74b9f23f38905347a3, type: 3}
+  m_Name: CombatCatalog
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyCombatCatalog
+  weapons:
+  - weaponId: Sword01Bronze
+    visualPrefab: {fileID: 4917077998906366696, guid: 7c2ea204ac15cce4e90a1a4f10951926, type: 3}
+    attachmentProfile: {fileID: 11400000, guid: a8de882a115c46e7aa56ee0cf1ef2ed8, type: 2}
+    weaponFamily: Sword
+    attackActionId: attack
+    actionDefinitionVersion: 10
+    equipAnimationIntent: WeaponEquip
+    unequipAnimationIntent: WeaponUnequip
+    idleAnimationIntent: WeaponIdle
+    moveAnimationIntent: WeaponWalk
+    recoveryAnimationIntent: AttackRecovery
+    swingVfxIntent: WeaponSwingSwordBasic
+    contactModeId: WeaponContactWindow
+  - weaponId: Sword08Corrupted
+    visualPrefab: {fileID: 3630235248395761229, guid: 040c5da9c4812f847a375781be44d032, type: 3}
+    attachmentProfile: {fileID: 11400000, guid: a8de882a115c46e7aa56ee0cf1ef2ed8, type: 2}
+    weaponFamily: Sword
+    attackActionId: attack
+    actionDefinitionVersion: 10
+    equipAnimationIntent: WeaponEquip
+    unequipAnimationIntent: WeaponUnequip
+    idleAnimationIntent: WeaponIdle
+    moveAnimationIntent: WeaponWalk
+    recoveryAnimationIntent: AttackRecovery
+    swingVfxIntent: WeaponSwingSwordBasic
+    contactModeId: WeaponContactWindow
+  - weaponId: Sword15FrostVisual
+    visualPrefab: {fileID: 510373610253576977, guid: 8b6a28b02cae1794ca545439d946a9c0, type: 3}
+    attachmentProfile: {fileID: 11400000, guid: a8de882a115c46e7aa56ee0cf1ef2ed8, type: 2}
+    weaponFamily: Sword
+    attackActionId: attack
+    actionDefinitionVersion: 10
+    equipAnimationIntent: WeaponEquip
+    unequipAnimationIntent: WeaponUnequip
+    idleAnimationIntent: WeaponIdle
+    moveAnimationIntent: WeaponWalk
+    recoveryAnimationIntent: AttackRecovery
+    swingVfxIntent: WeaponSwingSwordBasic
+    contactModeId: WeaponContactWindow
+  monsters:
+  - monsterId: BeholderBasic
+    visualPrefab: {fileID: 8190115002971765897, guid: 03e9ca4ea8104384d9026eb182261ea2, type: 3}
+    actorType: Monster
+    idleAnimationIntent: MonsterIdle
+    hitAnimationIntent: HitReaction
+    deathAnimationIntent: Death
+    hitVfxIntent: HitPhysicalLight
+  vfx:
+  - intentId: WeaponSwingSwordBasic
+    prefab: {fileID: 5503505460791601945, guid: 74c549d1b06b6b140a1fd9536eea637f, type: 3}
+    localPosition: {x: 0, y: 0, z: 0}
+    localEulerAngles: {x: 0, y: 0, z: 0}
+    localScale: {x: 1, y: 1, z: 1}
+    lifetimeSeconds: 1.2
+    initialPoolSize: 3
+    followAnchor: 1
+  - intentId: HitPhysicalLight
+    prefab: {fileID: 8680598818964007281, guid: dcd90c4976197424b9958a7c54b6bb8c, type: 3}
+    localPosition: {x: 0, y: 0, z: 0}
+    localEulerAngles: {x: 0, y: 0, z: 0}
+    localScale: {x: 0.55, y: 0.55, z: 0.55}
+    lifetimeSeconds: 1
+    initialPoolSize: 4
+    followAnchor: 0

@@ -13,7 +13,41 @@ namespace Tormia.Ontology.Core
     public enum OntologyPhysicalMobilityMode
     {
         Dynamic,
-        Anchored
+        Anchored,
+        AuthorityKinematic
+    }
+
+    public enum OntologyCharacterImpactMode
+    {
+        None,
+        ControllerImpulse,
+        TemporaryRigidbodyReaction
+    }
+
+    /// <summary>
+    /// Selects the single Unity presentation driver allowed to move an entity.
+    /// This is authored Physical Meaning, not a prefab or component-name guess.
+    /// </summary>
+    public enum OntologyMotionDriver
+    {
+        Rigidbody,
+        LocalCharacterController,
+        AuthorityKinematic,
+        Attachment
+    }
+
+    /// <summary>
+    /// Classifies how colliders participate in local presentation. Gameplay
+    /// meaning remains in ontology data; this role lets the Unity collision
+    /// adapter distinguish support surfaces from actor bodies and triggers.
+    /// </summary>
+    public enum OntologyCollisionRole
+    {
+        DynamicProp,
+        WalkableSupport,
+        ActorBody,
+        InteractionTrigger,
+        WaterVolume
     }
 
     /// <summary>
@@ -30,11 +64,19 @@ namespace Tormia.Ontology.Core
         [Tooltip("Semantic mobility exposed by the profile database and presented by the physical body adapter.")]
         public OntologyPhysicalMobilityMode mobilityMode =
             OntologyPhysicalMobilityMode.Dynamic;
+        [Tooltip(
+            "The exclusive Unity component family allowed to move this entity.")]
+        public OntologyMotionDriver motionDriver =
+            OntologyMotionDriver.Rigidbody;
+        [Tooltip(
+            "The collision role used by support probes and movement adapters.")]
+        public OntologyCollisionRole collisionRole =
+            OntologyCollisionRole.DynamicProp;
         [Min(0.01f)] public float mass = 1f;
         [Min(0f)] public float linearDamping = 0.5f;
         [Min(0f)] public float angularDamping = 1f;
 
-        [Header("Dynamic Collision Presentation")]
+        [Header("Collision Presentation")]
         [Tooltip("Selects a Rigidbody-compatible collision shape without depending on the object name.")]
         public OntologyDynamicColliderMode dynamicColliderMode =
             OntologyDynamicColliderMode.KeepExisting;
@@ -45,6 +87,24 @@ namespace Tormia.Ontology.Core
         [Tooltip(
             "Optional Rigidbody constraints applied while this physical profile is active.")]
         public RigidbodyConstraints constraints = RigidbodyConstraints.None;
+
+        [Header("Character Controller Presentation")]
+        [Tooltip(
+            "Maximum collision-resolved rise presented as a walkable step when " +
+            "this profile selects LocalCharacterController. This tuning is " +
+            "derived from Physical Meaning and is ignored by other drivers.")]
+        [Min(0f)] public float maximumStepHeight = 0.3f;
+
+        [Header("Character Impact Presentation")]
+        [Tooltip(
+            "Tuning used only after an Authority-approved impact result. The " +
+            "impact_response_profile Triple selects whether the controller or " +
+            "a temporary Rigidbody reaction presents that result.")]
+        public OntologyCharacterImpactMode defaultCharacterImpactMode =
+            OntologyCharacterImpactMode.None;
+        [Min(0f)] public float controllerImpulseDamping = 10f;
+        [Min(0f)] public float rigidbodySettleSpeed = 0.15f;
+        [Min(0f)] public float rigidbodyMinimumReactionSeconds = 0.2f;
 
         [Header("Buoyancy Presentation")]
         public bool supportsBuoyancy;

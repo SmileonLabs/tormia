@@ -59,6 +59,31 @@ namespace Tormia.Ontology.Tests
                 FindObjectsInactive.Include);
             Assert.That(statusHud, Is.Not.Null);
             Assert.That(statusHud.gameObject.activeInHierarchy, Is.False);
+
+            Assert.That(
+                Object.FindAnyObjectByType<OntologyCombatController>(
+                    FindObjectsInactive.Include),
+                Is.Not.Null,
+                "The world player must expose the Authority combat input adapter.");
+            Assert.That(
+                Object.FindAnyObjectByType<OntologyCombatVfxAdapter>(
+                    FindObjectsInactive.Include),
+                Is.Not.Null,
+                "The world scene must contain the pooled combat VFX presenter.");
+            var entryPresentationCoordinator =
+                Object.FindAnyObjectByType<
+                    OntologyWorldEntryPresentationCoordinator>(
+                    FindObjectsInactive.Include);
+            Assert.That(
+                entryPresentationCoordinator,
+                Is.Not.Null,
+                "The authored world player must own the transactional " +
+                "entry-presentation coordinator.");
+            Assert.That(
+                entryPresentationCoordinator.gameObject,
+                Is.EqualTo(player.gameObject),
+                "Entry preparation must belong to the local player hierarchy, " +
+                "not a runtime AddComponent fallback.");
         }
 
         [UnityTest]

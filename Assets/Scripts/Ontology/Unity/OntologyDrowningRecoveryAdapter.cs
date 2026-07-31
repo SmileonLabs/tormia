@@ -14,6 +14,10 @@ namespace Tormia.Ontology.Core
     {
         [SerializeField] private OntologyWorldBootstrap bootstrap;
         [SerializeField] private OntologyObject actorObject;
+        [SerializeField] private OntologyAvatarCheckpointController checkpointController;
+        [SerializeField] private OntologyWorldAuthorityPlayerMotionReconciler motionReconciler;
+        [SerializeField] private OntologyWorldEntryGroundingAdapter groundingAdapter;
+        [SerializeField] private OntologyInputSystemPlayerInput playerInput;
         [SerializeField, Tooltip("Legacy fallback only. Leave empty; the OntologyObject id is authoritative.")]
         private string actorId;
         [SerializeField] private string movementModePredicate = "movement_mode";
@@ -39,6 +43,9 @@ namespace Tormia.Ontology.Core
         private OntologyWaterPresenceSensor waterPresenceSensor;
         private Vector3 fallbackSafePosition;
         private Quaternion fallbackSafeRotation;
+        private Vector3 confirmedRespawnPosition;
+        private Quaternion confirmedRespawnRotation;
+        private bool hasConfirmedRespawnAnchor;
         private float nextSafeSampleTime;
         private bool recoveryActive;
         private bool positionRestored;
@@ -51,6 +58,8 @@ namespace Tormia.Ontology.Core
                                   !string.IsNullOrWhiteSpace(actorObject.EntityId)
             ? actorObject.EntityId
             : actorId;
+        public bool RecoveryActive => recoveryActive;
+        public bool HasConfirmedRespawnAnchor => hasConfirmedRespawnAnchor;
 
         private void Awake()
         {
@@ -64,6 +73,7 @@ namespace Tormia.Ontology.Core
 
             fallbackSafePosition = transform.position;
             fallbackSafeRotation = transform.rotation;
+            ResolveRecoveryDependencies();
         }
 
         private void Update()
@@ -128,6 +138,25 @@ namespace Tormia.Ontology.Core
             return false;
         }
 
+        /// <summary>
+        /// Sets the fixed recovery anchor from a restored or accepted durable
+        /// avatar checkpoint. Ordinary water contact and transient movement do
+        /// not move this anchor.
+        /// </summary>
+        public void SetConfirmedRespawnAnchor(
+            Vector3 position,
+            Quaternion rotation)
+        {
+            confirmedRespawnPosition = position;
+            confirmedRespawnRotation = rotation;
+            hasConfirmedRespawnAnchor = true;
+        }
+
+        public void ClearConfirmedRespawnAnchor()
+        {
+            hasConfirmedRespawnAnchor = false;
+        }
+
         private void CancelRecovery()
         {
             // Drowning is an ontology-derived relation. Its presentation must stop as
@@ -176,15 +205,23 @@ namespace Tormia.Ontology.Core
 
         private void BeginRecovery()
         {
-            recoveryPosition = fallbackSafePosition;
-            recoveryRotation = fallbackSafeRotation;
-            var requiredAge = Mathf.Max(0.1f, safePositionHistorySeconds);
-            foreach (var sample in safeSamples)
+            if (hasConfirmedRespawnAnchor)
             {
-                if (Time.time - sample.Time >= requiredAge)
+                recoveryPosition = confirmedRespawnPosition;
+                recoveryRotation = confirmedRespawnRotation;
+            }
+            else
+            {
+                recoveryPosition = fallbackSafePosition;
+                recoveryRotation = fallbackSafeRotation;
+                var requiredAge = Mathf.Max(0.1f, safePositionHistorySeconds);
+                foreach (var sample in safeSamples)
                 {
-                    recoveryPosition = sample.Position;
-                    recoveryRotation = sample.Rotation;
+                    if (Time.time - sample.Time >= requiredAge)
+                    {
+                        recoveryPosition = sample.Position;
+                        recoveryRotation = sample.Rotation;
+                    }
                 }
             }
 
@@ -201,14 +238,57 @@ namespace Tormia.Ontology.Core
         private void RestoreSafePosition()
         {
             recoveryPosition = SnapRootToGround(recoveryPosition);
+            motionReconciler?.BeginCheckpointReseed();
             transform.SetPositionAndRotation(recoveryPosition, recoveryRotation);
             if (characterController != null)
             {
                 characterController.enabled = true;
             }
+            playerInput?.ResetVerticalMotionAfterGrounding();
+            groundingAdapter?.RequestSettle();
+            recoveryPosition = transform.position;
+            SetConfirmedRespawnAnchor(recoveryPosition, recoveryRotation);
+            if (checkpointController != null)
+            {
+                checkpointController.SaveRecoveryPoseNow(
+                    recoveryPosition,
+                    recoveryRotation,
+                    accepted => motionReconciler?.CompleteCheckpointReseed(
+                        accepted,
+                        recoveryPosition));
+            }
+            else
+            {
+                motionReconciler?.CompleteCheckpointReseed(
+                    false,
+                    recoveryPosition);
+            }
 
             positionRestored = true;
             recoveryLockUntil = Time.time + Mathf.Max(0f, postRecoveryLockSeconds);
+        }
+
+        private void ResolveRecoveryDependencies()
+        {
+            if (checkpointController == null)
+            {
+                checkpointController =
+                    GetComponent<OntologyAvatarCheckpointController>();
+            }
+            if (motionReconciler == null)
+            {
+                motionReconciler =
+                    GetComponent<OntologyWorldAuthorityPlayerMotionReconciler>();
+            }
+            if (groundingAdapter == null)
+            {
+                groundingAdapter =
+                    GetComponent<OntologyWorldEntryGroundingAdapter>();
+            }
+            if (playerInput == null)
+            {
+                playerInput = GetComponent<OntologyInputSystemPlayerInput>();
+            }
         }
 
         private Vector3 SnapRootToGround(Vector3 candidate)

@@ -34,6 +34,9 @@
 
 # Unity generated files
 *.csproj
+!/server/**/*.csproj
+**/bin/
+**/obj/
 *.sln
 *.slnx
 *.user

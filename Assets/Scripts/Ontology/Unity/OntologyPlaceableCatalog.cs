@@ -33,6 +33,69 @@ namespace Tormia.Ontology.Core
     }
 
     [Serializable]
+    public sealed class OntologyRuleBlockMigration
+    {
+        [Min(1), Tooltip(
+            "Semantic contract version that introduced this replacement. " +
+            "Older entities receive the replacement once; later user removal " +
+            "is never silently undone.")]
+        public int targetContractVersion = 2;
+        public string fromRuleId;
+        public string fromBindingVariable = "?target";
+        public OntologyRuleBlockBinding replacement = new();
+    }
+
+    [Serializable]
+    public sealed class OntologyRuleBlockRetirement
+    {
+        [Min(1), Tooltip(
+            "Semantic contract version that retires this binding. The removal " +
+            "runs only while crossing this version, so a later user-authored " +
+            "assignment is preserved.")]
+        public int contractVersion = 1;
+        public string ruleId;
+        public string bindingVariable = "?target";
+    }
+
+    [Serializable]
+    public sealed class OntologyRuleBlockIntroduction
+    {
+        [Min(1), Tooltip(
+            "Semantic contract version that first introduces this reusable " +
+            "behavior. It is added only while crossing this version, so a later " +
+            "user removal is preserved.")]
+        public int contractVersion = 1;
+        public OntologyRuleBlockBinding binding = new();
+    }
+
+    [Serializable]
+    public sealed class OntologyFactIntroduction
+    {
+        [Min(1), Tooltip(
+            "Semantic contract version that first introduces this authored " +
+            "Fact. It is added only while crossing this version. An existing " +
+            "value for the same predicate is preserved.")]
+        public int contractVersion = 1;
+        public OntologyFactEntry fact = new();
+    }
+
+    [Serializable]
+    public sealed class OntologyFactRetirement
+    {
+        [Min(1), Tooltip(
+            "Semantic contract version that retires this exact authored Fact. " +
+            "The removal runs only while crossing this version, so a later " +
+            "user-authored value is preserved.")]
+        public int contractVersion = 1;
+        public OntologyFactEntry fact = new();
+        [Tooltip(
+            "When enabled, the exact Fact is retired only if another active " +
+            "value for the same predicate exists. Use this to remove a legacy " +
+            "default without deleting the only valid state.")]
+        public bool onlyWhenPredicateHasDifferentValue;
+    }
+
+    [Serializable]
     public sealed class OntologyPlaceableDefinition
     {
         [Tooltip("Stable data id. It must not change after saves exist.")]
@@ -63,6 +126,31 @@ namespace Tormia.Ontology.Core
         public OntologyPhysicalProfile physicalProfile;
         [Tooltip("Optional wearable or mountable presentation data.")]
         public OntologyAttachmentProfile attachmentProfile;
+        [Min(1), Tooltip(
+            "Version of the catalog-owned semantic contract. Runtime migration " +
+            "advances only through the data-authored replacements below.")]
+        public int semanticContractVersion = 1;
+        [Tooltip(
+            "Data-owned Rule Block replacements used when an older placed " +
+            "entity advances to this semantic contract version.")]
+        public List<OntologyRuleBlockMigration> ruleBlockMigrations = new();
+        [Tooltip(
+            "Data-owned one-time authored Fact additions for a new capability. " +
+            "An existing predicate value is preserved and never overwritten.")]
+        public List<OntologyFactIntroduction> introducedFacts = new();
+        [Tooltip(
+            "Data-owned one-time Rule Block additions for a new capability. " +
+            "Unlike defaults, they are never continuously restored.")]
+        public List<OntologyRuleBlockIntroduction> introducedRuleBlocks = new();
+        [Tooltip(
+            "Data-owned one-time exact Fact removals for obsolete or conflicting " +
+            "legacy defaults. Each removal runs only while crossing its authored " +
+            "contract version.")]
+        public List<OntologyFactRetirement> retiredFacts = new();
+        [Tooltip(
+            "Data-owned one-time Rule Block removals for obsolete behavior. " +
+            "Each removal runs only while crossing its authored contract version.")]
+        public List<OntologyRuleBlockRetirement> retiredRuleBlocks = new();
         [Tooltip("Rule blocks injected into each newly placed instance. These remain editable per instance.")]
         public List<OntologyRuleBlockBinding> defaultRuleBlocks = new();
 
@@ -77,7 +165,7 @@ namespace Tormia.Ontology.Core
     public sealed class OntologyPlaceableCatalog : ScriptableObject
     {
         [SerializeField, Tooltip(
-            "Fallback physical profile for catalog entries without an explicit profile.")]
+            "Legacy migration reference only. Runtime definitions must explicitly select a physical profile.")]
         private OntologyPhysicalProfile defaultPhysicalProfile;
         [SerializeField] private List<OntologyPlaceableDefinition> definitions = new();
 
@@ -103,9 +191,7 @@ namespace Tormia.Ontology.Core
         public OntologyPhysicalProfile ResolvePhysicalProfile(
             OntologyPlaceableDefinition definition)
         {
-            return definition?.physicalProfile != null
-                ? definition.physicalProfile
-                : defaultPhysicalProfile;
+            return definition?.physicalProfile;
         }
     }
 }

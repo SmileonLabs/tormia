@@ -53,5 +53,22 @@ namespace Tormia.Ontology.Core
                 : presets.FirstOrDefault(value =>
                     value != null && value.presetId == presetId);
         }
+
+        public void Upsert(OntologyRuleBlockPreset preset)
+        {
+            if (preset == null ||
+                string.IsNullOrWhiteSpace(preset.presetId))
+            {
+                return;
+            }
+
+            presets.RemoveAll(value =>
+                value != null &&
+                string.Equals(
+                    value.presetId,
+                    preset.presetId,
+                    StringComparison.Ordinal));
+            presets.Add(preset);
+        }
     }
 }

@@ -16,9 +16,16 @@ namespace Tormia.Ontology.Core
         InteractionAnchor
     }
 
+    public enum OntologyAttachmentRelationDirection
+    {
+        ItemToActor,
+        ActorToItem
+    }
+
     /// <summary>
     /// Presentation data for an inferred equip or mount relation. Ontology facts decide
-    /// whether attachment occurs; this profile only specifies the visual anchor and offsets.
+    /// whether attachment occurs. The profile selects the actor anchor and optional socket
+    /// offset; item-specific grip alignment belongs to the item prefab.
     /// </summary>
     [CreateAssetMenu(
         fileName = "NewAttachmentProfile",
@@ -31,10 +38,25 @@ namespace Tormia.Ontology.Core
         [Tooltip("Semantic slot such as Waist, Head, RightHand, Back, or Seat.")]
         public string slotId = "Waist";
 
+        [Header("Semantic Relation")]
+        [Tooltip("Canonical predicate whose presence makes this attachment active.")]
+        public string relationPredicate;
+        [Tooltip("Declares whether the item or actor is the subject of the relation.")]
+        public OntologyAttachmentRelationDirection relationDirection =
+            OntologyAttachmentRelationDirection.ItemToActor;
+
         [Header("Wearable / Carryable Anchor")]
+        [Tooltip("Stable presentation socket id resolved from OntologyAttachmentSocket on the actor rig.")]
+        public string actorSocketId;
+        [Tooltip("Humanoid anchor used only by legacy profiles that do not declare actorSocketId.")]
         public HumanBodyBones actorAnchorBone = HumanBodyBones.Hips;
-        [Tooltip("Optional child path used when the actor is not Humanoid or needs a custom socket.")]
+        [Tooltip("Child path used only by profiles that do not declare actorSocketId.")]
         public string actorAnchorPath;
+        [Tooltip(
+            "Requires the item prefab to provide its own calibrated grip point. " +
+            "When removed, attachment presentation is removed instead of " +
+            "falling back to the item root.")]
+        public bool requireItemGripPoint;
 
         [Header("Mountable Anchor")]
         [Tooltip("Child path on a mountable object, for example Seats/Driver.")]
@@ -52,7 +74,9 @@ namespace Tormia.Ontology.Core
         public string proximityAnchorPath;
 
         [Header("Local Presentation")]
+        [Tooltip("Optional adjustment of the actor socket. Item-specific handle alignment belongs to OntologyAttachmentGripPoint on the item prefab.")]
         public Vector3 localPosition;
+        [Tooltip("Optional rotation of the actor socket. Do not use this for a specific weapon model; author that model's OntologyAttachmentGripPoint instead.")]
         public Vector3 localEulerAngles;
         public Vector3 localScale = Vector3.one;
         public bool disableWorldPhysicsWhileAttached = true;

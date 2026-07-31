@@ -383,21 +383,31 @@ namespace Tormia.Ontology.Core
             if (conceptsText != null)
                 conceptsText.text = definition?.ontologyTemplate?.concepts == null ||
                                     definition.ontologyTemplate.concepts.Length == 0
-                    ? "None"
-                    : string.Join("  ·  ", definition.ontologyTemplate.concepts);
+                    ? OntologyLanguagePackService.Text("common.none", "None")
+                    : string.Join(
+                        "  ·  ",
+                        definition.ontologyTemplate.concepts.Select(
+                            OntologyLanguagePackService.Term));
             if (placementSurfaceText != null)
                 placementSurfaceText.text = definition?.placementPolicy == null
                     ? "—"
-                    : SplitPascalCase(definition.placementPolicy.requiredSurface.ToString());
+                    : OntologyLanguagePackService.Text(
+                        "placement.surface." +
+                        definition.placementPolicy.requiredSurface,
+                        SplitPascalCase(
+                            definition.placementPolicy.requiredSurface
+                                .ToString()));
             if (ruleBlocksText != null)
                 ruleBlocksText.text = definition?.defaultRuleBlocks == null ||
                                       definition.defaultRuleBlocks.Count == 0
-                    ? "None"
+                    ? OntologyLanguagePackService.Text("common.none", "None")
                     : string.Join(
                         "\n",
                         definition.defaultRuleBlocks
                             .Where(binding => binding != null && !string.IsNullOrWhiteSpace(binding.ruleId))
-                            .Select(binding => binding.ruleId));
+                            .Select(binding =>
+                                OntologyLanguagePackService.RuleName(
+                                    binding.ruleId)));
         }
 
         private void RefreshSelectionVisuals()

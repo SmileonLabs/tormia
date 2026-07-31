@@ -54,6 +54,12 @@ namespace Tormia.Ontology.Core
             definitionId = EditorGUILayout.TextField("Stable Id", definitionId);
             displayNameKey = EditorGUILayout.TextField("Language Key", displayNameKey);
             displayName = EditorGUILayout.TextField("Display Name", displayName);
+            if (GUILayout.Button(
+                    "Suggest Missing Name Metadata",
+                    EditorStyles.miniButton))
+            {
+                SuggestMissingNameMetadata();
+            }
             placementKind = (OntologyPlaceableKind)EditorGUILayout.EnumPopup("Placement Kind", placementKind);
             category = EditorGUILayout.TextField("Category", category);
             description = EditorGUILayout.TextArea(description, GUILayout.MinHeight(38));
@@ -196,9 +202,9 @@ namespace Tormia.Ontology.Core
             {
                 definitionId = definitionId.Trim(),
                 displayNameKey = displayNameKey?.Trim(),
-                displayName = displayName.Trim(),
+                displayName = displayName?.Trim(),
                 placementKind = placementKind,
-                category = category.Trim(),
+                category = category?.Trim(),
                 description = description,
                 prefab = prefab,
                 previewPrefab = previewPrefab,
@@ -217,6 +223,31 @@ namespace Tormia.Ontology.Core
             catalog.ReplaceDefinitions(entries);
             EditorUtility.SetDirty(catalog); AssetDatabase.SaveAssets();
             ClearDraft(); Selection.activeObject = catalog;
+        }
+
+        private void SuggestMissingNameMetadata()
+        {
+            var stableId = string.IsNullOrWhiteSpace(definitionId)
+                ? prefab != null ? prefab.name : string.Empty
+                : definitionId.Trim();
+            if (string.IsNullOrWhiteSpace(stableId))
+                return;
+
+            if (string.IsNullOrWhiteSpace(displayNameKey))
+                displayNameKey = "placeable." + stableId;
+            if (!string.IsNullOrWhiteSpace(displayName))
+                return;
+
+            var sourceName = prefab != null ? prefab.name : stableId;
+            if (sourceName.EndsWith(
+                    "(Clone)",
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                sourceName = sourceName.Substring(
+                    0,
+                    sourceName.Length - "(Clone)".Length);
+            }
+            displayName = ObjectNames.NicifyVariableName(sourceName.Trim());
         }
 
         private void Remove(int index)

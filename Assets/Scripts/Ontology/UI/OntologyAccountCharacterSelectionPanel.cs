@@ -116,7 +116,10 @@ namespace Tormia.Ontology.Core
             if (detailNameLabel != null)
                 detailNameLabel.text = selectedCharacter?.displayName ?? "-";
             if (detailTemplateLabel != null)
-                detailTemplateLabel.text = selectedCharacter?.templateId ?? "-";
+                detailTemplateLabel.text = selectedCharacter == null
+                    ? "-"
+                    : OntologyLanguagePackService.CharacterTemplateName(
+                        selectedCharacter.templateId);
             BindAppearanceSlots(selectedCharacter?.equippedPartIds);
             if (continueButton != null)
                 continueButton.interactable = selectedCharacter != null;
@@ -313,7 +316,10 @@ namespace Tormia.Ontology.Core
             if (!available) return;
 
             if (nameLabel != null) nameLabel.text = character.displayName ?? character.characterId;
-            if (templateLabel != null) templateLabel.text = character.templateId ?? string.Empty;
+            if (templateLabel != null)
+                templateLabel.text =
+                    OntologyLanguagePackService.CharacterTemplateName(
+                        character.templateId);
             if (profileSummaryLabel != null)
             {
                 var relationCount = character.profileRelations == null ? 0 : character.profileRelations.Length;

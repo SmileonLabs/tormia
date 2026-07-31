@@ -24407,7 +24407,6 @@ GameObject:
   - component: {fileID: 472011340}
   - component: {fileID: 472011339}
   - component: {fileID: 472011338}
-  - component: {fileID: 472011337}
   - component: {fileID: 472011345}
   - component: {fileID: 472011346}
   - component: {fileID: 472011347}
@@ -24431,25 +24430,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &472011337
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 472011336}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 26b220bff806ca044afbf6fd7d1fe128, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyPlayerController
-  bootstrap: {fileID: 657970459}
-  defaultWalkSpeed: 1.5
-  defaultRunSpeed: 4
-  slowedWalkSpeed: 0.75
-  slowedRunSpeed: 2
-  actorObject: {fileID: 0}
-  actorId: Player
 --- !u!114 &472011338
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -24638,7 +24618,6 @@ MonoBehaviour:
   moveRightAltBinding: <Keyboard>/rightArrow
   runBinding: <Keyboard>/leftShift
   runAltBinding: <Keyboard>/rightShift
-  jumpBinding: <Keyboard>/space
   lookBinding: <Mouse>/delta
   lookHoldBinding: <Mouse>/rightButton
   scrollBinding: <Mouse>/scroll
@@ -24661,7 +24640,6 @@ MonoBehaviour:
   horizontalParameter: Hor
   verticalParameter: Vert
   stateParameter: State
-  jumpParameter: IsJump
   animatorDampTime: 0.08
   lastMoveAxis: {x: 0, y: 0}
   lastMoveTarget: {x: 0, y: 0, z: 0}
@@ -92421,7 +92399,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "Q / E  ROTATE     \u2022     ESC  CANCEL"
+  m_text: Q / E  ROTATE     |     ESC  CANCEL
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0dbb88c50070c3f4f885744db5291cc0, type: 2}
   m_sharedMaterial: {fileID: -4249301847804370170, guid: 0dbb88c50070c3f4f885744db5291cc0, type: 2}

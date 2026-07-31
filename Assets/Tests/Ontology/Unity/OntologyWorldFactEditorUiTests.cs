@@ -1,4 +1,6 @@
 using NUnit.Framework;
+using System.IO;
+using System.Linq;
 using Tormia.Ontology.Core;
 using UnityEditor;
 using UnityEngine;
@@ -10,6 +12,39 @@ namespace Tormia.Ontology.Tests
     {
         private const string PrefabPath =
             "Assets/Prefabs/Ontology/UI/WorldEditHUD.prefab";
+
+        [Test]
+        public void RuleBlockPage_UsesQuickSetupAsItsOnlyAuthoringEntry()
+        {
+            var panelSource = File.ReadAllText(Path.Combine(
+                Application.dataPath,
+                "Scripts/Ontology/UI/OntologyRuntimeWorldFactEditorPanel.cs"));
+            Assert.That(
+                panelSource,
+                Does.Contain("AddQuickSetupRow();"));
+            Assert.That(
+                panelSource,
+                Does.Not.Contain("controller.AddSelectedRuleBlock("),
+                "The player-facing panel must not bypass the complete meaning-package setup.");
+            Assert.That(
+                panelSource,
+                Does.Not.Contain("pendingRule"),
+                "The removed direct Rule Block authoring row must not return as hidden UI state.");
+            Assert.That(
+                panelSource,
+                Does.Contain("addTripleButton.gameObject.SetActive(mode == EditorMode.Triples)"),
+                "The shared footer button must only add authored triples.");
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            Assert.That(prefab, Is.Not.Null);
+            var quickSetupCount = prefab
+                .GetComponentsInChildren<Transform>(true)
+                .Count(value => value.name == "QuickSetupPanelTemplate");
+            Assert.That(
+                quickSetupCount,
+                Is.EqualTo(1),
+                "The hierarchy must expose exactly one designer-authored Quick Setup panel.");
+        }
 
         [Test]
         public void WorldFactEditorPrefab_UsesEditableTabStatesAndCommonPageStyle()

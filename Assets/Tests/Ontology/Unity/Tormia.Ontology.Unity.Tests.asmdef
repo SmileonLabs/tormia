@@ -5,8 +5,10 @@
         "Tormia.Ontology.Core",
         "Tormia.Ontology.Unity",
         "Tormia.Ontology.UI",
+        "Tormia.Ontology.Editor",
         "Unity.TextMeshPro",
-        "Unity.ugui"
+        "Unity.ugui",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor"

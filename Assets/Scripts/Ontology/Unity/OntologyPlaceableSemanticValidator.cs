@@ -33,9 +33,23 @@ namespace Tormia.Ontology.Core
                 .ToList() ?? new List<OntologyFactEntry>();
 
             ValidatePhysicalProfile(definition.physicalProfile, concepts, facts, warnings);
-            ValidateAttachmentProfile(definition.attachmentProfile, concepts, facts, warnings);
+            ValidateAttachmentProfile(
+                definition.attachmentProfile,
+                definition.prefab,
+                concepts,
+                facts,
+                warnings);
             ValidateSemanticFacts(concepts, facts, warnings);
             ValidateRuleBlocks(definition.defaultRuleBlocks, warnings);
+            ValidateIntroducedFacts(
+                definition.introducedFacts,
+                warnings);
+            ValidateIntroducedRuleBlocks(
+                definition.introducedRuleBlocks,
+                warnings);
+            ValidateRetiredFacts(
+                definition.retiredFacts,
+                warnings);
             return warnings;
         }
 
@@ -68,6 +82,7 @@ namespace Tormia.Ontology.Core
 
         private static void ValidateAttachmentProfile(
             OntologyAttachmentProfile profile,
+            UnityEngine.GameObject prefab,
             ISet<string> concepts,
             IReadOnlyCollection<OntologyFactEntry> facts,
             ICollection<string> warnings)
@@ -84,10 +99,39 @@ namespace Tormia.Ontology.Core
                     $"'{profile.profileId}' so runtime adapters can resolve the profile from data.");
             if (string.IsNullOrWhiteSpace(profile.slotId))
                 warnings.Add("Attachment Profile has an empty slot id.");
+            if (string.IsNullOrWhiteSpace(profile.relationPredicate))
+                warnings.Add(
+                    "Attachment Profile requires an explicit canonical relation predicate.");
             if (profile.localScale.x <= 0f || profile.localScale.y <= 0f || profile.localScale.z <= 0f)
                 warnings.Add("Attachment Profile scale must be positive on every axis.");
             if (profile.autoEquipDistance <= 0f)
                 warnings.Add("Attachment Profile proximity distance must be greater than zero.");
+            var weaponGripPoints = prefab == null
+                ? System.Array.Empty<OntologyAttachmentGripPoint>()
+                : prefab.GetComponentsInChildren<
+                    OntologyAttachmentGripPoint>(true);
+            if (concepts.Contains(OntologyConcepts.Weapon) &&
+                weaponGripPoints.Length != 1)
+            {
+                warnings.Add(
+                    "A Weapon Attachment Profile requires exactly one " +
+                    "OntologyAttachmentGripPoint on its project-owned prefab.");
+            }
+            if (concepts.Contains(OntologyConcepts.Weapon) &&
+                !profile.requireItemGripPoint)
+            {
+                warnings.Add(
+                    "A Weapon Attachment Profile must require its authored " +
+                    "OntologyAttachmentGripPoint.");
+            }
+            else if (concepts.Contains(OntologyConcepts.Weapon) &&
+                     weaponGripPoints.Length == 1 &&
+                     !weaponGripPoints[0].IsCalibrated)
+            {
+                warnings.Add(
+                    "A Weapon OntologyAttachmentGripPoint must be calibrated " +
+                    "and saved through the attachment preview.");
+            }
 
             switch (profile.kind)
             {
@@ -203,6 +247,97 @@ namespace Tormia.Ontology.Core
                 var key = binding.ruleId.Trim() + "\n" + binding.bindingVariable.Trim();
                 if (!unique.Add(key))
                     warnings.Add($"Default Rule Block '{binding.ruleId}' is duplicated for '{binding.bindingVariable}'.");
+            }
+        }
+
+        private static void ValidateIntroducedRuleBlocks(
+            IReadOnlyList<OntologyRuleBlockIntroduction> introductions,
+            ICollection<string> warnings)
+        {
+            if (introductions == null) return;
+            for (var index = 0; index < introductions.Count; index++)
+            {
+                var introduction = introductions[index];
+                if (introduction == null ||
+                    introduction.contractVersion < 1 ||
+                    introduction.binding == null ||
+                    string.IsNullOrWhiteSpace(
+                        introduction.binding.ruleId) ||
+                    string.IsNullOrWhiteSpace(
+                        introduction.binding.bindingVariable))
+                {
+                    warnings.Add(
+                        $"Introduced Rule Block[{index}] is incomplete.");
+                }
+            }
+        }
+
+        private static void ValidateIntroducedFacts(
+            IReadOnlyList<OntologyFactIntroduction> introductions,
+            ICollection<string> warnings)
+        {
+            if (introductions == null) return;
+            var unique = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index < introductions.Count; index++)
+            {
+                var introduction = introductions[index];
+                if (introduction == null ||
+                    introduction.contractVersion < 1 ||
+                    introduction.fact == null ||
+                    string.IsNullOrWhiteSpace(
+                        introduction.fact.predicate) ||
+                    string.IsNullOrWhiteSpace(
+                        introduction.fact.obj))
+                {
+                    warnings.Add(
+                        $"Introduced Fact[{index}] is incomplete.");
+                    continue;
+                }
+
+                var key = introduction.contractVersion + "\n" +
+                          introduction.fact.predicate.Trim();
+                if (!unique.Add(key))
+                {
+                    warnings.Add(
+                        $"Introduced Fact '{introduction.fact.predicate}' " +
+                        $"is duplicated for contract version " +
+                        $"{introduction.contractVersion}.");
+                }
+            }
+        }
+
+        private static void ValidateRetiredFacts(
+            IReadOnlyList<OntologyFactRetirement> retirements,
+            ICollection<string> warnings)
+        {
+            if (retirements == null) return;
+            var unique = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index < retirements.Count; index++)
+            {
+                var retirement = retirements[index];
+                if (retirement == null ||
+                    retirement.contractVersion < 1 ||
+                    retirement.fact == null ||
+                    string.IsNullOrWhiteSpace(
+                        retirement.fact.predicate) ||
+                    string.IsNullOrWhiteSpace(
+                        retirement.fact.obj))
+                {
+                    warnings.Add(
+                        $"Retired Fact[{index}] is incomplete.");
+                    continue;
+                }
+
+                var key = retirement.contractVersion + "\n" +
+                          retirement.fact.predicate.Trim() + "\n" +
+                          retirement.fact.obj.Trim();
+                if (!unique.Add(key))
+                {
+                    warnings.Add(
+                        $"Retired Fact '{retirement.fact.predicate}=" +
+                        $"{retirement.fact.obj}' is duplicated for contract " +
+                        $"version {retirement.contractVersion}.");
+                }
             }
         }
 

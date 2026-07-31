@@ -16,7 +16,7 @@ internal sealed record WorldPlayerIntent(
     long Sequence,
     float MoveX,
     float MoveZ,
-    bool Jump,
+    float MoveSpeed,
     long ReceivedAtUnixMilliseconds);
 
 internal interface IWorldPlayerIntentRegistry
@@ -25,6 +25,7 @@ internal interface IWorldPlayerIntentRegistry
     TimeSpan LeaseDuration { get; }
     Task<bool> Submit(WorldPlayerIntent intent, CancellationToken cancellationToken);
     Task<WorldPlayerIntent?> Get(Guid worldId, Guid avatarEntityId, CancellationToken cancellationToken);
+    Task Clear(Guid worldId, Guid avatarEntityId, CancellationToken cancellationToken);
 }
 
 internal sealed class RedisWorldPlayerIntentRegistry(IConnectionMultiplexer redis) : IWorldPlayerIntentRegistry
@@ -62,6 +63,11 @@ internal sealed class RedisWorldPlayerIntentRegistry(IConnectionMultiplexer redi
         return value.IsNullOrEmpty ? null : JsonSerializer.Deserialize<WorldPlayerIntent>(value!, JsonOptions);
     }
 
+    public async Task Clear(Guid worldId, Guid avatarEntityId, CancellationToken cancellationToken)
+    {
+        await database.KeyDeleteAsync(Key(worldId, avatarEntityId));
+    }
+
     private static string Key(Guid worldId, Guid avatarEntityId) =>
         "tormia:world:" + worldId.ToString("N") + ":avatar:" + avatarEntityId.ToString("N") + ":intent";
 }
@@ -95,6 +101,12 @@ internal sealed class InMemoryWorldPlayerIntentRegistry : IWorldPlayerIntentRegi
             return Task.FromResult<WorldPlayerIntent?>(null);
         }
         return Task.FromResult<WorldPlayerIntent?>(stored.Intent);
+    }
+
+    public Task Clear(Guid worldId, Guid avatarEntityId, CancellationToken cancellationToken)
+    {
+        intents.TryRemove(Key(worldId, avatarEntityId), out _);
+        return Task.CompletedTask;
     }
 
     private static string Key(Guid worldId, Guid avatarEntityId) => worldId.ToString("N") + ":" + avatarEntityId.ToString("N");

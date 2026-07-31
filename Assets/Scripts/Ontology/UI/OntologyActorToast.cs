@@ -61,6 +61,18 @@ namespace Tormia.Ontology.Core
             HideImmediate();
         }
 
+        private void OnDisable()
+        {
+            if (routine != null)
+            {
+                StopCoroutine(routine);
+                routine = null;
+            }
+
+            messages.Clear();
+            HideImmediate();
+        }
+
         private void LateUpdate()
         {
             if (rectTransform == null || anchor == null)

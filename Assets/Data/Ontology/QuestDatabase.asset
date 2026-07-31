@@ -14,7 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyQuestDatabase
   definitions:
   - id: InvestigateSmokeAndPanic
+    titleKey: quest.InvestigateSmokeAndPanic.title
     title: Investigate Smoke and Panic
+    reasonKey: quest.InvestigateSmokeAndPanic.reason
     reasonFormat: '{0} reports smoke and village panic'
     hookPredicate: offers
     hookObject: InvestigateSmokeAndPanic
@@ -23,6 +25,7 @@ MonoBehaviour:
       sourceObject: 
       actionVerb: inspect
       completionPredicate: inspects
+      descriptionKey: quest.InvestigateSmokeAndPanic.goal.inspect
       descriptionFormat: Inspect {target} to identify the source of smoke
       targetPattern: ?target
       conditions:
@@ -34,6 +37,7 @@ MonoBehaviour:
       sourceObject: 
       actionVerb: help
       completionPredicate: helps
+      descriptionKey: quest.InvestigateSmokeAndPanic.goal.help
       descriptionFormat: Help {target} recover from the disturbance
       targetPattern: ?target
       conditions:
@@ -42,7 +46,9 @@ MonoBehaviour:
         predicate: state
         obj: Disturbed
   - id: ColdProtectionPreparation
+    titleKey: quest.ColdProtectionPreparation.title
     title: Prepare for the Cold
+    reasonKey: quest.ColdProtectionPreparation.reason
     reasonFormat: '{0} recommends protective clothing'
     hookPredicate: offers
     hookObject: ColdProtectionPreparation
@@ -51,6 +57,7 @@ MonoBehaviour:
       sourceObject:
       actionVerb: equip_part
       completionPredicate: equipped_part
+      descriptionKey: quest.ColdProtectionPreparation.goal.equip
       descriptionFormat: Equip {target} to gain cold protection
       targetPattern: ?target
       conditions:
@@ -59,7 +66,9 @@ MonoBehaviour:
         predicate: grants_capability
         obj: ColdProtection
   - id: SwampProtectionPreparation
+    titleKey: quest.SwampProtectionPreparation.title
     title: Prepare for the Swamp
+    reasonKey: quest.SwampProtectionPreparation.reason
     reasonFormat: '{0} recommends swamp-resistant equipment'
     hookPredicate: offers
     hookObject: SwampProtectionPreparation
@@ -68,6 +77,7 @@ MonoBehaviour:
       sourceObject:
       actionVerb: equip_part
       completionPredicate: equipped_part
+      descriptionKey: quest.SwampProtectionPreparation.goal.equip
       descriptionFormat: Equip {target} to gain swamp resistance
       targetPattern: ?target
       conditions:

@@ -17,23 +17,147 @@ MonoBehaviour:
   newWorldSlug: local-sandbox
   newWorldTitle: Local Sandbox
   newWorldVisibility: private
+  defaultRuntimeZoneKey: world_main
+  defaultRuntimeZoneMin: {x: -512, y: -512}
+  defaultRuntimeZoneMax: {x: 512, y: 512}
+  defaultRuntimeZoneSimulationMode: active
+  authorDefaultRuntimeWalkableSupport: 1
+  defaultRuntimeWalkableSupportTemplateId: world_flat_support
+  defaultRuntimeWalkableSupportDisplayName: World Walkable Support
+  defaultRuntimeWalkableSupportCenter: {x: -24.8492, y: 27.3, z: 140.75}
+  defaultRuntimeWalkableSupportSize: {x: 366.06, y: 1, z: 186.692}
+  playerAvatarProfile: {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+  playerAvatarTemplateId: player_avatar
+  playerAvatarDisplayName: Player Avatar
+  defaultAvatarMovementSpeed: 5
+  runtimeMotionReadinessTimeoutSeconds: 6
   connectOnStart: 0
   projectionPollIntervalSeconds: 1
   publishDevelopmentPackageOnWorldEntry: 1
   developmentPackageId: social_village
-  developmentPackageVersion: 1.0.0
+  developmentPackageVersion: 3.9.0
+  developmentRuleDatabase: {fileID: 11400000, guid: 2df349aebff8eb547aa358017ab3417c, type: 2}
+  developmentRules:
+  - ruleId: BuoyantWhenInWater
+    definitionVersion: 2
+  - ruleId: AutoEquipNearbyWearable
+    definitionVersion: 2
+  - ruleId: EquippedItemGrantsTemporarySkill
+    definitionVersion: 2
+  - ruleId: AutoCarryNearbyCarryable
+    definitionVersion: 2
+  - ruleId: EquipItemOnInteractionIntent
+    definitionVersion: 1
+  - ruleId: MeleeAttackOnPrimaryIntent
+    definitionVersion: 4
+  - ruleId: SwingWeaponOnPrimaryIntent
+    definitionVersion: 1
+  - ruleId: UnequipItemOnInteractionIntent
+    definitionVersion: 1
+  - ruleId: AcquireNearestHostileTarget
+    definitionVersion: 1
+  - ruleId: ChaseTargetWithinLeash
+    definitionVersion: 1
+  - ruleId: AutonomousMeleeCombat
+    definitionVersion: 3
+  - ruleId: LootBecomesAvailableOnDefeat
+    definitionVersion: 1
+  - ruleId: CollectAvailableLoot
+    definitionVersion: 2
+  - ruleId: RespawnPlayerOnDeath
+    definitionVersion: 2
+  - ruleId: MovePlayerFromIntent
+    definitionVersion: 2
+  - ruleId: JumpPlayerFromIntent
+    definitionVersion: 3
+  animationContentManifest: {fileID: 11400000, guid: b426de5cc3015f64d9a8adad50ca519e, type: 2}
   developmentActions:
   - actionId: help
-    definitionVersion: 1
+    definitionVersion: 2
     predicateId: helps
     requiresTool: 0
     objectPattern: ?target
+    structuredDefinitionJson:
   - actionId: talk
-    definitionVersion: 1
+    definitionVersion: 2
     predicateId: talks_to
     requiresTool: 0
     objectPattern: ?target
+    structuredDefinitionJson:
+  - actionId: attack
+    definitionVersion: 10
+    predicateId: primary_attack_intent
+    requiresTool: 1
+    objectPattern: ?target
+    structuredDefinitionJson: '{"actionVerb":"attack","subjectPattern":"?actor","predicate":"","objectPattern":"?target","requiresTool":true,"evaluationOnly":false,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"MeleeAttackOnPrimaryIntent","bindingVariable":"?tool","bindingEntityPattern":"?tool","intentSubjectPattern":"?actor","intentPredicate":"primary_attack_intent","intentObjectPattern":"?target","required":true},"postRuleInvocations":[{"ruleId":"LootBecomesAvailableOnDefeat","bindingVariable":"?target","bindingEntityPattern":"?target","intentSubjectPattern":"?target","intentPredicate":"defeat_resolved_intent","intentObjectPattern":"?target","required":false}],"presentation":{"actorAnimationIntent":""},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":false,"maxActorTargetDistanceFrom":{"subject":"?tool","predicate":"attack_range","multiplier":1},"cooldownSecondsFrom":{"subject":"?tool","predicate":"attack_cooldown","multiplier":1}}}'
+  - actionId: equip_weapon
+    definitionVersion: 8
+    predicateId: interaction_intent
+    requiresTool: 0
+    objectPattern: ?target
+    structuredDefinitionJson: '{"actionVerb":"equip_weapon","subjectPattern":"?actor","predicate":"","objectPattern":"?target","requiresTool":false,"evaluationOnly":false,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"EquipItemOnInteractionIntent","bindingVariable":"?target","bindingEntityPattern":"?target","intentSubjectPattern":"?actor","intentPredicate":"interaction_intent","intentObjectPattern":"?target","required":true},"postRuleInvocations":[],"presentation":{"actorAnimationIntent":"WeaponEquip"},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":false,"maxActorTargetDistanceFrom":{"subject":"?target","predicate":"interaction_range","multiplier":1},"cooldownSecondsFrom":{"subject":"","predicate":"","multiplier":1}}}'
+  - actionId: equip_wearable
+    definitionVersion: 1
+    predicateId: equipped_by
+    requiresTool: 0
+    objectPattern: ?target
+    structuredDefinitionJson: '{"actionVerb":"equip_wearable","subjectPattern":"?actor","objectPattern":"?target","requiresTool":false,"runtimeConstraints":{"maxActorTargetDistance":3.0},"conditions":[{"kind":2,"subject":"?target","predicate":"","obj":"Wearable"},{"kind":0,"subject":"?target","predicate":"pickup_behavior","obj":"SelectThenEquip"},{"kind":0,"subject":"?target","predicate":"has_rule_block","obj":"AutoEquipNearbyWearable"},{"kind":0,"subject":"?target","predicate":"has_slot","obj":"?slot"},{"kind":5,"subject":"?actor","predicate":"","obj":"?target"},{"kind":1,"subject":"?target","predicate":"equipped_by","obj":"?holder"}],"effects":[{"kind":2,"subject":"?target","predicate":"equipped_by","obj":"?actor"}]}'
+  - actionId: unequip_equipment
+    definitionVersion: 2
+    predicateId: unequip_intent
+    requiresTool: 0
+    objectPattern: ?target
+    structuredDefinitionJson: '{"actionVerb":"unequip_equipment","subjectPattern":"?actor","predicate":"","objectPattern":"?target","requiresTool":false,"evaluationOnly":false,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"UnequipItemOnInteractionIntent","bindingVariable":"?target","bindingEntityPattern":"?target","intentSubjectPattern":"?actor","intentPredicate":"unequip_intent","intentObjectPattern":"?target","required":true},"postRuleInvocations":[],"presentation":{"actorAnimationIntent":""},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":false,"maxActorTargetDistanceFrom":{"subject":"","predicate":"","multiplier":1},"cooldownSecondsFrom":{"subject":"","predicate":"","multiplier":1}}}'
+  - actionId: swing_weapon
+    definitionVersion: 1
+    predicateId: primary_swing_intent
+    requiresTool: 1
+    objectPattern: ?actor
+    structuredDefinitionJson: '{"actionVerb":"swing_weapon","subjectPattern":"?actor","predicate":"","objectPattern":"?target","requiresTool":true,"evaluationOnly":false,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"SwingWeaponOnPrimaryIntent","bindingVariable":"?tool","bindingEntityPattern":"?tool","intentSubjectPattern":"?actor","intentPredicate":"primary_swing_intent","intentObjectPattern":"?actor","required":true},"postRuleInvocations":[],"presentation":{"actorAnimationIntent":""},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":false,"maxActorTargetDistanceFrom":{"subject":"","predicate":"","multiplier":1},"cooldownSecondsFrom":{"subject":"?tool","predicate":"attack_cooldown","multiplier":1}}}'
+  - actionId: autonomous_melee_attack
+    definitionVersion: 1
+    predicateId: autonomous_attack_intent
+    requiresTool: 0
+    objectPattern: ?target
+    structuredDefinitionJson: '{"actionVerb":"autonomous_melee_attack","subjectPattern":"?actor","predicate":"","objectPattern":"?target","requiresTool":false,"evaluationOnly":false,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"AutonomousMeleeCombat","bindingVariable":"?actor","bindingEntityPattern":"?actor","intentSubjectPattern":"?actor","intentPredicate":"autonomous_attack_intent","intentObjectPattern":"?target","required":true},"postRuleInvocations":[{"ruleId":"LootBecomesAvailableOnDefeat","bindingVariable":"?target","bindingEntityPattern":"?target","intentSubjectPattern":"?target","intentPredicate":"defeat_resolved_intent","intentObjectPattern":"?target","required":false}],"presentation":{"actorAnimationIntent":""},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":false,"maxActorTargetDistanceFrom":{"subject":"?actor","predicate":"attack_range","multiplier":1},"cooldownSecondsFrom":{"subject":"?actor","predicate":"attack_cooldown","multiplier":1}}}'
+  - actionId: respawn_avatar
+    definitionVersion: 1
+    predicateId: respawn_intent
+    requiresTool: 0
+    objectPattern: ?actor
+    structuredDefinitionJson: '{"actionVerb":"respawn_avatar","subjectPattern":"?actor","predicate":"","objectPattern":"?actor","requiresTool":false,"evaluationOnly":false,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"RespawnPlayerOnDeath","bindingVariable":"?actor","bindingEntityPattern":"?actor","intentSubjectPattern":"?actor","intentPredicate":"respawn_intent","intentObjectPattern":"?actor","required":true},"postRuleInvocations":[],"presentation":{"actorAnimationIntent":""},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":false,"maxActorTargetDistanceFrom":{"subject":"","predicate":"","multiplier":1},"cooldownSecondsFrom":{"subject":"","predicate":"","multiplier":1}}}'
+  - actionId: move_avatar
+    definitionVersion: 1
+    predicateId: locomotion_intent
+    requiresTool: 0
+    objectPattern: ?actor
+    structuredDefinitionJson: '{"actionVerb":"move_avatar","subjectPattern":"?actor","predicate":"","objectPattern":"?actor","requiresTool":false,"evaluationOnly":false,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"MovePlayerFromIntent","bindingVariable":"?actor","bindingEntityPattern":"?actor","intentSubjectPattern":"?actor","intentPredicate":"locomotion_intent","intentObjectPattern":"?actor","required":true},"postRuleInvocations":[],"presentation":{"actorAnimationIntent":""},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":false,"maxActorTargetDistanceFrom":{"subject":"","predicate":"","multiplier":1},"cooldownSecondsFrom":{"subject":"","predicate":"","multiplier":1}}}'
+  - actionId: collect_loot
+    definitionVersion: 1
+    predicateId: loot_collection_intent
+    requiresTool: 0
+    objectPattern: ?target
+    structuredDefinitionJson: '{"actionVerb":"collect_loot","subjectPattern":"?actor","predicate":"","objectPattern":"?target","requiresTool":false,"evaluationOnly":false,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"CollectAvailableLoot","bindingVariable":"?target","bindingEntityPattern":"?target","intentSubjectPattern":"?actor","intentPredicate":"loot_collection_intent","intentObjectPattern":"?target","required":true},"postRuleInvocations":[],"presentation":{"actorAnimationIntent":""},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":false,"maxActorTargetDistanceFrom":{"subject":"?target","predicate":"interaction_range","multiplier":1},"cooldownSecondsFrom":{"subject":"","predicate":"","multiplier":1}}}'
+  - actionId: acquire_autonomous_target
+    definitionVersion: 1
+    predicateId: autonomous_target_intent
+    requiresTool: 0
+    objectPattern: ?target
+    structuredDefinitionJson: '{"actionVerb":"acquire_autonomous_target","subjectPattern":"?actor","predicate":"","objectPattern":"?target","requiresTool":false,"evaluationOnly":true,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"AcquireNearestHostileTarget","bindingVariable":"?actor","bindingEntityPattern":"?actor","intentSubjectPattern":"?actor","intentPredicate":"autonomous_target_intent","intentObjectPattern":"?target","required":true},"postRuleInvocations":[],"presentation":{"actorAnimationIntent":""},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":false,"maxActorTargetDistanceFrom":{"subject":"","predicate":"","multiplier":1},"cooldownSecondsFrom":{"subject":"","predicate":"","multiplier":1}}}'
+  - actionId: chase_autonomous_target
+    definitionVersion: 1
+    predicateId: autonomous_chase_intent
+    requiresTool: 0
+    objectPattern: ?target
+    structuredDefinitionJson: '{"actionVerb":"chase_autonomous_target","subjectPattern":"?actor","predicate":"","objectPattern":"?target","requiresTool":false,"evaluationOnly":true,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"ChaseTargetWithinLeash","bindingVariable":"?actor","bindingEntityPattern":"?actor","intentSubjectPattern":"?actor","intentPredicate":"autonomous_chase_intent","intentObjectPattern":"?target","required":true},"postRuleInvocations":[],"presentation":{"actorAnimationIntent":""},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":false,"maxActorTargetDistanceFrom":{"subject":"","predicate":"","multiplier":1},"cooldownSecondsFrom":{"subject":"","predicate":"","multiplier":1}}}'
+  - actionId: jump_avatar
+    definitionVersion: 2
+    predicateId: jump_intent
+    requiresTool: 0
+    objectPattern: ?actor
+    structuredDefinitionJson: '{"actionVerb":"jump_avatar","subjectPattern":"?actor","predicate":"","objectPattern":"?actor","requiresTool":false,"evaluationOnly":true,"conditions":[],"effects":[],"ruleInvocation":{"ruleId":"JumpPlayerFromIntent","bindingVariable":"?actor","bindingEntityPattern":"?actor","intentSubjectPattern":"?actor","intentPredicate":"jump_intent","intentObjectPattern":"?actor","required":true},"postRuleInvocations":[],"presentation":{"actorAnimationIntent":""},"runtimeConstraints":{"maxActorTargetDistance":0.0,"requiresGroundedObservation":true,"maxActorTargetDistanceFrom":{"subject":"","predicate":"","multiplier":1},"cooldownSecondsFrom":{"subject":"","predicate":"","multiplier":1}}}'
   useRealtimeNotifications: 1
   realtimeZoneKey: 
   realtimeRecoveryPollIntervalSeconds: 10
   realtimeReconnectDelaySeconds: 2
+  realtimeSessionHeartbeatSeconds: 25

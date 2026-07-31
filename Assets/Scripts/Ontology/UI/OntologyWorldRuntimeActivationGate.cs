@@ -15,13 +15,11 @@ namespace Tormia.Ontology.Core
         [SerializeField] private OntologyGameSessionCoordinator sessionCoordinator;
         [SerializeField] private GameObject[] runtimeRoots = Array.Empty<GameObject>();
         [SerializeField] private Behaviour[] runtimeBehaviours = Array.Empty<Behaviour>();
-        [SerializeField] private Renderer[] localAvatarRenderers = Array.Empty<Renderer>();
         [SerializeField] private bool discoverKnownRuntimeObjects = true;
 
         private readonly List<GameObject> discoveredRoots = new();
         private readonly List<GameObject> discoveredTransientRoots = new();
         private readonly List<Behaviour> discoveredBehaviours = new();
-        private readonly List<Renderer> discoveredRenderers = new();
         private OntologyGameSessionCoordinator subscribedCoordinator;
 
         public bool RuntimeVisible { get; private set; }
@@ -62,7 +60,6 @@ namespace Tormia.Ontology.Core
             discoveredRoots.Clear();
             discoveredTransientRoots.Clear();
             discoveredBehaviours.Clear();
-            discoveredRenderers.Clear();
             DiscoverFallbackTargets();
             Apply();
         }
@@ -77,11 +74,9 @@ namespace Tormia.Ontology.Core
             SetGameObjects(runtimeRoots, active);
             SetGameObjects(discoveredRoots, active);
             if (!active)
-                SetGameObjects(discoveredTransientRoots, false);
+            SetGameObjects(discoveredTransientRoots, false);
             SetBehaviours(runtimeBehaviours, active);
             SetBehaviours(discoveredBehaviours, active);
-            SetRenderers(localAvatarRenderers, active);
-            SetRenderers(discoveredRenderers, active);
         }
 
         private void ResolveDependencies()
@@ -105,7 +100,7 @@ namespace Tormia.Ontology.Core
             if (!discoverKnownRuntimeObjects) return;
 
             AddRoot(FindAnyObjectByType<OntologyRuntimeStatusHUD>(FindObjectsInactive.Include));
-            AddRoot(FindAnyObjectByType<OntologyActorToast>(FindObjectsInactive.Include));
+            AddBehaviour(FindAnyObjectByType<OntologyActorToast>(FindObjectsInactive.Include));
             var questPanel = FindAnyObjectByType<OntologyQuestActionPanel>(FindObjectsInactive.Include);
             AddRoot(questPanel);
             if (questPanel != null && questPanel.RuntimeToggleObject != null &&
@@ -146,13 +141,15 @@ namespace Tormia.Ontology.Core
             AddRoot(placementPanel);
             AddRoot(FindAnyObjectByType<OntologyRuntimeWorldFactEditorPanel>(FindObjectsInactive.Include));
 
-            AddBehaviour(FindAnyObjectByType<OntologyInputSystemPlayerInput>(FindObjectsInactive.Include));
-            AddBehaviour(FindAnyObjectByType<OntologyPlayerController>(FindObjectsInactive.Include));
             AddBehaviour(FindAnyObjectByType<OntologyPlayerPositionTracker>(FindObjectsInactive.Include));
             AddBehaviour(FindAnyObjectByType<OntologyWorldAuthorityPlayerIntentSender>(FindObjectsInactive.Include));
             AddBehaviour(FindAnyObjectByType<OntologyWorldAuthorityPlayerMotionReconciler>(FindObjectsInactive.Include));
             AddBehaviour(FindAnyObjectByType<OntologyWorldAuthorityRealtimeClient>(FindObjectsInactive.Include));
             AddBehaviour(FindAnyObjectByType<OntologyWorldAuthorityRemoteAvatarPresenter>(FindObjectsInactive.Include));
+            AddBehaviour(FindAnyObjectByType<OntologyCombatController>(
+                FindObjectsInactive.Include));
+            AddBehaviour(FindAnyObjectByType<OntologyAuthorityTargetingAdapter>(
+                FindObjectsInactive.Include));
             AddBehaviour(FindAnyObjectByType<OntologyWorldZoneStreamer>(FindObjectsInactive.Include));
             AddBehaviour(FindAnyObjectByType<OntologyRuntimeObjectPlacementController>(FindObjectsInactive.Include));
             AddBehaviour(FindAnyObjectByType<OntologyRuntimeWorldEditorController>(FindObjectsInactive.Include));
@@ -160,17 +157,30 @@ namespace Tormia.Ontology.Core
             AddBehaviour(FindAnyObjectByType<OntologyRuntimeWorldEditorPanel>(FindObjectsInactive.Include));
             AddBehaviour(FindAnyObjectByType<OntologyRuntimeWorldFactEditorPanel>(FindObjectsInactive.Include));
 
-            var entryFlow = FindAnyObjectByType<OntologyWorldAuthorityAccountEntryFlow>(
-                FindObjectsInactive.Include);
-            var identity = entryFlow == null ? null : entryFlow.AvatarIdentity;
-            if (identity != null)
-                discoveredRenderers.AddRange(identity.GetComponentsInChildren<Renderer>(true));
+            // Local avatar input, animation, and renderers are owned by
+            // OntologyWorldEntryPresentationCoordinator as one atomic entry
+            // boundary. This gate owns the remaining world/UI runtime only.
         }
 
         private void AddRoot(Component component)
         {
-            if (component != null && component.gameObject != gameObject && !discoveredRoots.Contains(component.gameObject))
-                discoveredRoots.Add(component.gameObject);
+            if (component == null ||
+                component.gameObject == gameObject ||
+                IsLocalAvatarBoundary(component.gameObject) ||
+                discoveredRoots.Contains(component.gameObject))
+            {
+                return;
+            }
+
+            discoveredRoots.Add(component.gameObject);
+        }
+
+        private static bool IsLocalAvatarBoundary(GameObject candidate)
+        {
+            if (candidate == null) return false;
+
+            return candidate.GetComponentInParent<
+                       OntologyWorldEntryPresentationCoordinator>(true) != null;
         }
 
         private void AddBehaviour(Behaviour behaviour)
@@ -187,13 +197,6 @@ namespace Tormia.Ontology.Core
         }
 
         private static void SetBehaviours(IEnumerable<Behaviour> targets, bool active)
-        {
-            if (targets == null) return;
-            foreach (var target in targets)
-                if (target != null) target.enabled = active;
-        }
-
-        private static void SetRenderers(IEnumerable<Renderer> targets, bool active)
         {
             if (targets == null) return;
             foreach (var target in targets)

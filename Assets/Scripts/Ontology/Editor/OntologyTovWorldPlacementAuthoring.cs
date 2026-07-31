@@ -146,7 +146,7 @@ namespace Tormia.Ontology.Core.Editor
 
             var footerLine = ImageObject(root, "FooterDivider", null, new Color(Gold.r / 255f, Gold.g / 255f, Gold.b / 255f, 0.35f));
             PlaceBottom(footerLine, new Vector2(0f, 63f), new Vector2(1550f, 1f));
-            var footer = TextObject(root, "FooterHints", "Q / E  ROTATE     •     ESC  CANCEL",
+            var footer = TextObject(root, "FooterHints", "Q / E  ROTATE     |     ESC  CANCEL",
                 17f, Muted, FontStyles.Bold, TextAlignmentOptions.Center, assets.regularFont);
             PlaceBottom(footer.rectTransform, new Vector2(0f, 20f), new Vector2(720f, 34f));
         }
@@ -469,8 +469,12 @@ namespace Tormia.Ontology.Core.Editor
                 objectIcon = Sprite(ArtFolder + "tab_icon_object.png"),
                 npcIcon = Sprite(ArtFolder + "tab_icon_npc.png"),
                 monsterIcon = Sprite(ArtFolder + "tab_icon_monster.png"),
-                boldFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Fonts/InterBold.asset"),
-                regularFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Fonts/InterRegular.asset")
+                boldFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                    Tormia.Ontology.Editor.OntologyJuaTypographyMigration
+                        .FontAssetPath),
+                regularFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                    Tormia.Ontology.Editor.OntologyJuaTypographyMigration
+                        .FontAssetPath)
             };
             if (result.canvas == null || result.tabSelected == null || result.objectIcon == null ||
                 result.npcIcon == null || result.monsterIcon == null ||

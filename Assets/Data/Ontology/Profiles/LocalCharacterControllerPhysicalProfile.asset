@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9216b5cd35e1ecc4c94822161832caae, type: 3}
+  m_Name: LocalCharacterControllerPhysicalProfile
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyPhysicalProfile
+  profileId: LocalCharacterController
+  mobilityMode: 2
+  motionDriver: 1
+  collisionRole: 2
+  maximumStepHeight: 0.3
+  mass: 1
+  linearDamping: 0
+  angularDamping: 0
+  dynamicColliderMode: 0
+  dynamicColliderCenterOffset: {x: 0, y: 0, z: 0}
+  dynamicColliderSizeMultiplier: {x: 1, y: 1, z: 1}
+  constraints: 0
+  defaultCharacterImpactMode: 1
+  controllerImpulseDamping: 10
+  rigidbodySettleSpeed: 0.15
+  rigidbodyMinimumReactionSeconds: 0.2
+  supportsBuoyancy: 0
+  buoyancyRuleId:
+  buoyancyStrength: 0
+  submergedDamping: 0
+  submergedFraction: 0.5
+  surfaceOffset: 0
+  uprightStability: 0
+  buoyancySampleCount: 1

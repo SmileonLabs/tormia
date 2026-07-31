@@ -31,7 +31,9 @@ MonoBehaviour:
   capabilities:
   - Locomotion
   - Social
+  idleAnimationIntent: Idle
+  moveAnimationIntent: Locomotion
+  fastMoveAnimationIntent: FastLocomotion
   animationIds:
   - Anim_Idle_Relaxed
   - Anim_Walk_Forward
-  - Anim_Talk

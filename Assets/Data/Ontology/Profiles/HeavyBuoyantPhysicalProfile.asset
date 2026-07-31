@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: HeavyBuoyantPhysicalProfile
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyPhysicalProfile
   profileId: HeavyBuoyant
+  mobilityMode: 0
+  motionDriver: 0
+  collisionRole: 0
   mass: 3
   linearDamping: 0.35
   angularDamping: 0.8

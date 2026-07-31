@@ -45,18 +45,25 @@ namespace Tormia.Ontology.Core
             AddUniqueBindings(contribution.ruleBlocks, ruleBlocks);
         }
 
-        public IReadOnlyList<OntologySemanticContribution> RemoveOwnersContainingRule(
+        public IReadOnlyList<OntologySemanticContribution> RemoveRuleBinding(
             string ruleId,
             string bindingVariable)
         {
-            var removed = contributions
-                .Where(value => value != null && value.ruleBlocks.Any(binding =>
+            var completed = new List<OntologySemanticContribution>();
+            foreach (var contribution in contributions
+                         .Where(value => value != null)
+                         .ToArray())
+            {
+                var removedCount = contribution.ruleBlocks.RemoveAll(binding =>
                     binding != null && binding.ruleId == ruleId &&
-                    binding.bindingVariable == bindingVariable))
-                .ToArray();
-            foreach (var contribution in removed)
+                    binding.bindingVariable == bindingVariable);
+                if (removedCount == 0 || contribution.ruleBlocks.Count > 0)
+                    continue;
+
                 contributions.Remove(contribution);
-            return removed;
+                completed.Add(contribution);
+            }
+            return completed;
         }
 
         public bool IsConceptClaimed(string concept)

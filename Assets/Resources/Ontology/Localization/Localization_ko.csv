@@ -130,7 +130,7 @@ rule_preset.attachment_setup.apply,설정 후 적용,규칙 블록
 ui.button.add,추가,물리 행동
 ui.button.remove,제거,물리 행동
 ui.button.details_short,상세,물리 행동
-ui.rule_block.quick_action,빠른 설정,규칙 블록
+ui.rule_block.quick_action,빠른 설정,트리플·규칙·물리 통합 설정
 ui.title.rule_block_details,규칙 블록 상세,규칙 블록
 rule_preset.water_buoyancy,물에서 부력 적용,규칙 블록
 rule_preset.auto_equip,가까이 선택하면 장착,규칙 블록
@@ -165,7 +165,7 @@ rule_description.ActivateWaveRockingEffect,파도 효과와 호환되는 오브�
 ui.title.ontology_editor,온톨로지 편집기,월드 온톨로지 편집기 제목
 ui.tab.triples,트리플,팩트 편집 탭
 ui.tab.rule_blocks,규칙 블록,규칙 블록 탭
-ui.tab.physics,물리,물리 프로필 탭
+ui.tab.physics,물리 의미,물리 프로필 탭
 ui.tab.results,결과,사용자용 추론 결과 탭
 ui.button.add_triple,+ 트리플 추가,트리플 추가
 ui.button.add_rule_block,+ 규칙 블록 추가,규칙 블록 추가
@@ -174,7 +174,7 @@ ui.button.load_world,월드 불러오기,스냅샷 불러오기
 ui.subtitle.selected_object,선택한 오브젝트,선택한 오브젝트 부제
 ui.subtitle.no_selection,배치된 오브젝트를 선택하세요,선택 없음 부제
 ui.footer.triples,주어는 고정되어 있습니다. 관계와 값을 수정하세요.,트리플 편집 도움말
-ui.footer.rule_blocks,규칙 블록은 이 오브젝트에 데이터베이스 규칙을 활성화합니다.,규칙 블록 도움말
+ui.footer.rule_blocks,빠른 설정을 적용하면 필요한 트리플·규칙 블록·물리 의미가 함께 연결됩니다.,규칙 블록 도움말
 ui.footer.physics,이 오브젝트가 어떻게 움직일지 쉬운 문장으로 선택하세요.,물리 도움말
 ui.footer.results,현재 정보와 그 정보를 만든 규칙을 보여줍니다.,결과 도움말
 ui.status.saved,월드를 저장했습니다.,저장 성공
@@ -195,7 +195,7 @@ result.applied_rule,적용된 규칙 · {0}단계,적용 규칙 제목
 result.added,추가됨,추가 팩트 표시
 result.removed,삭제됨,삭제 팩트 표시
 result.changed,변경됨,변경 팩트 표시
-result.no_rule_block,연결된 규칙 블록이 없습니다. 규칙을 사용하려면 규칙 블록을 추가하세요.,규칙 블록 없음
+result.no_rule_block,연결된 규칙 블록이 없습니다. 위 빠른 설정에서 원하는 동작을 선택하세요.,규칙 블록 없음
 result.no_rules,규칙 데이터베이스에 사용할 수 있는 규칙이 없습니다.,규칙 없음
 result.no_buoyancy_profile,등록된 부력 프로필이 없습니다.,부력 프로필 없음
 result.buoyancy_disabled,이 오브젝트에는 현재 부력이 없습니다.,부력 없음
@@ -352,6 +352,7 @@ placement.status.invalid_prefab,이 목록에는 사용할 수 있는 프리팹�
 placement.status.instructions,설치할 바닥으로 마우스를 옮긴 뒤 왼쪽 버튼을 누르세요. Q/E 회전 · Esc 취소,배치 상태
 placement.status.ready,설치 가능: 왼쪽 버튼으로 설치 · Q/E 회전 · Esc 취소,배치 상태
 placement.status.placed,{0} 배치를 완료하고 온톨로지 데이터를 주입했습니다.,배치 상태
+placement.status.awaiting_authority,{0} 배치를 월드 권한 서버에서 확인하고 있습니다.,배치 상태
 placement.validation.too_far,너무 멉니다. 캐릭터를 가까이 이동하세요.,배치 검증
 placement.validation.too_steep,경사가 너무 가파릅니다.,배치 검증
 placement.validation.unmarked_surface,아직 배치 가능한 표면으로 지정되지 않았습니다.,배치 검증
@@ -890,3 +891,376 @@ creator.summary.rule_engineer,규칙 블록을 재사용하거나 없는 규칙�
 creator.summary.quest_designer,목표와 미션 조건 보상을 연결합니다.,제작 작업공간
 creator.summary.ui_designer,플레이어 HUD와 스테이지 흐름 피드백 화면을 정의합니다.,제작 작업공간
 creator.summary.qa_publisher,기능 활성화와 제거 상태를 검증한 뒤 콘텐츠를 발행합니다.,제작 작업공간
+relation.attachment_relation_predicate,장착 관계,관계
+relation.attachment_relation_direction,장착 관계 방향,관계
+fact.attachment_relation_predicate,{0}의 장착 관계는 {1}입니다.,사용자용 팩트
+fact.attachment_relation_direction,{0}의 장착 관계 방향은 {1}입니다.,사용자용 팩트
+ui.account.world_entry.package_version_conflict,이전 게임 데이터 버전과 현재 버전이 충돌하여 월드 입장을 중단했습니다. 데이터 동기화 후 다시 시도해 주세요.,계정 흐름
+ui.account.world_entry.package_verification_failed,게임 데이터를 확인할 수 없어 월드 입장을 중단했습니다. 잠시 후 다시 시도해 주세요.,계정 흐름
+relation.detection_range,감지 거리,관계
+relation.leash_range,추적 한계 거리,관계
+relation.hostile_to_faction,적대 진영,관계
+relation.autonomous_attack_intent,자율 공격 의도,관계
+relation.idle_animation_intent,대기 애니메이션 의도,관계
+relation.move_animation_intent,이동 애니메이션 의도,관계
+fact.detection_range,{0}의 감지 거리는 {1}입니다.,사용자용 팩트
+fact.leash_range,{0}의 추적 한계 거리는 {1}입니다.,사용자용 팩트
+fact.hostile_to_faction,{0}은(는) {1} 진영과 적대합니다.,사용자용 팩트
+fact.autonomous_attack_intent,{0}의 자율 공격 의도는 {1}입니다.,사용자용 팩트
+fact.idle_animation_intent,{0}의 대기 애니메이션 의도는 {1}입니다.,사용자용 팩트
+fact.move_animation_intent,{0}의 이동 애니메이션 의도는 {1}입니다.,사용자용 팩트
+concept.AutonomousAgent,자율 행동 액터,컨셉
+concept.Combatant,전투 참여자,컨셉
+concept.Damageable,피해 가능 대상,컨셉
+concept.Item,아이템,컨셉
+concept.Monster,몬스터,컨셉
+concept.Sword,검,컨셉
+concept.Weapon,무기,컨셉
+rule_preset.autonomous_melee_monster,자율 근접 몬스터로 만들기,규칙 블록
+rule_preset.autonomous_melee_monster.description,"선택한 오브젝트에 재사용 가능한 자율 행동, 전투, 진영, 이동, 공격, Authority 물리 의미 계약을 추가합니다.",규칙 블록
+value.PlayerFaction,플레이어 진영,값
+value.WildMonster,야생 몬스터 진영,값
+value.NaturalMeleeAttack,자연 근접 공격,값
+value.AuthorityKinematic,Authority 주도 키네마틱 이동,값
+value.LocalCharacterController,로컬 충돌 해결 캐릭터 이동,값
+value.MonsterIdle,몬스터 대기,애니메이션 의도
+value.MonsterWalk,몬스터 걷기,애니메이션 의도
+value.MonsterRun,몬스터 달리기,애니메이션 의도
+value.MonsterAttack,몬스터 공격,애니메이션 의도
+relation.attack_contact_mode,공격 접촉 방식,관계
+fact.attack_contact_mode,{0}의 공격 접촉 방식은 {1}입니다.,사용자용 팩트
+value.WeaponContactWindow,무기 애니메이션 접촉 구간,값
+category.Combat,전투,배치 카테고리
+physical_profile.AuthorityKinematic,Authority 주도 키네마틱,물리 프로필
+physical_profile.HandheldWeapon,손에 드는 무기,물리 프로필
+physical_profile.LocalCharacterController,로컬 충돌 해결 캐릭터 컨트롤러,물리 프로필
+character_template.player,플레이어,캐릭터 템플릿
+common.unknown,알 수 없음,공통 UI
+ui.account.profile_relation,{0}  >  {1}  >  {2},계정 진입
+placement.surface.AnyCollider,모든 표면,월드 배치
+placement.surface.Ground,지면,월드 배치
+placement.surface.Water,물,월드 배치
+placeable.BeholderBasic,비홀더,배치 카탈로그
+placeable.BeholderBasic.description,Authority가 제어하는 재사용 가능한 전투 몬스터입니다.,배치 카탈로그
+placeable.Sword01Bronze,청동 검,배치 카탈로그
+placeable.Sword01Bronze.description,Authority가 제어하는 재사용 가능한 청동 검입니다.,배치 카탈로그
+placeable.Sword08Corrupted,타락한 검,배치 카탈로그
+placeable.Sword08Corrupted.description,Authority가 제어하는 재사용 가능한 타락한 검입니다.,배치 카탈로그
+placeable.Sword15FrostVisual,서리 검,배치 카탈로그
+placeable.Sword15FrostVisual.description,Authority가 제어하는 재사용 가능한 서리 검입니다.,배치 카탈로그
+rule.AcquireNearestHostileTarget.name,가장 가까운 적대 대상 찾기,규칙
+rule.AcquireNearestHostileTarget.description,설정된 감지 거리 안에서 가장 가까운 유효 적대 대상을 선택합니다.,규칙
+rule.ActivateWaveRockingEffect.name,파도 흔들림 효과 활성화,규칙
+rule.ActivateWaveRockingEffect.description,의미 조건을 만족하면 호환되는 파도 흔들림 표현을 활성화합니다.,규칙
+rule.ActivateWindDriftEffect.name,바람 표류 효과 활성화,규칙
+rule.ActivateWindDriftEffect.description,의미 조건을 만족하면 호환되는 바람 표류 표현을 활성화합니다.,규칙
+rule.AutonomousMeleeCombat.name,자율 근접 전투,규칙
+rule.AutonomousMeleeCombat.description,자율 액터가 설정된 근접 전투 행동을 평가하고 실행하게 합니다.,규칙
+rule.ChaseTargetWithinLeash.name,추적 범위 안에서 대상 추적,규칙
+rule.ChaseTargetWithinLeash.description,설정된 추적 한계 거리를 벗어나지 않고 선택한 대상을 추적합니다.,규칙
+rule.CollectAvailableLoot.name,획득 가능한 전리품 수집,규칙
+rule.CollectAvailableLoot.description,Authority가 획득 가능 상태로 만든 전리품만 수집합니다.,규칙
+rule.EquipItemOnInteractionIntent.name,상호작용으로 아이템 장착,규칙
+rule.EquipItemOnInteractionIntent.description,승인된 상호작용 의도가 들어오면 조건에 맞는 아이템을 장착합니다.,규칙
+rule.JumpPlayerFromIntent.name,입력 의도로 플레이어 점프,규칙
+rule.JumpPlayerFromIntent.description,승인된 점프 입력 의도에서 플레이어 점프 결과를 생성합니다.,규칙
+rule.LootBecomesAvailableOnDefeat.name,처치 시 전리품 활성화,규칙
+rule.LootBecomesAvailableOnDefeat.description,소유 액터가 처치되면 설정된 전리품을 획득 가능 상태로 만듭니다.,규칙
+rule.MeleeAttackOnPrimaryIntent.name,주 입력 의도로 근접 공격,규칙
+rule.MeleeAttackOnPrimaryIntent.description,주 입력 의도와 대상 조건이 유효할 때 근접 공격을 평가합니다.,규칙
+rule.MovePlayerFromIntent.name,입력 의도로 플레이어 이동,규칙
+rule.MovePlayerFromIntent.description,승인된 일시적 입력 의도에서 플레이어 이동 결과를 생성합니다.,규칙
+rule.RespawnPlayerOnDeath.name,사망 시 플레이어 부활,규칙
+rule.RespawnPlayerOnDeath.description,플레이어 사망 조건이 충족되면 Authority가 승인한 부활 결과를 생성합니다.,규칙
+rule.SwingWeaponOnPrimaryIntent.name,주 입력 의도로 무기 휘두르기,규칙
+rule.SwingWeaponOnPrimaryIntent.description,주 입력 의도와 장비 계약이 유효할 때 무기 휘두르기 결과를 생성합니다.,규칙
+rule.UnequipItemOnInteractionIntent.name,상호작용으로 아이템 장착 해제,규칙
+rule.UnequipItemOnInteractionIntent.description,승인된 상호작용 의도가 들어오면 장착 아이템을 해제합니다.,규칙
+ui.account.status.no_authority_client,월드 서비스에 연결할 수 없습니다.,계정 상태
+ui.account.status.sign_in_first,먼저 계정에 로그인하세요.,계정 상태
+ui.account.status.select_world_first,계정에 로그인하고 월드를 선택하세요.,계정 상태
+ui.account.status.preparing_world_entry,월드 입장을 준비하고 있습니다.,계정 상태
+ui.account.status.sign_in_before_character,캐릭터를 만들기 전에 로그인하세요.,계정 상태
+ui.account.status.character_already_selected,이미 캐릭터가 선택되어 있습니다.,계정 상태
+ui.account.status.character_name_required,캐릭터 이름을 먼저 입력하세요.,계정 상태
+ui.account.status.template_required,캐릭터 템플릿을 먼저 선택하세요.,계정 상태
+ui.account.status.account_fields_required,이메일과 표시 이름 및 비밀번호를 입력하세요.,계정 상태
+ui.account.status.signed_out,로그아웃했습니다.,계정 상태
+ui.account.status.account_created,계정을 만들었습니다. 다음으로 캐릭터를 만드세요.,계정 상태
+ui.account.status.signed_in,로그인했습니다.,계정 상태
+ui.account.status.appearance_requires_character,계정에 로그인하고 캐릭터를 선택한 뒤 외형을 저장하세요.,계정 상태
+ui.account.status.character_selection_saved,캐릭터 선택을 저장했습니다.,계정 상태
+ui.account.status.world_selection_saved,월드 선택을 저장했습니다. 다음으로 월드를 불러오거나 입장하세요.,계정 상태
+ui.account.status.create_world_requires_account,월드를 만들기 전에 로그인하세요.,계정 상태
+ui.account.status.world_name_required,월드 이름을 먼저 입력하세요.,계정 상태
+ui.account.status.world_created,Authority 런타임 존과 함께 월드를 만들었습니다.,계정 상태
+ui.account.status.session_restored,계정 세션을 복원했습니다.,계정 상태
+ui.account.status.dashboard_loaded,캐릭터 {0}개와 월드 {1}개를 불러왔습니다.,계정 상태
+ui.account.status.avatar_identity_missing,로컬 플레이어에 안정적인 월드 식별자가 없습니다.,계정 상태
+ui.account.status.runtime_zone_missing,Authority 런타임 존이 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.avatar_registration_failed,플레이어 아바타를 등록할 수 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.preparing_actions,게임 행동을 준비하고 있습니다.,계정 상태
+ui.account.status.preparing_avatar_life,플레이어 생명 상태를 준비하고 있습니다.,계정 상태
+ui.account.status.avatar_life_failed,Authority가 플레이어 생명 상태를 복구할 수 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.player_ontology_failed,플레이어 온톨로지 계약을 준비할 수 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.avatar_runtime_failed,플레이어 런타임 기반을 준비할 수 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.operation_failed,요청한 월드 작업에 실패했습니다. 다시 시도해 주세요.,계정 상태
+ui.account.status.world_projection_failed,월드 입장은 승인됐지만 영구 월드 데이터를 불러오지 못했습니다.,계정 상태
+ui.account.status.avatar_motion_missing,Authority가 플레이어 위치를 발행하지 않아 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.recovering_changes,보류 중인 월드 변경을 복구하고 있습니다.,계정 상태
+ui.account.status.pending_changes_waiting,월드는 불러왔지만 보류 중인 변경이 Authority 연결을 기다리고 있습니다.,계정 상태
+ui.account.status.restoring_checkpoint,플레이어 체크포인트를 복원하고 있습니다.,계정 상태
+ui.account.status.checkpoint_failed,플레이어 체크포인트를 복원할 수 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.entry_presentation_unavailable,로컬 플레이어 표현 준비를 시작할 수 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.entry_presentation_failed,활성화 전에 로컬 플레이어를 지면에 준비할 수 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.locomotion_presentation_failed,Authority가 플레이어 이동 계약을 승인하지 않아 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.checkpoint_confirmation_failed,준비된 플레이어 체크포인트를 확인할 수 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.entry_activation_failed,로컬 플레이어 표현을 활성화할 수 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.legacy_contract_repair_failed,이전 온톨로지 계약을 복구할 수 없어 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.entered_with_appearance,저장된 외형과 프로필로 선택한 월드에 입장했습니다. 게임 행동을 사용할 수 있습니다.,계정 상태
+ui.account.status.entered_with_relations,저장된 프로필 관계로 선택한 월드에 입장했습니다. 게임 행동을 사용할 수 있습니다.,계정 상태
+ui.account.status.player_template_incomplete,설정된 플레이어 템플릿과 프로필 계약이 완전하지 않아 월드 입장을 중단했습니다.,계정 상태
+ui.account.status.character_created,'{0}' 캐릭터를 만들고 선택했습니다. 다음으로 월드를 선택하세요.,계정 상태
+ui.account.status.appearance_saved,계정 외형 프로필을 저장했습니다.,계정 상태
+ui.quest_panel.authority_not_ready,공유 월드가 준비되지 않아 행동을 적용하지 않았습니다.,플레이어 퀘스트 패널
+ui.quest_panel.target_not_ready,공유 월드에서 이 행동의 대상이 아직 준비되지 않았습니다.,플레이어 퀘스트 패널
+ui.quest_panel.tool_not_ready,공유 월드에서 필요한 도구가 아직 준비되지 않았습니다.,플레이어 퀘스트 패널
+ui.quest_panel.definition_missing,이 행동에 사용할 수 있는 유일한 Authority 정의가 없습니다.,플레이어 퀘스트 패널
+ui.quest_panel.action_rejected,행동이 승인되지 않았습니다.,플레이어 퀘스트 패널
+quest.InvestigateSmokeAndPanic.title,연기와 소동 조사,퀘스트
+quest.InvestigateSmokeAndPanic.reason,{0}이(가) 연기와 마을의 소동을 알렸습니다.,퀘스트
+quest.InvestigateSmokeAndPanic.goal.inspect,연기의 원인을 찾기 위해 {0}을(를) 조사하세요.,퀘스트 목표
+quest.InvestigateSmokeAndPanic.goal.help,{0}이(가) 소동에서 회복하도록 도우세요.,퀘스트 목표
+quest.ColdProtectionPreparation.title,추위 대비,퀘스트
+quest.ColdProtectionPreparation.reason,{0}이(가) 방한복을 권했습니다.,퀘스트
+quest.ColdProtectionPreparation.goal.equip,추위 저항을 얻기 위해 {0}을(를) 장착하세요.,퀘스트 목표
+quest.SwampProtectionPreparation.title,늪지대 대비,퀘스트
+quest.SwampProtectionPreparation.reason,{0}이(가) 늪 저항 장비를 권했습니다.,퀘스트
+quest.SwampProtectionPreparation.goal.equip,늪 저항을 얻기 위해 {0}을(를) 장착하세요.,퀘스트 목표
+ui.combat.status.generic.title,전투,전투 상태
+ui.combat.status.generic.detail,전투 상태가 변경되었습니다.,전투 상태
+ui.combat.status.equipment_selection_required.title,장비 선택 필요,전투 상태
+ui.combat.status.equipment_selection_required.detail,해제할 장비를 가리킨 뒤 F 키를 누르세요.,전투 상태
+ui.combat.status.loot_unavailable.title,전리품 획득 불가,전투 상태
+ui.combat.status.loot_unavailable.detail,이 오브젝트에는 활성화된 온톨로지 전리품 행동이 없습니다.,전투 상태
+ui.combat.status.loot_collected.title,전리품 획득,전투 상태
+ui.combat.status.loot_collected.detail,Authority가 전리품 출처를 기록했습니다.,전투 상태
+ui.combat.status.loot_collection_failed.title,전리품 획득 실패,전투 상태
+ui.combat.status.loot_collection_failed.detail,Authority가 전리품 행동을 승인하지 않았습니다.,전투 상태
+ui.combat.status.equip_world_not_ready.title,장착할 수 없음,전투 상태
+ui.combat.status.equip_world_not_ready.detail,월드 연결이 아직 준비되지 않았습니다.,전투 상태
+ui.combat.status.equip_player_identity_not_ready.title,장착할 수 없음,전투 상태
+ui.combat.status.equip_player_identity_not_ready.detail,플레이어 월드 식별자가 준비되지 않았습니다.,전투 상태
+ui.combat.status.no_equipment_nearby.title,주변에 장비 없음,전투 상태
+ui.combat.status.no_equipment_nearby.detail,장착 가능한 오브젝트 가까이에서 F 키를 누르세요.,전투 상태
+ui.combat.status.equip_rule_missing.title,장착 규칙 없음,전투 상태
+ui.combat.status.equip_rule_missing.detail,전투 규칙 패키지를 다시 준비하고 있습니다.,전투 상태
+ui.combat.status.no_weapon_nearby.title,주변에 무기 없음,전투 상태
+ui.combat.status.no_weapon_nearby.detail,무기 가까이에서 F 키를 누르세요.,전투 상태
+ui.combat.status.weapon_instance_missing.title,무기 등록 실패,전투 상태
+ui.combat.status.weapon_instance_missing.detail,이 무기는 발행할 월드 배치 인스턴스가 없습니다.,전투 상태
+ui.combat.status.weapon_publishing.title,무기 등록 중,전투 상태
+ui.combat.status.weapon_publishing.detail,배치된 무기를 Authority에 발행한 뒤 장착합니다.,전투 상태
+ui.combat.status.weapon_publish_failed.title,무기 등록 실패,전투 상태
+ui.combat.status.weapon_publish_failed.detail,무기를 Authority에 발행하지 못했습니다.,전투 상태
+ui.combat.status.equip_cancelled.title,장착 취소,전투 상태
+ui.combat.status.equip_cancelled.detail,등록 중 무기 상태가 변경되었습니다.,전투 상태
+ui.combat.status.equip_position_sync.title,장착 준비 중,전투 상태
+ui.combat.status.equip_position_sync.detail,플레이어 위치를 동기화한 뒤 다시 시도하세요.,전투 상태
+ui.combat.status.weapon_equipped.title,무기 장착,전투 상태
+ui.combat.status.weapon_equipped.detail,선택한 무기를 장착했습니다.,전투 상태
+ui.combat.status.equip_failed.title,장착 실패,전투 상태
+ui.combat.status.equip_failed.detail,Authority가 장착 요청을 거절했습니다.,전투 상태
+ui.combat.status.equip_actor_position_unavailable.title,장착 준비 안 됨,전투 상태
+ui.combat.status.equip_actor_position_unavailable.detail,플레이어 위치가 아직 서버에 준비되지 않았습니다.,전투 상태
+ui.combat.status.equip_target_position_unavailable.title,장착 준비 안 됨,전투 상태
+ui.combat.status.equip_target_position_unavailable.detail,무기 위치가 아직 서버에 준비되지 않았습니다.,전투 상태
+ui.combat.status.equip_target_out_of_range.title,무기가 너무 멂,전투 상태
+ui.combat.status.equip_target_out_of_range.detail,무기 가까이에서 다시 시도하세요.,전투 상태
+ui.combat.status.weapon_unequipped.title,무기 장착 해제,전투 상태
+ui.combat.status.weapon_unequipped.detail,Authority 장착 관계를 제거했습니다.,전투 상태
+ui.combat.status.unequip_failed.title,장착 해제 실패,전투 상태
+ui.combat.status.unequip_failed.detail,Authority가 장착 해제 요청을 거절했습니다.,전투 상태
+ui.combat.status.equip_rule_ready.title,장착 규칙 준비 완료,전투 상태
+ui.combat.status.equip_rule_ready.detail,선택한 무기 장착을 계속합니다.,전투 상태
+ui.combat.status.equip_rule_prepare_failed.title,장착 규칙 준비 실패,전투 상태
+ui.combat.status.equip_rule_prepare_failed.detail,전투 규칙 패키지를 준비하지 못했습니다.,전투 상태
+ui.combat.status.unequip_rule_unavailable.title,장착 해제 규칙 없음,전투 상태
+ui.combat.status.unequip_rule_unavailable.detail,장착 해제 규칙 패키지를 준비하지 못했습니다.,전투 상태
+ui.world_editor.authority_update_completed,Authority 월드 데이터가 갱신되었습니다.,월드 편집기
+ui.world_editor.authority_update_failed,Authority가 월드 데이터 변경을 적용하지 못했습니다.,월드 편집기
+ui.title.ontology_data,온톨로지 데이터,온톨로지 데이터 편집기 제목
+ui.placeholder.object_value,값,온톨로지 오브젝트 값 입력 안내
+ui.button.delete,삭제,공통 삭제 동작
+physical_choice.AuthorityKinematic,월드 Authority 제어로 이동,물리 행동
+physical_result.AuthorityKinematic,이 액터는 월드 Authority가 승인한 런타임 이동을 사용합니다.,물리 행동
+physical_choice.HandheldWeapon,손에 드는 무기로 사용,물리 행동
+physical_result.HandheldWeapon,이 오브젝트는 손에 드는 무기의 장착 및 접촉 방식을 사용합니다.,물리 행동
+relation.attack_action,공격 행동,관계
+relation.attack_cooldown,공격 재사용 대기시간,관계
+relation.attack_damage,공격 피해량,관계
+relation.attack_range,공격 범위,관계
+relation.belongs_to_faction,소속 진영,관계
+relation.can_equip,장착 가능 여부,관계
+relation.chase_action,추적 행동,관계
+relation.chase_profile,추적 프로필,관계
+relation.combat_disposition,전투 성향,관계
+relation.current_health,현재 체력,관계
+relation.damage_profile,피해 프로필,관계
+relation.death_animation_intent,사망 애니메이션,관계
+relation.equip_action,장착 행동,관계
+relation.faction,진영,관계
+relation.gravity_acceleration,중력 가속도,관계
+relation.hit_animation_intent,피격 애니메이션,관계
+relation.hit_vfx_intent,피격 효과,관계
+relation.interaction_range,상호작용 범위,관계
+relation.is_alive,생존 여부,관계
+relation.jump_action,점프 행동,관계
+relation.jump_takeoff_speed,점프 도약 속도,관계
+relation.ground_stick_velocity,지면 밀착 속도,관계
+relation.maximum_step_height,최대 단차 높이,관계
+relation.ground_clearance,지면 여유 높이,관계
+relation.impact_response_profile,충격 반응 프로필,관계
+relation.location,위치,관계
+relation.locomotion_action,이동 행동,관계
+relation.loot_action,전리품 행동,관계
+relation.loot_item,전리품 아이템,관계
+relation.loot_status,전리품 상태,관계
+relation.loot_table,전리품 목록,관계
+relation.maximum_health,최대 체력,관계
+relation.movement_speed,이동 속도,관계
+relation.collision_role,충돌 역할,관계
+relation.collision_proxy_shape,충돌 프록시 모양,관계
+relation.collision_radius,충돌 반지름,관계
+relation.collision_height,충돌 높이,관계
+relation.collision_size_x,충돌 너비,관계
+relation.collision_size_y,충돌 세로 크기,관계
+relation.collision_size_z,충돌 깊이,관계
+relation.collision_center_offset_x,충돌 중심 X 오프셋,관계
+relation.collision_center_offset_y,충돌 중심 Y 오프셋,관계
+relation.collision_center_offset_z,충돌 중심 Z 오프셋,관계
+collision_role.DynamicProp,동적 오브젝트,충돌 역할
+collision_role.WalkableSupport,보행 지지면,충돌 역할
+collision_role.ActorBody,액터 몸체,충돌 역할
+collision_role.InteractionTrigger,상호작용 트리거,충돌 역할
+collision_role.WaterVolume,물 영역,충돌 역할
+collision_proxy_shape.Capsule,캡슐,충돌 프록시 모양
+collision_proxy_shape.Box,박스,충돌 프록시 모양
+relation.respawn_action,부활 행동,관계
+relation.semantic_contract_version,의미 계약 버전,관계
+relation.swing_action,휘두르기 행동,관계
+relation.target_action,대상 선택 행동,관계
+relation.target_concept,대상 개념,관계
+relation.targeting_profile,대상 선택 프로필,관계
+relation.unequip_action,장착 해제 행동,관계
+fact.attack_action,{0}의 공격 행동은 {1}입니다.,읽기 쉬운 팩트
+fact.attack_cooldown,{0}의 공격 재사용 대기시간은 {1}입니다.,읽기 쉬운 팩트
+fact.attack_damage,{0}의 공격 피해량은 {1}입니다.,읽기 쉬운 팩트
+fact.attack_range,{0}의 공격 범위는 {1}입니다.,읽기 쉬운 팩트
+fact.belongs_to_faction,{0}의 소속 진영은 {1}입니다.,읽기 쉬운 팩트
+fact.can_equip,{0}의 장착 가능 여부는 {1}입니다.,읽기 쉬운 팩트
+fact.chase_action,{0}의 추적 행동은 {1}입니다.,읽기 쉬운 팩트
+fact.chase_profile,{0}의 추적 프로필은 {1}입니다.,읽기 쉬운 팩트
+fact.combat_disposition,{0}의 전투 성향은 {1}입니다.,읽기 쉬운 팩트
+fact.current_health,{0}의 현재 체력은 {1}입니다.,읽기 쉬운 팩트
+fact.damage_profile,{0}의 피해 프로필은 {1}입니다.,읽기 쉬운 팩트
+fact.death_animation_intent,{0}의 사망 애니메이션은 {1}입니다.,읽기 쉬운 팩트
+fact.equip_action,{0}의 장착 행동은 {1}입니다.,읽기 쉬운 팩트
+fact.faction,{0}의 진영은 {1}입니다.,읽기 쉬운 팩트
+fact.gravity_acceleration,{0}의 중력 가속도는 {1}입니다.,읽기 쉬운 팩트
+fact.hit_animation_intent,{0}의 피격 애니메이션은 {1}입니다.,읽기 쉬운 팩트
+fact.hit_vfx_intent,{0}의 피격 효과는 {1}입니다.,읽기 쉬운 팩트
+fact.interaction_range,{0}의 상호작용 범위는 {1}입니다.,읽기 쉬운 팩트
+fact.is_alive,{0}의 생존 여부는 {1}입니다.,읽기 쉬운 팩트
+fact.jump_action,{0}의 점프 행동은 {1}입니다.,읽기 쉬운 팩트
+fact.jump_takeoff_speed,{0}의 점프 도약 속도는 {1}입니다.,읽기 쉬운 팩트
+fact.ground_stick_velocity,{0}의 지면 밀착 속도는 {1}입니다.,읽기 쉬운 팩트
+fact.maximum_step_height,{0}의 최대 단차 높이는 {1}입니다.,읽기 쉬운 팩트
+fact.ground_clearance,{0}의 지면 여유 높이는 {1}입니다.,읽기 쉬운 팩트
+fact.impact_response_profile,{0}의 충격 반응 프로필은 {1}입니다.,읽기 쉬운 팩트
+fact.location,{0}의 위치는 {1}입니다.,읽기 쉬운 팩트
+fact.locomotion_action,{0}의 이동 행동은 {1}입니다.,읽기 쉬운 팩트
+fact.loot_action,{0}의 전리품 행동은 {1}입니다.,읽기 쉬운 팩트
+fact.loot_item,{0}의 전리품 아이템은 {1}입니다.,읽기 쉬운 팩트
+fact.loot_status,{0}의 전리품 상태는 {1}입니다.,읽기 쉬운 팩트
+fact.loot_table,{0}의 전리품 목록은 {1}입니다.,읽기 쉬운 팩트
+fact.maximum_health,{0}의 최대 체력은 {1}입니다.,읽기 쉬운 팩트
+fact.movement_speed,{0}의 이동 속도는 {1}입니다.,읽기 쉬운 팩트
+fact.collision_role,{0}의 충돌 역할은 {1}입니다.,읽기 쉬운 팩트
+fact.collision_proxy_shape,{0}의 충돌 프록시 모양은 {1}입니다.,읽기 쉬운 팩트
+fact.collision_radius,{0}의 충돌 반지름은 {1}입니다.,읽기 쉬운 팩트
+fact.collision_height,{0}의 충돌 높이는 {1}입니다.,읽기 쉬운 팩트
+fact.collision_size_x,{0}의 충돌 너비는 {1}입니다.,읽기 쉬운 팩트
+fact.collision_size_y,{0}의 충돌 세로 크기는 {1}입니다.,읽기 쉬운 팩트
+fact.collision_size_z,{0}의 충돌 깊이는 {1}입니다.,읽기 쉬운 팩트
+fact.collision_center_offset_x,{0}의 충돌 중심 X 오프셋은 {1}입니다.,읽기 쉬운 팩트
+fact.collision_center_offset_y,{0}의 충돌 중심 Y 오프셋은 {1}입니다.,읽기 쉬운 팩트
+fact.collision_center_offset_z,{0}의 충돌 중심 Z 오프셋은 {1}입니다.,읽기 쉬운 팩트
+fact.respawn_action,{0}의 부활 행동은 {1}입니다.,읽기 쉬운 팩트
+fact.semantic_contract_version,{0}의 의미 계약 버전은 {1}입니다.,읽기 쉬운 팩트
+fact.swing_action,{0}의 휘두르기 행동은 {1}입니다.,읽기 쉬운 팩트
+fact.target_action,{0}의 대상 선택 행동은 {1}입니다.,읽기 쉬운 팩트
+fact.target_concept,{0}의 대상 개념은 {1}입니다.,읽기 쉬운 팩트
+fact.targeting_profile,{0}의 대상 선택 프로필은 {1}입니다.,읽기 쉬운 팩트
+fact.unequip_action,{0}의 장착 해제 행동은 {1}입니다.,읽기 쉬운 팩트
+concept.EquipmentSlot,장비 슬롯,개념
+value.ActorToItem,액터에서 아이템 방향,값
+value.ItemToActor,아이템에서 액터 방향,값
+value.ChaseWithinLeash,추적 한계 내에서 추적,값
+value.NearestHostileWithinDetection,감지 범위 안의 가장 가까운 적,값
+value.acquire_autonomous_target,자율 대상 탐색,행동
+value.autonomous_melee_attack,자율 근접 공격,행동
+value.chase_autonomous_target,자율 대상 추적,행동
+value.collect_loot,전리품 획득,행동
+value.dismount,탑승 해제,행동
+value.drop_carried,운반 아이템 내려놓기,행동
+value.equip_weapon,무기 장착,행동
+value.jump_avatar,아바타 점프 행동,행동
+value.move_avatar,아바타 이동 행동,행동
+value.respawn_avatar,부활,행동
+value.swing_weapon,무기 휘두르기,행동
+value.unequip_equipment,장비 해제,행동
+value.unequip_wearable,착용 아이템 해제,행동
+value.Available,획득 가능,상태
+value.Death,사망,애니메이션 의도
+value.HitReaction,피격 반응,애니메이션 의도
+value.Hostile,적대적,상태
+value.Jump,점프 능력,능력
+value.Locomotion,이동 능력,능력
+value.MeleeAttack,근접 공격,능력
+value.BasicSwordDamage,기본 검 피해,피해 프로필
+value.BeholderBasicLoot,비홀더 기본 전리품,전리품 목록
+value.HitPhysicalLight,가벼운 물리 피격 효과,시각 효과 의도
+value.OntologyDataFragment,온톨로지 데이터 조각,전리품 아이템
+value.True,참,불리언
+value.False,거짓,불리언
+variable.board,보드,규칙 변수
+variable.carried,운반 대상,규칙 변수
+variable.collector,수집자,규칙 변수
+variable.creature,생물,규칙 변수
+variable.detection,감지 범위,규칙 변수
+variable.emitter,방출 주체,규칙 변수
+variable.equipped,장착 대상,규칙 변수
+variable.gravity,중력,규칙 변수
+variable.holder,소지자,규칙 변수
+variable.jumpheight,점프 높이,규칙 변수
+variable.leash,추적 한계,규칙 변수
+variable.lootitem,전리품,규칙 변수
+variable.maximumhealth,최대 체력,규칙 변수
+variable.mount,탑승물,규칙 변수
+variable.npc,NPC,규칙 변수
+variable.occupant,점유 대상,규칙 변수
+variable.part,파츠,규칙 변수
+variable.place,장소,규칙 변수
+variable.profile,프로필,규칙 변수
+variable.requiredrule,필요 규칙,규칙 변수
+variable.skill,스킬,규칙 변수
+variable.slot,슬롯,규칙 변수
+variable.slotentity,슬롯 대상,규칙 변수
+variable.smokesource,연기 발생원,규칙 변수
+variable.speed,속도,규칙 변수
+variable.targetconcept,대상 개념,규칙 변수
+variable.targetfaction,대상 진영,규칙 변수
+variable.tick,틱,규칙 변수
+variable.tile,타일,규칙 변수
+variable.vitality,생명력,규칙 변수

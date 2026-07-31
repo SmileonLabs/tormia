@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyPhysicalProfile
   profileId: LightBuoyant
   mobilityMode: 0
+  motionDriver: 0
+  collisionRole: 0
   mass: 0.8
   linearDamping: 0.8
   angularDamping: 1.5

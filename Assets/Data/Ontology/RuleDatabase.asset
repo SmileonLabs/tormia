@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Tormia.Ontology.Core.OntologyRuleDatabase
   definitions:
   - id: BurnEvent
+    catalogVersion: 1
     description: A dry plant hit by a fire object starts burning.
     conditions:
     - kind: 0
@@ -42,14 +43,43 @@ MonoBehaviour:
       obj: Burning
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?target
       predicate: state
       obj: Burning
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 0
+      resultLifetime: 0
       subject: ?target
       predicate: emits
       obj: Fire
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: SmokeEvent
+    catalogVersion: 1
     description: A burning object emits smoke, creating a visible world signal.
     conditions:
     - kind: 0
@@ -62,10 +92,26 @@ MonoBehaviour:
       obj: Smoke
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?target
       predicate: emits
       obj: Smoke
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: FleeEvent
+    catalogVersion: 1
     description: A creature that fears fire flees when a nearby object emits fire.
     conditions:
     - kind: 2
@@ -86,10 +132,26 @@ MonoBehaviour:
       obj: Flee
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?creature
       predicate: intent
       obj: Flee
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: DisturbanceEvent
+    catalogVersion: 1
     description: A fleeing creature near a village creates a local disturbance.
     conditions:
     - kind: 0
@@ -110,10 +172,26 @@ MonoBehaviour:
       obj: Recovering
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?place
       predicate: state
       obj: Disturbed
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: QuestHookEvent
+    catalogVersion: 1
     description: A disturbed place and visible smoke expose an investigation quest
       hook.
     conditions:
@@ -135,10 +213,26 @@ MonoBehaviour:
       obj: InvestigateSmokeAndPanic
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?board
       predicate: offers
       obj: InvestigateSmokeAndPanic
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: NpcFearMoodEvent
+    catalogVersion: 1
     description: A fleeing NPC becomes afraid.
     conditions:
     - kind: 2
@@ -155,10 +249,26 @@ MonoBehaviour:
       obj: Afraid
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?npc
       predicate: mood
       obj: Afraid
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: NpcDistrustEvent
+    catalogVersion: 1
     description: Talking to an afraid NPC makes them distrust the player.
     conditions:
     - kind: 0
@@ -179,22 +289,77 @@ MonoBehaviour:
       obj: Distrustful
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: Relation_{npc}_{actor}
       predicate: has_concept
       obj: Relation
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 0
+      resultLifetime: 0
       subject: Relation_{npc}_{actor}
       predicate: subject
       obj: ?npc
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 0
+      resultLifetime: 0
       subject: Relation_{npc}_{actor}
       predicate: target
       obj: ?actor
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 0
+      resultLifetime: 0
       subject: Relation_{npc}_{actor}
       predicate: state
       obj: Distrustful
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: NpcRespectEvent
+    catalogVersion: 1
     description: Helping the village earns respect from nearby NPCs.
     conditions:
     - kind: 0
@@ -215,22 +380,77 @@ MonoBehaviour:
       obj: Respectful
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: Relation_{npc}_{actor}
       predicate: has_concept
       obj: Relation
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 0
+      resultLifetime: 0
       subject: Relation_{npc}_{actor}
       predicate: subject
       obj: ?npc
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 0
+      resultLifetime: 0
       subject: Relation_{npc}_{actor}
       predicate: target
       obj: ?actor
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 0
+      resultLifetime: 0
       subject: Relation_{npc}_{actor}
       predicate: state
       obj: Respectful
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: QuestConsequenceEvent
+    catalogVersion: 1
     description: Completing the smoke investigation helps the disturbed village recover.
     conditions:
     - kind: 0
@@ -251,14 +471,43 @@ MonoBehaviour:
       obj: Recovering
     effects:
     - kind: 2
+      resultLifetime: 0
       subject: ?place
       predicate: state
       obj: Recovering
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 0
+      resultLifetime: 0
       subject: ?board
       predicate: records
       obj: InvestigateSmokeAndPanicCompleted
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: CraftStoneAxeRule
+    catalogVersion: 1
     description: Any actor combining Stone and Stick crafts a StoneAxe.
     conditions:
     - kind: 0
@@ -275,18 +524,60 @@ MonoBehaviour:
       obj: StoneAxe
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: has_item
       obj: StoneAxe
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 1
+      resultLifetime: 0
       subject: ?actor
       predicate: combined
       obj: Stone
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 1
+      resultLifetime: 0
       subject: ?actor
       predicate: combined
       obj: Stick
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: TileWaterStatusWetRule
+    catalogVersion: 1
     description: Actor standing on a water tile becomes Wet.
     conditions:
     - kind: 0
@@ -307,10 +598,26 @@ MonoBehaviour:
       obj: Wet
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: status
       obj: Wet
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: TileFreezingColdExposureRule
+    catalogVersion: 1
     description: Actor standing on a freezing tile is exposed to ColdEnvironment.
     conditions:
     - kind: 0
@@ -319,7 +626,7 @@ MonoBehaviour:
       obj: ?tile
     - kind: 2
       subject: ?tile
-      predicate: 
+      predicate: has_concept
       obj: TerrainTile
     - kind: 0
       subject: ?tile
@@ -331,10 +638,26 @@ MonoBehaviour:
       obj: ColdEnvironment
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: exposed_to
       obj: ColdEnvironment
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: SwampResistanceCapabilityRule
+    catalogVersion: 1
     description: SwampResistance equipment gives the actor swamp movement protection.
     conditions:
     - kind: 0
@@ -351,10 +674,26 @@ MonoBehaviour:
       obj: SwampResistance
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: has_capability
       obj: SwampResistance
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: TileSwampMovementSlowRule
+    catalogVersion: 1
     description: Actor standing on a swamp tile becomes Slowed unless protected by
       SwampResistance.
     conditions:
@@ -364,7 +703,7 @@ MonoBehaviour:
       obj: ?tile
     - kind: 2
       subject: ?tile
-      predicate: 
+      predicate: has_concept
       obj: TerrainTile
     - kind: 0
       subject: ?tile
@@ -380,10 +719,26 @@ MonoBehaviour:
       obj: Slowed
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: movement_state
       obj: Slowed
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: ColdProtectionWarmthRule
+    catalogVersion: 1
     description: ColdProtection equipment keeps a cold-exposed actor Warm.
     conditions:
     - kind: 0
@@ -404,10 +759,26 @@ MonoBehaviour:
       obj: Warm
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: status
       obj: Warm
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: ColdExposureVitalityTickRule
+    catalogVersion: 1
     description: Cold exposure lowers CoreVitality once per simulation tick unless
       the actor is Warm.
     conditions:
@@ -433,14 +804,43 @@ MonoBehaviour:
       obj: ?tick
     effects:
     - kind: 3
+      resultLifetime: 0
       subject: ?actor
       predicate: core_vitality
       obj: -1
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: cold_damage_tick
       obj: ?tick
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: SlowedAnimationIntentRule
+    catalogVersion: 1
     description: Slowed actors prefer impaired movement animation intent.
     conditions:
     - kind: 0
@@ -453,10 +853,26 @@ MonoBehaviour:
       obj: ImpairedMovement
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: ImpairedMovement
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: ColdAnimationIntentRule
+    catalogVersion: 1
     description: Cold exposure prefers discomfort animation intent.
     conditions:
     - kind: 0
@@ -469,10 +885,26 @@ MonoBehaviour:
       obj: Discomfort
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: Discomfort
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: LowVitalityAnimationIntentRule3
+    catalogVersion: 1
     description: Core vitality 3 creates animation intent SevereDamageReaction.
     conditions:
     - kind: 0
@@ -485,10 +917,26 @@ MonoBehaviour:
       obj: SevereDamageReaction
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: SevereDamageReaction
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: LowVitalityAnimationIntentRule2
+    catalogVersion: 1
     description: Core vitality 2 creates animation intent SevereDamageReaction.
     conditions:
     - kind: 0
@@ -501,10 +949,26 @@ MonoBehaviour:
       obj: SevereDamageReaction
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: SevereDamageReaction
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: LowVitalityAnimationIntentRule1
+    catalogVersion: 1
     description: Core vitality 1 creates animation intent SevereDamageReaction.
     conditions:
     - kind: 0
@@ -517,10 +981,26 @@ MonoBehaviour:
       obj: SevereDamageReaction
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: SevereDamageReaction
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: DeathAnimationIntentRule
+    catalogVersion: 1
     description: Core vitality 0 creates animation intent DeathReaction.
     conditions:
     - kind: 0
@@ -533,10 +1013,26 @@ MonoBehaviour:
       obj: DeathReaction
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: DeathReaction
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: ColdProtectionQuestHook
+    catalogVersion: 1
     description: Cold exposure offers a quest to equip protective clothing.
     conditions:
     - kind: 0
@@ -549,7 +1045,7 @@ MonoBehaviour:
       obj: Warm
     - kind: 2
       subject: ?board
-      predicate: 
+      predicate: has_slot
       obj: QuestBoard
     - kind: 1
       subject: ?board
@@ -557,10 +1053,26 @@ MonoBehaviour:
       obj: ColdProtectionPreparation
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?board
       predicate: offers
       obj: ColdProtectionPreparation
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: SwampProtectionQuestHook
+    catalogVersion: 1
     description: Entering a swamp without resistance offers a protective equipment
       quest.
     conditions:
@@ -586,11 +1098,28 @@ MonoBehaviour:
       obj: SwampProtectionPreparation
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?board
       predicate: offers
       obj: SwampProtectionPreparation
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: DeepWaterWithoutSwimmingBlockDrowning
-    description: An actor in deep water drowns when they cannot use the Swimming skill.
+    catalogVersion: 1
+    description: An actor in deep water drowns when they cannot use the Swimming
+      skill.
     conditions:
     - kind: 0
       subject: ?actor
@@ -610,10 +1139,26 @@ MonoBehaviour:
       obj: Swimming
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: movement_mode
       obj: Drowning
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: SwimmingMovementAnimationIntent
+    catalogVersion: 1
     description: Swimming movement expresses the Swimming animation intent unless
       the actor is observed as idle.
     conditions:
@@ -631,10 +1176,26 @@ MonoBehaviour:
       obj: Swimming
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: Swimming
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: SwimmingIntentRequiresSwimmingMovement
+    catalogVersion: 1
     description: Swimming animation intent is present only while swimming movement
       is inferred.
     conditions:
@@ -648,10 +1209,26 @@ MonoBehaviour:
       obj: Swimming
     effects:
     - kind: 1
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: Swimming
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: ShallowWaterOccupancyWading
+    catalogVersion: 1
     description: An actor in a WaterRegion whose observed immersion depth is Shallow
       uses wading movement.
     conditions:
@@ -669,10 +1246,26 @@ MonoBehaviour:
       obj: WaterRegion
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: movement_mode
       obj: Wading
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: SwimmingIdleTreadingWaterIntent
+    catalogVersion: 1
     description: Idle swimming activity expresses the TreadingWater animation intent.
     conditions:
     - kind: 0
@@ -689,10 +1282,26 @@ MonoBehaviour:
       obj: TreadingWater
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: TreadingWater
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: TreadingWaterIntentRequiresSwimmingMode
+    catalogVersion: 1
     description: TreadingWater intent is removed when swimming movement ends.
     conditions:
     - kind: 0
@@ -705,10 +1314,26 @@ MonoBehaviour:
       obj: Swimming
     effects:
     - kind: 1
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: TreadingWater
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: TreadingWaterIntentRequiresMovingCleanup
+    catalogVersion: 1
     description: TreadingWater intent is removed when the swimming actor starts moving.
     conditions:
     - kind: 0
@@ -721,10 +1346,26 @@ MonoBehaviour:
       obj: Moving
     effects:
     - kind: 1
+      resultLifetime: 0
       subject: ?actor
       predicate: animation_intent
       obj: TreadingWater
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: BuoyantWhenInWater
+    catalogVersion: 2
     description: A FloatableObject occupying a WaterRegion enters the Floating physical
       state.
     conditions:
@@ -750,10 +1391,26 @@ MonoBehaviour:
       obj: WaterRegion
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?object
       predicate: physical_state
       obj: Floating
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: AutoEquipNearbyWearable
+    catalogVersion: 2
     description: An Actor that intentionally selected and approached a Wearable reserves
       its semantic equipment slot when that slot is empty.
     conditions:
@@ -795,20 +1452,62 @@ MonoBehaviour:
       obj: ?equipped
     effects:
     - kind: 2
+      resultLifetime: 0
       subject: EquipmentSlot_{actor}_{slot}
       predicate: equipped_item
       obj: ?object
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 2
+      resultLifetime: 0
       subject: EquipmentSlot_{actor}_{slot}
       predicate: slot_owner
       obj: ?actor
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 2
+      resultLifetime: 0
       subject: EquipmentSlot_{actor}_{slot}
       predicate: slot_id
       obj: ?slot
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: EquippedItemGrantsTemporarySkill
-    description: An equipped item transfers its authored skill to the actor only while
-      its own authored rule-block requirement remains present.
+    catalogVersion: 2
+    description: An equipped item transfers its authored skill to the actor only
+      while its own authored rule-block requirement remains present.
     conditions:
     - kind: 0
       subject: ?item
@@ -828,10 +1527,26 @@ MonoBehaviour:
       obj: ?requiredRule
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: has_temporary_skill
       obj: ?skill
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: LearnedSkillBecomesUsable
+    catalogVersion: 1
     description: A skill owned by an actor becomes usable.
     conditions:
     - kind: 0
@@ -840,10 +1555,26 @@ MonoBehaviour:
       obj: ?skill
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: can_use_skill
       obj: ?skill
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: TemporarySkillBecomesUsable
+    catalogVersion: 1
     description: A temporary skill granted by equipment becomes usable while the
       granting relation exists.
     conditions:
@@ -853,10 +1584,26 @@ MonoBehaviour:
       obj: ?skill
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: can_use_skill
       obj: ?skill
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: UsableSwimmingSkillEnablesDeepWaterMovement
+    catalogVersion: 1
     description: An actor that can use Swimming uses swimming movement while deeply
       immersed in a WaterRegion.
     conditions:
@@ -878,10 +1625,26 @@ MonoBehaviour:
       obj: WaterRegion
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: movement_mode
       obj: Swimming
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: UsableSwimmingSkillCancelsDrowning
+    catalogVersion: 1
     description: A usable Swimming skill removes a stale drowning movement state.
     conditions:
     - kind: 0
@@ -894,10 +1657,26 @@ MonoBehaviour:
       obj: Drowning
     effects:
     - kind: 1
+      resultLifetime: 0
       subject: ?actor
       predicate: movement_mode
       obj: Drowning
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: EquippedSlotItemAttaches
+    catalogVersion: 1
     description: The single item reserved by an Actor equipment slot becomes attached
       to that Actor.
     conditions:
@@ -923,10 +1702,26 @@ MonoBehaviour:
       obj: Wearable
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?item
       predicate: equipped_by
       obj: ?actor
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: AutoCarryNearbyCarryable
+    catalogVersion: 2
     description: An Actor that intentionally selected and approached a Carryable
       reserves its semantic carry slot when that slot is empty.
     conditions:
@@ -968,18 +1763,121 @@ MonoBehaviour:
       obj: ?carried
     effects:
     - kind: 2
+      resultLifetime: 0
       subject: CarrySlot_{actor}_{slot}
       predicate: carried_item
       obj: ?object
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 2
+      resultLifetime: 0
       subject: CarrySlot_{actor}_{slot}
       predicate: slot_owner
       obj: ?actor
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 2
+      resultLifetime: 0
       subject: CarrySlot_{actor}_{slot}
       predicate: slot_id
       obj: ?slot
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
+  - id: EquipItemOnInteractionIntent
+    catalogVersion: 1
+    description: An Actor interaction intent equips a compatible item only when the
+      item has this reusable Rule Block and its authored slot is available.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: interaction_intent
+      obj: ?target
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Item
+    - kind: 0
+      subject: ?target
+      predicate: has_rule_block
+      obj: EquipItemOnInteractionIntent
+    - kind: 0
+      subject: ?target
+      predicate: pickup_behavior
+      obj: SelectThenCarry
+    - kind: 0
+      subject: ?target
+      predicate: can_equip
+      obj: True
+    - kind: 0
+      subject: ?target
+      predicate: has_slot
+      obj: ?slot
+    - kind: 5
+      subject: ?actor
+      predicate: 
+      obj: ?target
+    - kind: 1
+      subject: ?target
+      predicate: equipped_by
+      obj: ?holder
+    effects:
+    - kind: 2
+      resultLifetime: 0
+      subject: ?target
+      predicate: equipped_by
+      obj: ?actor
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: CarriedSlotItemAttaches
+    catalogVersion: 1
     description: The item reserved by an Actor carry slot is presented at the profile-defined
       actor anchor.
     conditions:
@@ -1005,10 +1903,26 @@ MonoBehaviour:
       obj: Carryable
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?item
       predicate: carried_by
       obj: ?actor
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: AutoMountNearbyMountable
+    catalogVersion: 1
     description: An Actor that intentionally selected and approached a Mountable
       reserves its profile-defined seat when that seat is empty.
     conditions:
@@ -1050,18 +1964,60 @@ MonoBehaviour:
       obj: ?occupant
     effects:
     - kind: 2
+      resultLifetime: 0
       subject: MountSlot_{mount}_{slot}
       predicate: mounted_actor
       obj: ?actor
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 2
+      resultLifetime: 0
       subject: MountSlot_{mount}_{slot}
       predicate: slot_owner
       obj: ?mount
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
     - kind: 2
+      resultLifetime: 0
       subject: MountSlot_{mount}_{slot}
       predicate: slot_id
       obj: ?slot
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: MountedActorUsesMount
+    catalogVersion: 1
     description: The Actor reserved by a Mountable seat is presented at that mount
       point.
     conditions:
@@ -1087,10 +2043,26 @@ MonoBehaviour:
       obj: Mountable
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?actor
       predicate: mounted_in
       obj: ?mount
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: SupportedObjectRestsOnSupport
+    catalogVersion: 1
     description: A physical support observation implies that the object is resting
       on the supporting ontology entity.
     conditions:
@@ -1100,10 +2072,26 @@ MonoBehaviour:
       obj: ?support
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?object
       predicate: resting_on
       obj: ?support
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: ActivateWindDriftEffect
+    catalogVersion: 1
     description: A compatible object with the WindDrift effect is affected by wind.
     conditions:
     - kind: 0
@@ -1120,10 +2108,26 @@ MonoBehaviour:
       obj: ?profile
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?object
       predicate: active_physical_effect
       obj: WindDrift
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
   - id: ActivateWaveRockingEffect
+    catalogVersion: 1
     description: A compatible object with the WaveRocking effect is rocked while
       occupying water.
     conditions:
@@ -1149,6 +2153,681 @@ MonoBehaviour:
       obj: WaterRegion
     effects:
     - kind: 0
+      resultLifetime: 0
       subject: ?object
       predicate: active_physical_effect
       obj: WaveRocking
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
+  - id: MeleeAttackOnPrimaryIntent
+    catalogVersion: 4
+    description: A primary attack intent lets an equipped melee weapon with an authored
+      contact-delivery contract damage one living hostile Damageable target.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: primary_attack_intent
+      obj: ?target
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?tool
+      predicate: 
+      obj: Weapon
+    - kind: 0
+      subject: ?tool
+      predicate: has_rule_block
+      obj: MeleeAttackOnPrimaryIntent
+    - kind: 0
+      subject: ?tool
+      predicate: equipped_by
+      obj: ?actor
+    - kind: 0
+      subject: ?tool
+      predicate: grants_capability
+      obj: MeleeAttack
+    - kind: 0
+      subject: ?tool
+      predicate: attack_contact_mode
+      obj: WeaponContactWindow
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Damageable
+    - kind: 0
+      subject: ?target
+      predicate: combat_disposition
+      obj: Hostile
+    - kind: 0
+      subject: ?target
+      predicate: is_alive
+      obj: True
+    effects:
+    - kind: 3
+      resultLifetime: 1
+      subject: ?target
+      predicate: current_health
+      obj: 0
+      minimum: 0
+      maximum: 
+      valueFrom:
+        subject: ?tool
+        predicate: attack_damage
+        multiplier: -1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    - kind: 2
+      resultLifetime: 1
+      subject: ?target
+      predicate: is_alive
+      obj: False
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: ?target
+        predicate: current_health
+        comparison: 3
+        value: 0
+    runtimePresentation:
+      actorAnimationIntent: 
+  - id: SwingWeaponOnPrimaryIntent
+    catalogVersion: 1
+    description: A primary swing intent authorizes one ephemeral equipped-weapon
+      swing presentation without changing world Facts.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: primary_swing_intent
+      obj: ?actor
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?tool
+      predicate: 
+      obj: Weapon
+    - kind: 0
+      subject: ?tool
+      predicate: has_rule_block
+      obj: SwingWeaponOnPrimaryIntent
+    - kind: 0
+      subject: ?tool
+      predicate: equipped_by
+      obj: ?actor
+    - kind: 0
+      subject: ?tool
+      predicate: grants_capability
+      obj: MeleeAttack
+    effects: []
+    runtimePresentation:
+      actorAnimationIntent: AttackLight
+  - id: AutonomousMeleeCombat
+    catalogVersion: 3
+    description: An autonomous living combat actor may damage one living hostile
+      target matching its authored target_concept. Removing this Rule Block removes
+      the behavior.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: autonomous_attack_intent
+      obj: ?target
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: AutonomousAgent
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Damageable
+    - kind: 0
+      subject: ?actor
+      predicate: has_rule_block
+      obj: AutonomousMeleeCombat
+    - kind: 0
+      subject: ?actor
+      predicate: grants_capability
+      obj: NaturalMeleeAttack
+    - kind: 0
+      subject: ?actor
+      predicate: is_alive
+      obj: True
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Actor
+    - kind: 0
+      subject: ?actor
+      predicate: target_concept
+      obj: ?targetConcept
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: ?targetConcept
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Damageable
+    - kind: 0
+      subject: ?target
+      predicate: is_alive
+      obj: True
+    - kind: 0
+      subject: ?target
+      predicate: belongs_to_faction
+      obj: ?targetFaction
+    - kind: 0
+      subject: ?actor
+      predicate: hostile_to_faction
+      obj: ?targetFaction
+    - kind: 4
+      subject: ?actor
+      predicate: 
+      obj: ?target
+    effects:
+    - kind: 3
+      resultLifetime: 1
+      subject: ?target
+      predicate: current_health
+      obj: 0
+      minimum: 0
+      maximum: 
+      valueFrom:
+        subject: ?actor
+        predicate: attack_damage
+        multiplier: -1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    - kind: 2
+      resultLifetime: 1
+      subject: ?target
+      predicate: is_alive
+      obj: False
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: ?target
+        predicate: current_health
+        comparison: 3
+        value: 0
+    runtimePresentation:
+      actorAnimationIntent: MonsterAttack
+  - id: RespawnPlayerOnDeath
+    catalogVersion: 2
+    description: A dead player-controlled actor with this Rule Block may restore
+      its authored maximum health through a canonical respawn intent.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: respawn_intent
+      obj: ?actor
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: PlayerControlled
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Damageable
+    - kind: 0
+      subject: ?actor
+      predicate: has_rule_block
+      obj: RespawnPlayerOnDeath
+    - kind: 0
+      subject: ?actor
+      predicate: is_alive
+      obj: False
+    - kind: 0
+      subject: ?actor
+      predicate: current_health
+      obj: 0
+    - kind: 0
+      subject: ?actor
+      predicate: maximum_health
+      obj: ?maximumHealth
+    effects:
+    - kind: 3
+      resultLifetime: 1
+      subject: ?actor
+      predicate: current_health
+      obj: 0
+      minimum: 0
+      maximum: 
+      valueFrom:
+        subject: ?actor
+        predicate: maximum_health
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    - kind: 2
+      resultLifetime: 1
+      subject: ?actor
+      predicate: is_alive
+      obj: True
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: ?actor
+        predicate: current_health
+        comparison: 5
+        value: 0
+    runtimePresentation:
+      actorAnimationIntent: 
+  - id: MovePlayerFromIntent
+    catalogVersion: 2
+    description: A living player-controlled actor may submit ephemeral ground locomotion
+      only while this Rule Block and its complete semantic contract are assigned.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: locomotion_intent
+      obj: ?actor
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: PlayerControlled
+    - kind: 0
+      subject: ?actor
+      predicate: has_rule_block
+      obj: MovePlayerFromIntent
+    - kind: 0
+      subject: ?actor
+      predicate: grants_capability
+      obj: Locomotion
+    - kind: 0
+      subject: ?actor
+      predicate: physical_profile
+      obj: LocalCharacterController
+    - kind: 0
+      subject: ?actor
+      predicate: is_alive
+      obj: True
+    - kind: 0
+      subject: ?actor
+      predicate: movement_speed
+      obj: ?speed
+    effects: []
+    runtimePresentation:
+      actorAnimationIntent: Locomotion
+  - id: UnequipItemOnInteractionIntent
+    catalogVersion: 1
+    description: An unequip intent removes both sides of an authored equipment relation
+      only while this Rule Block remains assigned to the item.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: unequip_intent
+      obj: ?target
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Item
+    - kind: 0
+      subject: ?target
+      predicate: has_rule_block
+      obj: UnequipItemOnInteractionIntent
+    - kind: 0
+      subject: ?target
+      predicate: equipped_by
+      obj: ?actor
+    effects:
+    - kind: 1
+      resultLifetime: 0
+      subject: ?target
+      predicate: equipped_by
+      obj: ?actor
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    - kind: 1
+      resultLifetime: 0
+      subject: ?actor
+      predicate: equipped_item
+      obj: ?target
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: WeaponUnequip
+  - id: AcquireNearestHostileTarget
+    catalogVersion: 1
+    description: An autonomous actor may acquire the nearest living hostile entity
+      matching its authored target_concept and targeting profile. The Authority scheduler
+      supplies ephemeral distance.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: autonomous_target_intent
+      obj: ?target
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: AutonomousAgent
+    - kind: 0
+      subject: ?actor
+      predicate: has_rule_block
+      obj: AcquireNearestHostileTarget
+    - kind: 0
+      subject: ?actor
+      predicate: target_concept
+      obj: ?targetConcept
+    - kind: 0
+      subject: ?actor
+      predicate: targeting_profile
+      obj: NearestHostileWithinDetection
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: ?targetConcept
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Damageable
+    - kind: 0
+      subject: ?target
+      predicate: is_alive
+      obj: True
+    - kind: 0
+      subject: ?target
+      predicate: belongs_to_faction
+      obj: ?targetFaction
+    - kind: 0
+      subject: ?actor
+      predicate: hostile_to_faction
+      obj: ?targetFaction
+    - kind: 4
+      subject: ?actor
+      predicate: 
+      obj: ?target
+    effects: []
+    runtimePresentation:
+      actorAnimationIntent: MonsterIdle
+  - id: ChaseTargetWithinLeash
+    catalogVersion: 1
+    description: AuthorityKinematic moves an autonomous actor toward its acquired
+      target while detection_range, leash_range, and the authored ChaseWithinLeash
+      profile permit it.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: autonomous_chase_intent
+      obj: ?target
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: AutonomousAgent
+    - kind: 0
+      subject: ?actor
+      predicate: has_rule_block
+      obj: ChaseTargetWithinLeash
+    - kind: 0
+      subject: ?actor
+      predicate: chase_profile
+      obj: ChaseWithinLeash
+    - kind: 0
+      subject: ?actor
+      predicate: physical_profile
+      obj: AuthorityKinematic
+    - kind: 0
+      subject: ?actor
+      predicate: movement_speed
+      obj: ?speed
+    - kind: 0
+      subject: ?actor
+      predicate: detection_range
+      obj: ?detection
+    - kind: 0
+      subject: ?actor
+      predicate: leash_range
+      obj: ?leash
+    effects: []
+    runtimePresentation:
+      actorAnimationIntent: MonsterWalk
+  - id: LootBecomesAvailableOnDefeat
+    catalogVersion: 1
+    description: A defeated Damageable with authored loot data exposes loot only
+      while this independently removable Rule Block is bound.
+    conditions:
+    - kind: 0
+      subject: ?target
+      predicate: defeat_resolved_intent
+      obj: ?target
+    - kind: 2
+      subject: ?target
+      predicate: 
+      obj: Damageable
+    - kind: 0
+      subject: ?target
+      predicate: has_rule_block
+      obj: LootBecomesAvailableOnDefeat
+    - kind: 0
+      subject: ?target
+      predicate: is_alive
+      obj: False
+    - kind: 0
+      subject: ?target
+      predicate: current_health
+      obj: 0
+    - kind: 0
+      subject: ?target
+      predicate: loot_item
+      obj: ?lootItem
+    - kind: 1
+      subject: ?target
+      predicate: loot_status
+      obj: Available
+    effects:
+    - kind: 2
+      resultLifetime: 0
+      subject: ?target
+      predicate: loot_status
+      obj: Available
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
+  - id: CollectAvailableLoot
+    catalogVersion: 2
+    description: A living Actor may collect one available authored loot item. The
+      defeated entity keeps the durable loot item and collector provenance, so repeated
+      collections do not overwrite a single actor-owned inventory slot.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: loot_collection_intent
+      obj: ?target
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 0
+      subject: ?actor
+      predicate: is_alive
+      obj: True
+    - kind: 0
+      subject: ?target
+      predicate: has_rule_block
+      obj: CollectAvailableLoot
+    - kind: 0
+      subject: ?target
+      predicate: loot_status
+      obj: Available
+    - kind: 0
+      subject: ?target
+      predicate: loot_item
+      obj: ?lootItem
+    - kind: 1
+      subject: ?target
+      predicate: loot_collected_by
+      obj: ?collector
+    effects:
+    - kind: 2
+      resultLifetime: 1
+      subject: ?target
+      predicate: loot_status
+      obj: Collected
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    - kind: 2
+      resultLifetime: 1
+      subject: ?target
+      predicate: loot_collected_by
+      obj: ?actor
+      minimum: 
+      maximum: 
+      valueFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
+      inversePredicate: 
+      when:
+        subject: 
+        predicate: 
+        comparison: 0
+        value: 
+    runtimePresentation:
+      actorAnimationIntent: 
+  - id: JumpPlayerFromIntent
+    catalogVersion: 3
+    description: A supported living player-controlled actor may receive one ephemeral
+      jump impulse only while this Rule Block and the complete authored jump contract
+      are assigned.
+    conditions:
+    - kind: 0
+      subject: ?actor
+      predicate: jump_intent
+      obj: ?actor
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: Actor
+    - kind: 2
+      subject: ?actor
+      predicate: 
+      obj: PlayerControlled
+    - kind: 0
+      subject: ?actor
+      predicate: has_rule_block
+      obj: JumpPlayerFromIntent
+    - kind: 0
+      subject: ?actor
+      predicate: grants_capability
+      obj: Jump
+    - kind: 0
+      subject: ?actor
+      predicate: physical_profile
+      obj: LocalCharacterController
+    - kind: 0
+      subject: ?actor
+      predicate: is_alive
+      obj: True
+    - kind: 0
+      subject: ?actor
+      predicate: jump_takeoff_speed
+      obj: ?takeoffSpeed
+    - kind: 0
+      subject: ?actor
+      predicate: gravity_acceleration
+      obj: ?gravity
+    - kind: 0
+      subject: ?actor
+      predicate: ground_stick_velocity
+      obj: ?groundStickVelocity
+    effects: []
+    runtimePresentation:
+      actorAnimationIntent: JumpStart

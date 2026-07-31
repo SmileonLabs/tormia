@@ -271,7 +271,9 @@ namespace Tormia.Ontology.Core
         {
             var rect = RectObject(parent, name);
             var text = goAdd<TextMeshProUGUI>(rect.gameObject);
-            text.font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Fonts/InterBold.asset");
+            text.font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                Tormia.Ontology.Editor.OntologyJuaTypographyMigration
+                    .FontAssetPath);
             text.text = value;
             text.fontSize = size;
             text.fontStyle = style;

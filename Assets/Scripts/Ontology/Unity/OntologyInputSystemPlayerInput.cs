@@ -1,6 +1,6 @@
+using ithappy.Creative_Characters_FREE.Controller;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using ithappy.Creative_Characters_FREE.Controller;
 
 namespace Tormia.Ontology.Core
 {
@@ -34,33 +34,60 @@ namespace Tormia.Ontology.Core
         [SerializeField] private string pointerPositionBinding = "<Pointer>/position";
 
         [Header("Movement")]
-        [SerializeField] private bool directCharacterControllerFallback = true;
-        [SerializeField] private bool disableLegacyInputComponents = true;
-        [SerializeField] private float fallbackWalkSpeed = 1.5f;
-        [SerializeField] private float fallbackRunSpeed = 4.0f;
-        [SerializeField, Min(0f)] private float fallbackJumpHeight = 1.5f;
+        [SerializeField, Tooltip(
+            "Unity collision presentation runs only after the complete " +
+            "Authority locomotion contract has been approved.")]
+        private bool authorityApprovedCharacterControllerAdapter = true;
         [SerializeField] private float slowedSpeedMultiplier = 0.5f;
-        [SerializeField] private float fallbackGravity = -20f;
         [SerializeField] private bool clickToMove = true;
         [SerializeField] private float clickStopDistance = 0.1f;
+        [SerializeField, Min(0f), Tooltip(
+            "Additional planar tolerance used to finish click navigation before " +
+            "sub-controller movement leaves the avatar walking in place.")]
+        private float clickArrivalTolerance = 0.01f;
         [SerializeField] private float clickRaycastDistance = 500f;
         [SerializeField] private float moveTargetDistance = 10f;
         [SerializeField] private float fallbackTurnSpeed = 360f;
         [SerializeField] private float mouseLookScale = 0.02f;
         [SerializeField] private float mouseScrollScale = 0.01f;
+        [SerializeField, Min(0f), Tooltip(
+            "Navigation-only inset from the authored attack_range. This keeps " +
+            "the avatar safely inside the Authority boundary without changing " +
+            "the gameplay rule.")]
+        private float combatApproachBuffer = 0.15f;
+        [SerializeField, Min(0.05f), Tooltip(
+            "Ephemeral retry interval while an accepted combat target is waiting " +
+            "for an Authority cooldown or an in-flight route.")]
+        private float combatIntentRetryInterval = 0.15f;
+        [SerializeField, Range(0f, 45f), Tooltip(
+            "Presentation-only angle that must be reached before publishing the " +
+            "targeted attack intent. It does not change Authority eligibility.")]
+        private float combatFacingTolerance = 3f;
 
         [Header("Animator Parameters")]
         [SerializeField] private string horizontalParameter = "Hor";
         [SerializeField] private string verticalParameter = "Vert";
         [SerializeField] private string stateParameter = "State";
-        [SerializeField] private string jumpParameter = "IsJump";
         [SerializeField] private float animatorDampTime = 0.08f;
 
         [Header("Debug")]
+        [SerializeField, Tooltip(
+            "Opt-in development logs for jump input submission and Authority " +
+            "approval. Disabled by default.")]
+        private bool enableJumpDiagnostics;
         [SerializeField] private Vector2 lastMoveAxis;
         [SerializeField] private Vector3 lastMoveTarget;
         [SerializeField] private bool lastKeyboardDetected;
         [SerializeField] private bool lastHadInput;
+        [SerializeField] private bool lastPresentationHadInput;
+        [SerializeField] private bool lastRunIntent;
+        [SerializeField] private bool animatorPresentationOwnedByResolver;
+        [SerializeField] private bool lastGroundedObservation;
+        [SerializeField] private CollisionFlags lastCollisionFlags;
+        [SerializeField] private float lastRequestedVerticalDisplacement;
+        [SerializeField] private float lastResolvedVerticalDisplacement;
+        [SerializeField] private Vector3 externalImpulseVelocity;
+        [SerializeField] private bool physicsReactionActive;
         [SerializeField] private bool hasClickTarget;
         [SerializeField] private Vector3 clickTarget;
 
@@ -69,14 +96,25 @@ namespace Tormia.Ontology.Core
         private InputAction lookAction;
         private InputAction lookHoldAction;
         private InputAction scrollAction;
-        private InputAction jumpAction;
         private InputAction runAction;
+        private InputAction jumpAction;
         private InputAction clickAction;
         private InputAction pointerPositionAction;
         private float verticalVelocity;
+        private uint jumpOccurrence;
+        private float externalImpulseDamping;
+        private OntologyCharacterMotionCoordinator motionCoordinator;
         private OntologySwimmingMovementAdapter swimmingMovement;
         private OntologyDrowningRecoveryAdapter drowningRecovery;
+        private OntologyWorldAuthorityPlayerIntentSender authorityIntentSender;
+        private OntologyCombatController combatController;
         private OntologyObject selectedInteractionObject;
+        private OntologyAuthorityEntityIdentity selectedCombatTarget;
+        private Vector3 selectedCombatHitPoint;
+        private Vector2 selectedCombatPointerPosition;
+        private bool combatIntentRequestPending;
+        private uint combatIntentRevision;
+        private float nextCombatIntentRetryAt;
         private string publishedInteractionIntent;
         private OntologyRuntimeSelectionMarker interactionSelectionMarker;
         private string ResolvedActorId =>
@@ -93,7 +131,20 @@ namespace Tormia.Ontology.Core
         /// </summary>
         public bool TryGetWorldMoveIntent(out Vector2 worldDirection)
         {
+            return TryGetWorldMoveIntent(out worldDirection, out _);
+        }
+
+        /// <summary>
+        /// Reports world-space direction plus the locally requested locomotion
+        /// speed. The Authority treats this speed as transient input and clamps
+        /// it to the avatar's authored movement_speed Fact.
+        /// </summary>
+        public bool TryGetWorldMoveIntent(
+            out Vector2 worldDirection,
+            out float requestedSpeed)
+        {
             worldDirection = Vector2.zero;
+            requestedSpeed = 0f;
             if (!lastHadInput)
             {
                 return false;
@@ -109,16 +160,147 @@ namespace Tormia.Ontology.Core
 
             move.Normalize();
             worldDirection = new Vector2(move.x, move.z);
-            return true;
+            return authorityIntentSender != null &&
+                   authorityIntentSender.TryResolveLocomotionSpeed(
+                       lastRunIntent,
+                       out requestedSpeed) &&
+                   (requestedSpeed *= GetOntologySpeedMultiplier()) > 0f;
         }
 
-        public bool IsJumpIntentHeld => ReadJumpHeld();
-        public bool IsMovingIntent => lastHadInput;
+        public bool IsMovingIntent => lastPresentationHadInput;
+        public bool IsRunIntent =>
+            lastRunIntent && lastPresentationHadInput;
+        public bool IsGrounded =>
+            characterController != null &&
+            characterController.enabled &&
+            verticalVelocity <= 0f &&
+            (motionCoordinator != null
+                ? motionCoordinator.HasGroundContact
+                : lastGroundedObservation ||
+                  characterController.isGrounded);
+        public float VerticalVelocity => verticalVelocity;
+        public uint JumpOccurrence => jumpOccurrence;
+        public CollisionFlags LastCollisionFlags => lastCollisionFlags;
+        public float LastRequestedVerticalDisplacement =>
+            lastRequestedVerticalDisplacement;
+        public float LastResolvedVerticalDisplacement =>
+            lastResolvedVerticalDisplacement;
+        public bool PhysicsReactionActive => physicsReactionActive;
         public Vector2 CurrentMoveAxis => lastMoveAxis;
         public string SelectedInteractionEntityId =>
             selectedInteractionObject == null
                 ? string.Empty
                 : selectedInteractionObject.EntityId;
+        public OntologyObject SelectedInteractionTarget =>
+            selectedInteractionObject;
+
+        /// <summary>
+        /// Called after the entry grounding adapter has resolved the restored
+        /// capsule against Unity collision. This clears only ephemeral vertical
+        /// motion; it does not alter the durable checkpoint or movement Facts.
+        /// </summary>
+        public void ResetVerticalMotionAfterGrounding()
+        {
+            verticalVelocity = 0f;
+            motionCoordinator?.RefreshSupport();
+            lastGroundedObservation =
+                characterController != null &&
+                characterController.enabled &&
+                ((motionCoordinator != null &&
+                  motionCoordinator.IsGrounded) ||
+                 characterController.isGrounded);
+        }
+
+        /// <summary>
+        /// Consumes an Authority-approved jump result. A delayed approval is
+        /// discarded if the capsule no longer has support, preventing a stale
+        /// network response from creating an air jump.
+        /// </summary>
+        public bool ApplyApprovedJump(float takeoffSpeed)
+        {
+            if (characterController == null ||
+                !characterController.enabled ||
+                !float.IsFinite(takeoffSpeed) ||
+                takeoffSpeed <= 0f ||
+                !IsGrounded)
+            {
+                return false;
+            }
+
+            verticalVelocity = takeoffSpeed;
+            lastGroundedObservation = false;
+            unchecked
+            {
+                jumpOccurrence++;
+            }
+            if (enableJumpDiagnostics)
+            {
+                Debug.LogWarning(
+                    "[PlayerJumpTrace] stage=approved frame=" +
+                    Time.frameCount +
+                    " takeoffSpeed=" + takeoffSpeed.ToString("F4") +
+                    " jumpOccurrence=" + jumpOccurrence,
+                    this);
+            }
+            return true;
+        }
+
+        public bool ApplyApprovedExternalImpulse(
+            Vector3 deltaVelocity,
+            float damping)
+        {
+            if (physicsReactionActive ||
+                !IsFinite(deltaVelocity) ||
+                !float.IsFinite(damping) ||
+                damping < 0f)
+            {
+                return false;
+            }
+
+            externalImpulseVelocity += deltaVelocity;
+            externalImpulseDamping = damping;
+            return true;
+        }
+
+        public void SetPhysicsReactionActive(bool value)
+        {
+            physicsReactionActive = value;
+            externalImpulseVelocity = Vector3.zero;
+            externalImpulseDamping = 0f;
+            if (!value)
+            {
+                ResetVerticalMotionAfterGrounding();
+            }
+        }
+
+        /// <summary>
+        /// Clears all ephemeral observations that belong to the previous
+        /// runtime activation. The entry coordinator invokes this while input
+        /// is gated, after checkpoint collision preparation and before the
+        /// session becomes InWorld.
+        /// </summary>
+        public void PrepareForRuntimeActivation()
+        {
+            verticalVelocity = 0f;
+            lastGroundedObservation = false;
+            lastCollisionFlags = CollisionFlags.None;
+            lastRequestedVerticalDisplacement = 0f;
+            lastResolvedVerticalDisplacement = 0f;
+            externalImpulseVelocity = Vector3.zero;
+            externalImpulseDamping = 0f;
+            physicsReactionActive = false;
+            lastMoveAxis = Vector2.zero;
+            lastMoveTarget = transform.position;
+            lastKeyboardDetected = false;
+            lastHadInput = false;
+            lastPresentationHadInput = false;
+            lastRunIntent = false;
+            hasClickTarget = false;
+            clickTarget = transform.position;
+            ClearCombatTargetIntent();
+            ClearInteractionSelection(removeIntent: false);
+            UpdateAnimator(Vector2.zero, false);
+        }
 
         private void Awake()
         {
@@ -128,18 +310,19 @@ namespace Tormia.Ontology.Core
             }
 
             characterController = GetComponent<CharacterController>();
-            if (disableLegacyInputComponents)
-            {
-                // The project owns movement/input through this component. Leaving the
-                // third-party input pair enabled would move the controller twice and
-                // overwrite the ontology-driven animator parameters every frame.
-                var legacyInput = GetComponent<MovePlayerInput>();
-                if (legacyInput != null) legacyInput.enabled = false;
-                var legacyMover = GetComponent<CharacterMover>();
-                if (legacyMover != null) legacyMover.enabled = false;
-            }
+            motionCoordinator =
+                GetComponent<OntologyCharacterMotionCoordinator>() ??
+                gameObject.AddComponent<
+                    OntologyCharacterMotionCoordinator>();
+            lastGroundedObservation =
+                motionCoordinator.IsGrounded;
             swimmingMovement = GetComponent<OntologySwimmingMovementAdapter>();
             drowningRecovery = GetComponent<OntologyDrowningRecoveryAdapter>();
+            authorityIntentSender =
+                GetComponent<OntologyWorldAuthorityPlayerIntentSender>() ??
+                FindAnyObjectByType<
+                    OntologyWorldAuthorityPlayerIntentSender>();
+            combatController = GetComponent<OntologyCombatController>();
             if (visualAnimator == null)
             {
                 visualAnimator = FindBestVisualAnimator();
@@ -171,13 +354,25 @@ namespace Tormia.Ontology.Core
         private void OnDisable()
         {
             ClearInteractionSelection(removeIntent: true);
+            ClearCombatTargetIntent();
             DisableInputActions();
         }
 
         private void Update()
         {
             EnsureCameraReferences();
-
+            if (physicsReactionActive)
+            {
+                lastMoveAxis = Vector2.zero;
+                lastHadInput = false;
+                lastPresentationHadInput = false;
+                UpdateAnimator(Vector2.zero, false);
+                return;
+            }
+            if (TryUpdateDrowningRecovery())
+            {
+                return;
+            }
             if (OntologyRuntimeObjectPlacementController.IsPlacementInputCaptured ||
                 OntologyRuntimeWorldEditorController.IsEditInputCaptured ||
                 OntologyUIPointerUtility.IsPointerOverUi())
@@ -195,6 +390,7 @@ namespace Tormia.Ontology.Core
             var axis = ReadMoveAxis();
             UpdateClickTarget();
             CancelClickNavigationForDirectInput(axis);
+            UpdateCombatTargetIntent();
             var useClickTarget = axis.sqrMagnitude <= 0.0001f && hasClickTarget;
             if (useClickTarget)
             {
@@ -203,21 +399,53 @@ namespace Tormia.Ontology.Core
 
             var target = GetMoveTarget();
             var isRun = ReadRun();
-            var isJump = ReadJumpHeld();
+            var jumpPressed = ReadJumpPressed();
+            if (jumpPressed)
+            {
+                var groundedAtInput = IsGrounded;
+                var submitted =
+                    authorityIntentSender != null &&
+                    authorityIntentSender.CanPresentPredictedLocomotion &&
+                    authorityIntentSender.TryRequestJump(
+                        groundedAtInput);
+                if (enableJumpDiagnostics)
+                {
+                    Debug.LogWarning(
+                        "[PlayerJumpTrace] stage=input frame=" +
+                        Time.frameCount +
+                        " grounded=" + groundedAtInput +
+                        " submitted=" + submitted +
+                        " binding=" + jumpBinding,
+                        this);
+                }
+            }
 
             lastMoveAxis = axis;
             lastMoveTarget = target;
             lastKeyboardDetected = Keyboard.current != null;
             lastHadInput = axis.sqrMagnitude > 0.0001f;
+            lastRunIntent = isRun && lastHadInput;
+            var canPresentLocomotion =
+                authorityIntentSender != null &&
+                authorityIntentSender.CanPresentPredictedLocomotion;
+            var presentationAxis = canPresentLocomotion
+                ? axis
+                : Vector2.zero;
+            lastPresentationHadInput =
+                presentationAxis.sqrMagnitude > 0.0001f;
 
-            if (directCharacterControllerFallback)
+            if (authorityApprovedCharacterControllerAdapter)
             {
-                MoveCharacterController(axis, isRun, useClickTarget, ReadJumpPressed());
+                MoveCharacterController(
+                    presentationAxis,
+                    isRun && canPresentLocomotion,
+                    useClickTarget && canPresentLocomotion);
             }
 
-            var airborne = characterController != null &&
-                           (!characterController.isGrounded || verticalVelocity > 0.01f);
-            UpdateAnimator(axis, isRun, isJump || airborne);
+            if (!animatorPresentationOwnedByResolver)
+                UpdateAnimator(
+                    presentationAxis,
+                    isRun && canPresentLocomotion);
 
             if (playerCamera != null)
             {
@@ -227,14 +455,16 @@ namespace Tormia.Ontology.Core
 
         private void StopPlayerForUi()
         {
+            ClearCombatTargetIntent();
             hasClickTarget = false;
             lastMoveAxis = Vector2.zero;
             lastHadInput = false;
+            lastPresentationHadInput = false;
 
-            if (directCharacterControllerFallback)
-                MoveCharacterController(Vector2.zero, false, false, false);
+            if (authorityApprovedCharacterControllerAdapter)
+                MoveCharacterController(Vector2.zero, false, false);
 
-            UpdateAnimator(Vector2.zero, false, false);
+            UpdateAnimator(Vector2.zero, false);
             if (playerCamera != null)
                 playerCamera.SetInput(Vector2.zero, 0f);
         }
@@ -252,7 +482,7 @@ namespace Tormia.Ontology.Core
             return null;
         }
 
-        private void UpdateAnimator(Vector2 axis, bool isRun, bool isJump)
+        private void UpdateAnimator(Vector2 axis, bool isRun)
         {
             if (visualAnimator == null)
             {
@@ -263,7 +493,13 @@ namespace Tormia.Ontology.Core
             SetFloatIfExists(horizontalParameter, axis.x);
             SetFloatIfExists(verticalParameter, axis.y);
             SetFloatIfExists(stateParameter, state);
-            SetBoolIfExists(jumpParameter, isJump);
+        }
+
+        public void SetAnimatorPresentationOwnership(bool ownedByResolver)
+        {
+            animatorPresentationOwnedByResolver = ownedByResolver;
+            if (!ownedByResolver) return;
+            UpdateAnimator(Vector2.zero, false);
         }
 
         private void SetFloatIfExists(string parameter, float value)
@@ -274,16 +510,6 @@ namespace Tormia.Ontology.Core
             }
 
             visualAnimator.SetFloat(parameter, value, Mathf.Max(0f, animatorDampTime), Time.deltaTime);
-        }
-
-        private void SetBoolIfExists(string parameter, bool value)
-        {
-            if (string.IsNullOrWhiteSpace(parameter) || !HasAnimatorParameter(parameter, AnimatorControllerParameterType.Bool))
-            {
-                return;
-            }
-
-            visualAnimator.SetBool(parameter, value);
         }
 
         private bool HasAnimatorParameter(string parameter, AnimatorControllerParameterType type)
@@ -315,10 +541,13 @@ namespace Tormia.Ontology.Core
             lookAction = new InputAction("OntologyLook", InputActionType.Value, lookBinding);
             lookHoldAction = new InputAction("OntologyLookHold", InputActionType.Button, lookHoldBinding);
             scrollAction = new InputAction("OntologyScroll", InputActionType.Value, scrollBinding);
-            jumpAction = new InputAction("OntologyJump", InputActionType.Button, jumpBinding);
             runAction = new InputAction("OntologyRun", InputActionType.Button);
             runAction.AddBinding(runBinding);
             runAction.AddBinding(runAltBinding);
+            jumpAction = new InputAction(
+                "OntologyJump",
+                InputActionType.Button,
+                jumpBinding);
             clickAction = new InputAction("OntologyClick", InputActionType.Button, clickBinding);
             pointerPositionAction = new InputAction("OntologyPointerPosition", InputActionType.Value, pointerPositionBinding);
         }
@@ -334,8 +563,8 @@ namespace Tormia.Ontology.Core
             lookAction.Enable();
             lookHoldAction.Enable();
             scrollAction.Enable();
-            jumpAction.Enable();
             runAction.Enable();
+            jumpAction.Enable();
             clickAction.Enable();
             pointerPositionAction.Enable();
         }
@@ -351,8 +580,8 @@ namespace Tormia.Ontology.Core
             lookAction.Disable();
             lookHoldAction.Disable();
             scrollAction.Disable();
-            jumpAction.Disable();
             runAction.Disable();
+            jumpAction.Disable();
             clickAction.Disable();
             pointerPositionAction.Disable();
         }
@@ -398,15 +627,11 @@ namespace Tormia.Ontology.Core
         private void MoveCharacterController(
             Vector2 axis,
             bool isRun,
-            bool useClickTarget,
-            bool jumpPressed)
+            bool useClickTarget)
         {
-            if (characterController == null)
-            {
-                return;
-            }
-
-            if (drowningRecovery != null && drowningRecovery.TryRecover(Time.deltaTime))
+            if (characterController == null ||
+                !characterController.enabled ||
+                !characterController.gameObject.activeInHierarchy)
             {
                 verticalVelocity = 0f;
                 return;
@@ -415,25 +640,37 @@ namespace Tormia.Ontology.Core
             var move = axis.sqrMagnitude <= 0.0001f
                 ? Vector3.zero
                 : (useClickTarget ? GetClickMoveDirection() : GetCameraRelativeMove(axis));
-            var speed = (isRun ? fallbackRunSpeed : fallbackWalkSpeed) * GetOntologySpeedMultiplier();
-
-            if (swimmingMovement != null && swimmingMovement.TryMove(move, speed, Time.deltaTime))
+            var speed = 0f;
+            var authoredSpeed = 0f;
+            if (move.sqrMagnitude > 0.0001f &&
+                (authorityIntentSender == null ||
+                 !authorityIntentSender.TryResolveLocomotionSpeed(
+                     isRun,
+                     out authoredSpeed)))
+            {
+                move = Vector3.zero;
+            }
+            else if (move.sqrMagnitude > 0.0001f)
+            {
+                speed =
+                    authoredSpeed * GetOntologySpeedMultiplier();
+            }
+            if (swimmingMovement != null &&
+                swimmingMovement.TryResolveDisplacement(
+                    move,
+                    speed,
+                    Time.deltaTime,
+                    out var swimmingDisplacement))
             {
                 verticalVelocity = 0f;
+                var swimmingResult = motionCoordinator.Move(
+                    Vector3.ProjectOnPlane(
+                        swimmingDisplacement,
+                        Vector3.up),
+                    swimmingDisplacement.y,
+                    Vector3.zero);
+                ApplyMotionResult(swimmingResult);
                 RotateTowardsMove(move);
-                return;
-            }
-
-            if (jumpPressed && characterController.isGrounded)
-            {
-                var jumpHeight = Mathf.Max(0f, fallbackJumpHeight);
-                verticalVelocity = Mathf.Sqrt(
-                    Mathf.Max(0f, 2f * Mathf.Abs(fallbackGravity) * jumpHeight));
-            }
-
-            if (axis.sqrMagnitude <= 0.0001f)
-            {
-                ApplyFallbackGravityOnly();
                 return;
             }
 
@@ -447,10 +684,61 @@ namespace Tormia.Ontology.Core
                     GetActiveClickStopDistance());
             }
 
-            characterController.Move(
-                move * horizontalDistance +
-                Vector3.up * verticalVelocity * Time.deltaTime);
+            lastRequestedVerticalDisplacement =
+                (verticalVelocity + externalImpulseVelocity.y) *
+                Time.deltaTime;
+            var motionResult = motionCoordinator.Move(
+                move * horizontalDistance,
+                verticalVelocity * Time.deltaTime,
+                externalImpulseVelocity * Time.deltaTime);
+            ApplyMotionResult(motionResult);
+            verticalVelocity = ResolveVerticalVelocityAfterMove(
+                motionResult.collisionFlags,
+                verticalVelocity,
+                ResolveGroundStickVelocity());
+            externalImpulseVelocity = DampExternalImpulseVelocity(
+                externalImpulseVelocity,
+                externalImpulseDamping,
+                Time.deltaTime);
             RotateTowardsMove(move);
+        }
+
+        /// <summary>
+        /// Advances the ontology-selected drowning presentation before normal
+        /// input and CharacterController availability are evaluated. Recovery
+        /// intentionally disables the controller while it owns the Transform,
+        /// so placing this call inside controller locomotion would deadlock the
+        /// state machine on the following frame.
+        /// </summary>
+        private bool TryUpdateDrowningRecovery()
+        {
+            if (drowningRecovery == null ||
+                !drowningRecovery.TryRecover(Time.deltaTime))
+            {
+                return false;
+            }
+
+            verticalVelocity = 0f;
+            externalImpulseVelocity = Vector3.zero;
+            externalImpulseDamping = 0f;
+            lastMoveAxis = Vector2.zero;
+            lastHadInput = false;
+            lastPresentationHadInput = false;
+            lastRunIntent = false;
+            UpdateAnimator(Vector2.zero, false);
+            return true;
+        }
+
+        private void ApplyMotionResult(
+            OntologyCharacterMotionResult result)
+        {
+            lastRequestedVerticalDisplacement =
+                result.requestedVerticalDisplacement;
+            lastResolvedVerticalDisplacement =
+                result.resolvedVerticalDisplacement;
+            lastCollisionFlags = result.collisionFlags;
+            lastGroundedObservation =
+                (result.collisionFlags & CollisionFlags.Below) != 0;
         }
 
         /// <summary>
@@ -497,7 +785,7 @@ namespace Tormia.Ontology.Core
 
         private Vector3 GetClickMoveDirection()
         {
-            var toTarget = clickTarget - transform.position;
+            var toTarget = GetActiveClickTarget() - transform.position;
             toTarget.y = 0f;
             return toTarget.sqrMagnitude <= 0.0001f ? Vector3.zero : toTarget.normalized;
         }
@@ -546,11 +834,259 @@ namespace Tormia.Ontology.Core
                     ray,
                     Mathf.Max(1f, clickRaycastDistance)))
             {
+                ClearCombatTargetIntent();
                 ClearInteractionSelection(removeIntent: true);
                 hasClickTarget = false;
                 return;
             }
 
+            if (combatController != null &&
+                combatController.TryResolvePrimaryPointerTarget(
+                    pointerPosition,
+                    out var combatTarget,
+                    out var combatHitPoint))
+            {
+                BeginCombatTargetIntent(
+                    combatTarget,
+                    combatHitPoint,
+                    pointerPosition);
+                return;
+            }
+
+            ResolveNonCombatPointerClick(pointerPosition);
+        }
+
+        private void BeginCombatTargetIntent(
+            OntologyAuthorityEntityIdentity target,
+            Vector3 hitPoint,
+            Vector2 pointerPosition)
+        {
+            ClearInteractionSelection(removeIntent: true);
+            unchecked
+            {
+                combatIntentRevision++;
+            }
+            selectedCombatTarget = target;
+            selectedCombatHitPoint = hitPoint;
+            selectedCombatPointerPosition = pointerPosition;
+            combatIntentRequestPending = false;
+            nextCombatIntentRetryAt = Time.time;
+            hasClickTarget = false;
+            TryRequestCombatTargetIntent();
+        }
+
+        private void UpdateCombatTargetIntent()
+        {
+            if (selectedCombatTarget == null)
+            {
+                return;
+            }
+
+            if (combatController == null ||
+                !combatController.IsProjectedLivingCombatTarget(
+                    selectedCombatTarget))
+            {
+                ClearCombatTargetIntent();
+                return;
+            }
+
+            clickTarget = selectedCombatTarget.transform.position;
+            if (hasClickTarget)
+            {
+                var toTarget =
+                    selectedCombatTarget.transform.position -
+                    transform.position;
+                toTarget.y = 0f;
+                if (!HasReachedClickDestination(
+                        toTarget.magnitude,
+                        GetActiveClickStopDistance(),
+                        GetClickArrivalTolerance()))
+                {
+                    return;
+                }
+
+                hasClickTarget = false;
+            }
+
+            if (!combatIntentRequestPending &&
+                Time.time >= nextCombatIntentRetryAt)
+            {
+                TryRequestCombatTargetIntent();
+            }
+        }
+
+        private void TryRequestCombatTargetIntent()
+        {
+            if (selectedCombatTarget == null ||
+                combatController == null ||
+                combatIntentRequestPending)
+            {
+                return;
+            }
+
+            var target = selectedCombatTarget;
+            var requestRevision = combatIntentRevision;
+            var targetPresenter =
+                target.GetComponentInParent<OntologyCombatTargetPresenter>();
+            selectedCombatHitPoint = targetPresenter == null
+                ? target.transform.position
+                : targetPresenter.HitAnchor.position;
+            if (!RotateTowardsCombatTarget(target.transform.position))
+            {
+                return;
+            }
+            combatIntentRequestPending = true;
+            if (combatController.TryBeginPrimaryTargetIntent(
+                    target,
+                    selectedCombatHitPoint,
+                    consumed =>
+                    {
+                        if (this == null || !isActiveAndEnabled)
+                        {
+                            return;
+                        }
+
+                        CompleteCombatTargetIntent(
+                            requestRevision,
+                            target,
+                            consumed);
+                    }))
+            {
+                return;
+            }
+
+            combatIntentRequestPending = false;
+            HandleCombatIntentRejection(
+                combatController.LastAttackDiagnostic);
+        }
+
+        private void CompleteCombatTargetIntent(
+            uint requestRevision,
+            OntologyAuthorityEntityIdentity requestTarget,
+            bool consumed)
+        {
+            // A later ground click, direct movement input, or combat selection
+            // owns navigation now. The completion of an older Authority route
+            // must not clear that newer ephemeral intent.
+            if (requestRevision != combatIntentRevision ||
+                selectedCombatTarget != requestTarget)
+            {
+                return;
+            }
+
+            combatIntentRequestPending = false;
+            if (consumed)
+            {
+                ClearCombatTargetIntent();
+                return;
+            }
+
+            HandleCombatIntentRejection(
+                combatController.LastAttackDiagnostic);
+        }
+
+        private bool RotateTowardsCombatTarget(Vector3 targetPosition)
+        {
+            var direction = targetPosition - transform.position;
+            direction.y = 0f;
+            if (direction.sqrMagnitude <= 0.0001f)
+                return true;
+
+            var targetRotation =
+                Quaternion.LookRotation(direction, Vector3.up);
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                targetRotation,
+                Mathf.Max(0f, fallbackTurnSpeed) * Time.deltaTime);
+            return IsWithinCombatFacingAngle(
+                transform.forward,
+                direction,
+                combatFacingTolerance);
+        }
+
+        public static bool IsWithinCombatFacingAngle(
+            Vector3 forward,
+            Vector3 targetDirection,
+            float toleranceDegrees)
+        {
+            forward.y = 0f;
+            targetDirection.y = 0f;
+            if (forward.sqrMagnitude <= Mathf.Epsilon ||
+                targetDirection.sqrMagnitude <= Mathf.Epsilon)
+            {
+                return true;
+            }
+
+            return Vector3.Angle(
+                       forward.normalized,
+                       targetDirection.normalized) <=
+                   Mathf.Max(0f, toleranceDegrees);
+        }
+
+        private void HandleCombatIntentRejection(string diagnostic)
+        {
+            if (selectedCombatTarget == null)
+            {
+                return;
+            }
+
+            if (OntologyCombatController.RequiresApproach(diagnostic))
+            {
+                clickTarget = selectedCombatTarget.transform.position;
+                hasClickTarget = true;
+                nextCombatIntentRetryAt =
+                    Time.time + Mathf.Max(
+                        0.05f,
+                        combatIntentRetryInterval);
+                return;
+            }
+
+            if (OntologyCombatController.ShouldRetryWithoutMovement(diagnostic))
+            {
+                hasClickTarget = false;
+                nextCombatIntentRetryAt =
+                    Time.time + Mathf.Max(
+                        0.05f,
+                        combatIntentRetryInterval);
+                return;
+            }
+
+            var fallbackPointer = selectedCombatPointerPosition;
+            ClearCombatTargetIntent();
+            ResolveNonCombatPointerClick(fallbackPointer);
+        }
+
+        private void ClearCombatTargetIntent()
+        {
+            unchecked
+            {
+                combatIntentRevision++;
+            }
+            selectedCombatTarget = null;
+            selectedCombatHitPoint = default;
+            selectedCombatPointerPosition = default;
+            combatIntentRequestPending = false;
+            nextCombatIntentRetryAt = 0f;
+            hasClickTarget = false;
+        }
+
+        private void ResolveNonCombatPointerClick(Vector2 pointerPosition)
+        {
+            if (OntologyRuntimeObjectPlacementController.IsPlacementInputCaptured ||
+                OntologyRuntimeWorldEditorController.IsEditInputCaptured ||
+                OntologyUIPointerUtility.IsPointerOverUi(pointerPosition))
+            {
+                return;
+            }
+
+            ClearCombatTargetIntent();
+            var camera = Camera.main;
+            if (camera == null)
+            {
+                return;
+            }
+
+            var ray = camera.ScreenPointToRay(pointerPosition);
             if (TryConsumeCreatorNpcClick(
                     ray,
                     Mathf.Max(1f, clickRaycastDistance)))
@@ -592,11 +1128,14 @@ namespace Tormia.Ontology.Core
         public bool CancelClickNavigationForDirectInput(Vector2 directAxis)
         {
             if (directAxis.sqrMagnitude <= 0.0001f ||
-                (!hasClickTarget && selectedInteractionObject == null))
+                (!hasClickTarget &&
+                 selectedInteractionObject == null &&
+                 selectedCombatTarget == null))
             {
                 return false;
             }
 
+            ClearCombatTargetIntent();
             ClearInteractionSelection(removeIntent: true);
             hasClickTarget = false;
             return true;
@@ -704,7 +1243,8 @@ namespace Tormia.Ontology.Core
 
                 var candidate =
                     hit.collider.GetComponentInParent<OntologyObject>();
-                if (candidate == null || !SupportsSelectThenEquip(candidate))
+                if (candidate == null ||
+                    !SupportsSelectThenEquip(candidate))
                 {
                     continue;
                 }
@@ -716,7 +1256,8 @@ namespace Tormia.Ontology.Core
             return false;
         }
 
-        private bool SupportsSelectThenEquip(OntologyObject candidate)
+        private bool SupportsSelectThenEquip(
+            OntologyObject candidate)
         {
             if (candidate == null)
             {
@@ -837,7 +1378,10 @@ namespace Tormia.Ontology.Core
             toTarget.y = 0f;
             var stopDistance = GetActiveClickStopDistance();
 
-            if (toTarget.magnitude <= stopDistance)
+            if (HasReachedClickDestination(
+                    toTarget.magnitude,
+                    stopDistance,
+                    GetClickArrivalTolerance()))
             {
                 hasClickTarget = false;
                 return Vector2.zero;
@@ -849,8 +1393,35 @@ namespace Tormia.Ontology.Core
             return Vector2.ClampMagnitude(new Vector2(Vector3.Dot(direction, right), Vector3.Dot(direction, forward)), 1f);
         }
 
+        public static bool HasReachedClickDestination(
+            float planarDistanceToTarget,
+            float stopDistance,
+            float arrivalTolerance)
+        {
+            return Mathf.Max(0f, planarDistanceToTarget) <=
+                   Mathf.Max(0f, stopDistance) +
+                   Mathf.Max(0f, arrivalTolerance);
+        }
+
+        private float GetClickArrivalTolerance()
+        {
+            var controllerResolution = characterController == null
+                ? 0f
+                : Mathf.Max(
+                    characterController.minMoveDistance,
+                    characterController.skinWidth * 0.1f);
+            return Mathf.Max(
+                Mathf.Max(0f, clickArrivalTolerance),
+                controllerResolution);
+        }
+
         private Vector3 GetActiveClickTarget()
         {
+            if (selectedCombatTarget != null)
+            {
+                return selectedCombatTarget.transform.position;
+            }
+
             return selectedInteractionObject != null &&
                    bootstrap != null &&
                    bootstrap.World != null &&
@@ -872,6 +1443,32 @@ namespace Tormia.Ontology.Core
         private float GetActiveClickStopDistance()
         {
             var stopDistance = Mathf.Max(0.01f, clickStopDistance);
+            if (selectedCombatTarget != null &&
+                combatController != null &&
+                combatController.TryResolveEquippedAttackRange(
+                    out var attackRange))
+            {
+                var minimumBodyClearance = 0f;
+                if (combatController
+                    .TryResolveEquippedContactApproachDistance(
+                        selectedCombatTarget,
+                        out var contactApproachDistance))
+                {
+                    attackRange = SelectCombatApproachDistance(
+                        attackRange,
+                        contactApproachDistance);
+                }
+                combatController.TryResolveCombatBodyClearanceDistance(
+                    selectedCombatTarget,
+                    characterController,
+                    out minimumBodyClearance);
+                return ComputeCombatApproachStopDistance(
+                    stopDistance,
+                    attackRange,
+                    combatApproachBuffer,
+                    minimumBodyClearance);
+            }
+
             if (selectedInteractionObject == null)
             {
                 return stopDistance;
@@ -889,27 +1486,98 @@ namespace Tormia.Ontology.Core
             return stopDistance;
         }
 
-        private void ApplyFallbackGravityOnly()
+        public static float ComputeCombatApproachStopDistance(
+            float defaultStopDistance,
+            float authoredAttackRange,
+            float navigationBuffer,
+            float minimumBodyClearance = 0f)
         {
-            if (characterController == null)
-            {
-                return;
-            }
+            return Mathf.Max(
+                Mathf.Max(0.01f, defaultStopDistance),
+                Mathf.Max(
+                    Mathf.Max(0f, minimumBodyClearance),
+                    Mathf.Max(0f, authoredAttackRange) -
+                    Mathf.Max(0f, navigationBuffer)));
+        }
 
-            UpdateFallbackGravity();
-            characterController.Move(
-                Vector3.up * verticalVelocity * Time.deltaTime);
+        public static float SelectCombatApproachDistance(
+            float authoredAttackRange,
+            float physicalContactDistance)
+        {
+            if (authoredAttackRange <= 0f)
+                return Mathf.Max(0f, physicalContactDistance);
+            if (physicalContactDistance <= 0f)
+                return authoredAttackRange;
+            return Mathf.Min(
+                authoredAttackRange,
+                physicalContactDistance);
         }
 
         private void UpdateFallbackGravity()
         {
-            if (characterController != null && characterController.isGrounded && verticalVelocity < 0f)
+            if (authorityIntentSender == null ||
+                !authorityIntentSender.TryResolveGravityAcceleration(
+                    out var gravityAcceleration))
             {
-                verticalVelocity = -1f;
+                verticalVelocity = 0f;
                 return;
             }
 
-            verticalVelocity += fallbackGravity * Time.deltaTime;
+            // Gravity is continuous Physical Meaning, not a new movement
+            // intent. It must keep settling an already visible capsule while
+            // an unrelated projection causes the transient locomotion lease
+            // to be re-evaluated.
+            verticalVelocity = IntegrateVerticalVelocity(
+                IsGrounded,
+                verticalVelocity,
+                gravityAcceleration,
+                Time.deltaTime,
+                ResolveGroundStickVelocity());
+        }
+
+        public static float IntegrateVerticalVelocity(
+            bool isGrounded,
+            float currentVelocity,
+            float gravityAcceleration,
+            float deltaTime,
+            float groundStickVelocity)
+        {
+            if (isGrounded && currentVelocity <= 0f)
+            {
+                return Mathf.Min(0f, groundStickVelocity);
+            }
+
+            return currentVelocity +
+                   gravityAcceleration * Mathf.Max(0f, deltaTime);
+        }
+
+        public static float ResolveVerticalVelocityAfterMove(
+            CollisionFlags collisionFlags,
+            float currentVelocity,
+            float groundStickVelocity)
+        {
+            if ((collisionFlags & CollisionFlags.Above) != 0 &&
+                currentVelocity > 0f)
+            {
+                return 0f;
+            }
+
+            if ((collisionFlags & CollisionFlags.Below) != 0 &&
+                currentVelocity <= 0f)
+            {
+                return Mathf.Min(0f, groundStickVelocity);
+            }
+
+            return currentVelocity;
+        }
+
+        private float ResolveGroundStickVelocity()
+        {
+            return authorityIntentSender != null &&
+                   authorityIntentSender.TryResolveGroundStickVelocity(
+                       out var value)
+                ? value
+                : 0f;
         }
 
         private Vector2 ReadMoveAxis()
@@ -927,16 +1595,6 @@ namespace Tormia.Ontology.Core
             return runAction != null && runAction.IsPressed();
         }
 
-        private bool ReadJumpHeld()
-        {
-            return jumpAction != null && jumpAction.IsPressed();
-        }
-
-        private bool ReadJumpPressed()
-        {
-            return jumpAction != null && jumpAction.WasPressedThisFrame();
-        }
-
         private Vector2 ReadMouseDelta()
         {
             if (lookAction == null || lookHoldAction == null || !lookHoldAction.IsPressed())
@@ -947,9 +1605,35 @@ namespace Tormia.Ontology.Core
             return lookAction.ReadValue<Vector2>() * mouseLookScale;
         }
 
+        private bool ReadJumpPressed()
+        {
+            return jumpAction != null &&
+                   jumpAction.WasPressedThisFrame();
+        }
+
+        private static bool IsFinite(Vector3 value)
+        {
+            return float.IsFinite(value.x) &&
+                   float.IsFinite(value.y) &&
+                   float.IsFinite(value.z);
+        }
+
+        public static Vector3 DampExternalImpulseVelocity(
+            Vector3 currentVelocity,
+            float damping,
+            float deltaTime)
+        {
+            return Vector3.MoveTowards(
+                currentVelocity,
+                Vector3.zero,
+                Mathf.Max(0f, damping) *
+                Mathf.Max(0f, deltaTime));
+        }
+
         private float ReadMouseScroll()
         {
             return scrollAction == null ? 0f : scrollAction.ReadValue<Vector2>().y * mouseScrollScale;
         }
     }
+
 }

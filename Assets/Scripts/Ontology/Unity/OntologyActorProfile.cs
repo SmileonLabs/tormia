@@ -16,6 +16,13 @@ namespace Tormia.Ontology.Core
         public string[] ontologyCapabilities = Array.Empty<string>();
         [Tooltip("Legacy animation capability grouping retained for existing animation setup data.")]
         public string[] capabilities = Array.Empty<string>();
+        [Tooltip("Canonical base presentation intent used while stationary.")]
+        public string idleAnimationIntent = OntologyAnimationIntentIds.Idle;
+        [Tooltip("Canonical base presentation intent used while moving.")]
+        public string moveAnimationIntent = OntologyAnimationIntentIds.Locomotion;
+        [Tooltip("Canonical base presentation intent used while running.")]
+        public string fastMoveAnimationIntent =
+            OntologyAnimationIntentIds.FastLocomotion;
         public string[] animationIds = Array.Empty<string>();
 
         public bool HasCapability(string capability)

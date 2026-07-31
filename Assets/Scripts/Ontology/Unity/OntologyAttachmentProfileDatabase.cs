@@ -43,6 +43,20 @@ namespace Tormia.Ontology.Core
                     profile.profileId,
                     OntologyPredicates.AttachmentKind,
                     KindId(profile.kind));
+                if (!string.IsNullOrWhiteSpace(profile.relationPredicate))
+                {
+                    world.AddFact(
+                        profile.profileId,
+                        OntologyPredicates.AttachmentRelationPredicate,
+                        profile.relationPredicate);
+                    world.AddFact(
+                        profile.profileId,
+                        OntologyPredicates.AttachmentRelationDirection,
+                        profile.relationDirection ==
+                        OntologyAttachmentRelationDirection.ActorToItem
+                            ? OntologyObjects.ActorToItem
+                            : OntologyObjects.ItemToActor);
+                }
                 if (!string.IsNullOrWhiteSpace(profile.slotId))
                 {
                     world.AddFact(

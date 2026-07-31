@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
@@ -45,6 +46,8 @@ namespace Tormia.Ontology.Editor
         private AnimationClip newAnimationClip;
         private string newAnimationIntent = "Swimming";
         private int newAnimationPriority = 50;
+        private bool newAnimationLoop = true;
+        private bool newAnimationInterruptible = true;
         private bool newAnimationCanBlend = true;
         private string factEditorMessage;
         private UnityWebRequest meshyRequest;
@@ -805,9 +808,11 @@ namespace Tormia.Ontology.Editor
         private void DrawAnimationDatabaseRegistration()
         {
             EditorGUILayout.Space(8);
-            EditorGUILayout.LabelField("Register Animation in Database", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "Register Animation through Manifest",
+                EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Create a reusable animation definition here. The intent describes what the clip expresses; ontology rules decide when that intent is active.",
+                "The manifest is the authoring source. Registration validates the entry, then synchronizes the runtime database and ActorProfile repertoire. The intent describes what the clip expresses; ontology rules decide when that intent is active.",
                 MessageType.None);
 
             using (new EditorGUI.DisabledScope(animationDatabase == null))
@@ -816,21 +821,31 @@ namespace Tormia.Ontology.Editor
                 newAnimationClip = (AnimationClip)EditorGUILayout.ObjectField("Animation Clip", newAnimationClip, typeof(AnimationClip), false);
                 newAnimationIntent = EditorGUILayout.TextField("Ontology Intent", newAnimationIntent);
                 newAnimationPriority = EditorGUILayout.IntField("Priority", newAnimationPriority);
-                newAnimationCanBlend = EditorGUILayout.Toggle("Loop / Blend", newAnimationCanBlend);
+                newAnimationLoop = EditorGUILayout.Toggle("Loop", newAnimationLoop);
+                newAnimationInterruptible =
+                    EditorGUILayout.Toggle(
+                        "Interruptible",
+                        newAnimationInterruptible);
+                newAnimationCanBlend =
+                    EditorGUILayout.Toggle("Can Blend", newAnimationCanBlend);
 
                 EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("Add to Database")) AddAnimationToDatabase(false);
-                if (GUILayout.Button("Add and Register for Profile")) AddAnimationToDatabase(true);
+                if (GUILayout.Button("Add to Manifest"))
+                    AddAnimationToManifest(false);
+                if (GUILayout.Button("Add and Register for Profile"))
+                    AddAnimationToManifest(true);
                 EditorGUILayout.EndHorizontal();
             }
 
             if (animationDatabase == null)
             {
-                EditorGUILayout.HelpBox("Assign an Animation Database before registering a clip.", MessageType.Info);
+                EditorGUILayout.HelpBox(
+                    "Assign the synchronized Animation Database before registering a clip.",
+                    MessageType.Info);
             }
         }
 
-        private void AddAnimationToDatabase(bool registerForProfile)
+        private void AddAnimationToManifest(bool registerForProfile)
         {
             if (animationDatabase == null || newAnimationClip == null ||
                 string.IsNullOrWhiteSpace(newAnimationId) || string.IsNullOrWhiteSpace(newAnimationIntent))
@@ -839,45 +854,54 @@ namespace Tormia.Ontology.Editor
                 return;
             }
 
-            var serialized = new SerializedObject(animationDatabase);
-            var definitions = serialized.FindProperty("definitions");
-            for (var i = 0; i < definitions.arraySize; i++)
+            var targetProfile = registerForProfile ? EnsureProfile() : null;
+            var manifest =
+                OntologyAnimationContentPipeline.CreateOrMigrateManifest();
+            var previousEntries = manifest.Entries
+                .Where(value => value != null)
+                .ToArray();
+            var entry = OntologyAnimationContentPipeline.CreateManifestEntry(
+                newAnimationId,
+                newAnimationClip,
+                newAnimationIntent,
+                newAnimationPriority,
+                newAnimationLoop,
+                newAnimationInterruptible,
+                newAnimationCanBlend,
+                targetProfile);
+            if (!OntologyAnimationContentPipeline.TryAddManifestEntry(
+                    manifest,
+                    entry,
+                    out var error))
             {
-                var id = definitions.GetArrayElementAtIndex(i).FindPropertyRelative("animationId").stringValue;
-                if (string.Equals(id, newAnimationId.Trim(), StringComparison.Ordinal))
-                {
-                    Debug.LogWarning("Animation id already exists: " + newAnimationId, animationDatabase);
-                    return;
-                }
+                Debug.LogWarning(error, manifest);
+                return;
             }
 
-            definitions.InsertArrayElementAtIndex(definitions.arraySize);
-            var definition = definitions.GetArrayElementAtIndex(definitions.arraySize - 1);
-            definition.FindPropertyRelative("animationId").stringValue = newAnimationId.Trim();
-            definition.FindPropertyRelative("clip").objectReferenceValue = newAnimationClip;
-            definition.FindPropertyRelative("layer").enumValueIndex = (int)OntologyAnimationLayer.FullBody;
-            definition.FindPropertyRelative("interruptible").boolValue = true;
-            definition.FindPropertyRelative("priority").intValue = newAnimationPriority;
-            definition.FindPropertyRelative("canBlend").boolValue = newAnimationCanBlend;
-            SetStringArray(definition.FindPropertyRelative("properties"), "Swimming", "Locomotion");
-            SetStringArray(definition.FindPropertyRelative("intents"), newAnimationIntent.Trim());
-            serialized.ApplyModifiedProperties();
-            EditorUtility.SetDirty(animationDatabase);
-            AssetDatabase.SaveAssets();
+            EditorUtility.SetDirty(manifest);
+            if (!OntologyAnimationContentPipeline.ValidateAndSynchronize(
+                    manifest,
+                    true))
+            {
+                manifest.ReplaceEntries(previousEntries);
+                EditorUtility.SetDirty(manifest);
+                AssetDatabase.SaveAssets();
+                Debug.LogError(
+                    "Animation manifest synchronization failed for: " +
+                    newAnimationId,
+                    manifest);
+                return;
+            }
 
-            if (registerForProfile) SetProfileAnimation(newAnimationId.Trim(), true);
-            Debug.Log("Registered ontology animation: " + newAnimationId + " (" + newAnimationIntent + ")", animationDatabase);
+            animationDatabase =
+                AssetDatabase.LoadAssetAtPath<OntologyAnimationDatabase>(
+                    OntologyAnimationContentPipeline.DatabasePath);
+            profile = registerForProfile ? targetProfile : profile;
+            Debug.Log(
+                "Registered ontology animation through manifest: " +
+                newAnimationId + " (" + newAnimationIntent + ")",
+                manifest);
             newAnimationClip = null;
-        }
-
-        private static void SetStringArray(SerializedProperty property, params string[] values)
-        {
-            property.arraySize = values == null ? 0 : values.Length;
-            if (values == null) return;
-            for (var i = 0; i < values.Length; i++)
-            {
-                property.GetArrayElementAtIndex(i).stringValue = values[i] ?? string.Empty;
-            }
         }
 
         private void DrawProfileRepertoire()
@@ -887,7 +911,7 @@ namespace Tormia.Ontology.Editor
             if (!showProfileRepertoire) return;
 
             EditorGUILayout.HelpBox(
-                "Select the clips this actor can express. World facts and rules still decide the current intent.",
+                "Select the manifest entries this ActorProfile can express. Changes are validated in the manifest, then synchronized to the generated profile repertoire.",
                 MessageType.None);
             if (animationDatabase == null || animationDatabase.Definitions == null)
             {
@@ -937,11 +961,48 @@ namespace Tormia.Ontology.Editor
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (var animationId in animationIds)
                 if (!string.IsNullOrWhiteSpace(animationId)) ids.Add(animationId);
-            var result = new List<string>(ids);
-            result.Sort(StringComparer.Ordinal);
-            profile.animationIds = result.ToArray();
-            EditorUtility.SetDirty(profile);
+            var manifest =
+                OntologyAnimationContentPipeline.CreateOrMigrateManifest();
+            var entries = manifest.Entries
+                .Where(value => value != null)
+                .ToArray();
+            var previousAssignments = entries.ToDictionary(
+                value => value,
+                value => value.profiles == null
+                    ? Array.Empty<OntologyActorProfile>()
+                    : value.profiles.ToArray());
+
+            foreach (var entry in entries)
+            {
+                var assigned = new HashSet<OntologyActorProfile>(
+                    entry.profiles == null
+                        ? Array.Empty<OntologyActorProfile>()
+                        : entry.profiles);
+                if (ids.Contains(entry.animationId)) assigned.Add(profile);
+                else assigned.Remove(profile);
+                entry.profiles = assigned
+                    .Where(value => value != null)
+                    .ToArray();
+            }
+
+            EditorUtility.SetDirty(manifest);
+            if (OntologyAnimationContentPipeline.ValidateAndSynchronize(
+                    manifest,
+                    false))
+            {
+                animationDatabase =
+                    AssetDatabase.LoadAssetAtPath<OntologyAnimationDatabase>(
+                        OntologyAnimationContentPipeline.DatabasePath);
+                return;
+            }
+
+            foreach (var pair in previousAssignments)
+                pair.Key.profiles = pair.Value;
+            EditorUtility.SetDirty(manifest);
             AssetDatabase.SaveAssets();
+            Debug.LogError(
+                "ActorProfile repertoire change failed manifest validation and was reverted.",
+                manifest);
         }
 
         private void DrawAnimationPreview(IReadOnlyList<OntologyAnimationDefinition> matchingDefinitions)

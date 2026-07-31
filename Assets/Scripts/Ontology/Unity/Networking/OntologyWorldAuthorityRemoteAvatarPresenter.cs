@@ -374,7 +374,19 @@ namespace Tormia.Ontology.Core
             if (authorityClient == null) authorityClient = FindAnyObjectByType<OntologyWorldAuthorityClient>();
             if (realtimeClient == null) realtimeClient = FindAnyObjectByType<OntologyWorldAuthorityRealtimeClient>();
             if (zoneStreamer == null) zoneStreamer = FindAnyObjectByType<OntologyWorldZoneStreamer>();
-            if (localAvatarIdentity == null) localAvatarIdentity = FindAnyObjectByType<OntologyAuthorityEntityIdentity>();
+            var resolvedLocalAvatar = ResolveLocalAvatarIdentity();
+            if (resolvedLocalAvatar != null &&
+                resolvedLocalAvatar != localAvatarIdentity)
+            {
+                localAvatarIdentity = resolvedLocalAvatar;
+                if (localAvatarIdentity.TryGetGuid(out var localAvatarId))
+                {
+                    // A stale or incorrectly resolved local identity may already
+                    // have produced a presentation-only replica. Remove it as soon
+                    // as the account/input-owned avatar becomes available.
+                    DestroyReplica(localAvatarId);
+                }
+            }
             if (remoteAnimatorSource == null)
             {
                 foreach (var candidate in FindObjectsByType<Animator>(FindObjectsInactive.Exclude))
@@ -386,6 +398,22 @@ namespace Tormia.Ontology.Core
                     }
                 }
             }
+        }
+
+        private static OntologyAuthorityEntityIdentity ResolveLocalAvatarIdentity()
+        {
+            var entryFlow = FindAnyObjectByType<OntologyWorldAuthorityAccountEntryFlow>(
+                FindObjectsInactive.Include);
+            if (entryFlow != null && entryFlow.AvatarIdentity != null)
+            {
+                return entryFlow.AvatarIdentity;
+            }
+
+            var localInput = FindAnyObjectByType<OntologyInputSystemPlayerInput>(
+                FindObjectsInactive.Include);
+            return localInput == null
+                ? null
+                : localInput.GetComponent<OntologyAuthorityEntityIdentity>();
         }
 
         private static void SetLayerRecursively(GameObject target, int layer)

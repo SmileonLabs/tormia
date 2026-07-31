@@ -54,3 +54,15 @@ en,polymer,Polymer
 ko,폴리머,Polymer
 en,water float,WaterFloat
 ko,물에 뜨기,WaterFloat
+en,damageable,Damageable
+en,damage target,Damageable
+ko,피해 가능 대상,Damageable
+ko,피해 대상,Damageable
+en,monster,Monster
+ko,몬스터,Monster
+en,item,Item
+ko,아이템,Item
+en,sword,Sword
+ko,검,Sword
+en,weapon,Weapon
+ko,무기,Weapon

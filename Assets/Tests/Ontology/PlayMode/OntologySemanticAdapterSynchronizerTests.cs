@@ -10,6 +10,455 @@ namespace Tormia.Ontology.Tests
     public sealed class OntologySemanticAdapterSynchronizerTests
     {
         [UnityTest]
+        public IEnumerator LocalCharacterPhysicalMeaningOwnsAndRemovesMotionLease()
+        {
+            var bootstrapObject = new GameObject("Bootstrap");
+            var avatar = new GameObject("LocalCharacterAvatar");
+            var profile =
+                ScriptableObject.CreateInstance<OntologyPhysicalProfile>();
+            var database =
+                ScriptableObject.CreateInstance<
+                    OntologyPhysicalProfileDatabase>();
+            try
+            {
+                profile.profileId =
+                    OntologyObjects.LocalCharacterController;
+                profile.mobilityMode =
+                    OntologyPhysicalMobilityMode.AuthorityKinematic;
+                profile.motionDriver =
+                    OntologyMotionDriver.LocalCharacterController;
+                profile.collisionRole =
+                    OntologyCollisionRole.ActorBody;
+                profile.maximumStepHeight = 0.42f;
+                database.Replace(new[] { profile });
+                database.ReplaceCollisionLayers(
+                    CreateCollisionLayerBindings());
+
+                var bootstrap =
+                    bootstrapObject.AddComponent<OntologyWorldBootstrap>();
+                typeof(OntologyWorldBootstrap)
+                    .GetField(
+                        "physicalProfileDatabase",
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.NonPublic)
+                    ?.SetValue(bootstrap, database);
+                avatar.AddComponent<CharacterController>();
+                var identity =
+                    avatar.AddComponent<OntologyAuthorityEntityIdentity>();
+                var input =
+                    avatar.AddComponent<OntologyInputSystemPlayerInput>();
+                input.enabled = false;
+                var ontology = avatar.AddComponent<OntologyObject>();
+                ontology.ConfigureOntologyData(
+                    "LocalCharacterAvatar",
+                    new[] { OntologyConcepts.Actor },
+                    new[]
+                    {
+                        new OntologyFactEntry
+                        {
+                            predicate =
+                                OntologyPredicates.PhysicalProfile,
+                            obj =
+                                OntologyObjects
+                                    .LocalCharacterController
+                        }
+                    });
+
+                OntologySemanticAdapterSynchronizer
+                    .SynchronizePhysical(avatar, bootstrap);
+                yield return null;
+
+                var driver =
+                    avatar.GetComponent<OntologyMotionDriverAdapter>();
+                var coordinator =
+                    avatar.GetComponent<
+                        OntologyCharacterMotionCoordinator>();
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(
+                    driver.Allows(
+                        OntologyMotionDriver.LocalCharacterController),
+                    Is.True);
+                Assert.That(coordinator, Is.Not.Null);
+                Assert.That(coordinator.enabled, Is.True);
+                Assert.That(
+                    avatar.layer,
+                    Is.EqualTo(LayerMask.NameToLayer("ActorBody")));
+                Assert.That(
+                    avatar.GetComponent<OntologyCollisionRoleAdapter>()
+                        .CollisionLayerApplied,
+                    Is.True);
+                Assert.That(
+                    coordinator.MaximumStepHeight,
+                    Is.EqualTo(0.42f).Within(0.0001f),
+                    "The coordinator must consume character-step tuning from " +
+                    "the active Physical Meaning profile.");
+                Assert.That(
+                    avatar.GetComponent<Rigidbody>(),
+                    Is.Null,
+                    "Local CharacterController presentation must not receive " +
+                    "a competing Rigidbody motion owner.");
+                Assert.That(
+                    avatar.GetComponent<
+                        OntologyAuthorityKinematicActorAdapter>(),
+                    Is.Null);
+
+                ontology.ConfigureOntologyData(
+                    "LocalCharacterAvatar",
+                    new[] { OntologyConcepts.Actor },
+                    System.Array.Empty<OntologyFactEntry>());
+                OntologySemanticAdapterSynchronizer
+                    .SynchronizePhysical(avatar, bootstrap);
+                yield return null;
+
+                Assert.That(driver.enabled, Is.False);
+                Assert.That(
+                    avatar.layer,
+                    Is.EqualTo(0),
+                    "Removing Physical Meaning must restore the authored " +
+                    "Unity presentation layer.");
+                Assert.That(
+                    coordinator.enabled,
+                    Is.False,
+                    "Removing Physical Meaning must remove the matching local " +
+                    "motion lease instead of leaving a hidden fallback.");
+                Assert.That(
+                    coordinator.MaximumStepHeight,
+                    Is.Zero,
+                    "Removing Physical Meaning must clear its derived physical tuning.");
+                Assert.That(
+                    OntologyTransformOwnershipResolver.Resolve(
+                        identity,
+                        null),
+                    Is.EqualTo(
+                        OntologyTransformOwner.LocalCharacterController),
+                    "Removing locomotion permission must stop movement without " +
+                    "letting a stale durable projection reclaim the visible " +
+                    "local avatar pose.");
+            }
+            finally
+            {
+                Object.Destroy(avatar);
+                Object.Destroy(bootstrapObject);
+                Object.Destroy(profile);
+                Object.Destroy(database);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DamageableConceptOwnsCombatPresenterLifecycle()
+        {
+            var target = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            target.name = "OrdinaryEditedObject";
+            try
+            {
+                var ontology = target.AddComponent<OntologyObject>();
+                ontology.ConfigureOntologyData(
+                    "OrdinaryEditedObject",
+                    new[] { OntologyConcepts.Damageable },
+                    new[]
+                    {
+                        new OntologyFactEntry
+                        {
+                            predicate =
+                                OntologyPredicates.HitAnimationIntent,
+                            obj = OntologyAnimationIntentIds.HitReaction
+                        }
+                    });
+                var identity =
+                    target.AddComponent<OntologyAuthorityEntityIdentity>();
+                identity.SetGuid(System.Guid.NewGuid());
+
+                OntologySemanticAdapterSynchronizer
+                    .SynchronizeCombatPresentation(target);
+                yield return null;
+
+                var presenter =
+                    target.GetComponent<OntologyCombatTargetPresenter>();
+                Assert.That(presenter, Is.Not.Null);
+                Assert.That(presenter.enabled, Is.True);
+                Assert.That(
+                    presenter.AuthorityIdentity,
+                    Is.SameAs(identity),
+                    "Combat presentation must be created from semantic data, " +
+                    "not from a monster prefab.");
+
+                ontology.ConfigureOntologyData(
+                    "OrdinaryEditedObject",
+                    System.Array.Empty<string>(),
+                    System.Array.Empty<OntologyFactEntry>());
+                OntologySemanticAdapterSynchronizer
+                    .SynchronizeCombatPresentation(target);
+                yield return null;
+
+                Assert.That(
+                    presenter.enabled,
+                    Is.False,
+                    "Removing Damageable meaning must remove the adapter route.");
+            }
+            finally
+            {
+                Object.Destroy(target);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator EntryGroundingKeepsFirstMoveOnSupportSurface()
+        {
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var player = new GameObject("GroundedAvatar");
+            try
+            {
+                ground.transform.position = new Vector3(0f, -0.5f, 0f);
+                ground.transform.localScale = new Vector3(10f, 1f, 10f);
+                player.transform.position = new Vector3(0f, 0.8f, 0f);
+                var controller = player.AddComponent<CharacterController>();
+                controller.center = new Vector3(0f, 1f, 0f);
+                controller.height = 2f;
+                controller.radius = 0.5f;
+                var input =
+                    player.AddComponent<OntologyInputSystemPlayerInput>();
+                input.enabled = false;
+                var grounding =
+                    player.AddComponent<OntologyWorldEntryGroundingAdapter>();
+
+                Physics.SyncTransforms();
+                Assert.That(grounding.TrySettle(), Is.True);
+                var settledY = player.transform.position.y;
+
+                controller.Move(
+                    Vector3.forward * 0.1f +
+                    Vector3.down * 0.05f);
+                yield return null;
+
+                Assert.That(
+                    player.transform.position.y,
+                    Is.EqualTo(settledY).Within(0.02f),
+                    "The first controller move must not sink below the " +
+                    "support surface after checkpoint grounding.");
+            }
+            finally
+            {
+                Object.Destroy(player);
+                Object.Destroy(ground);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator WorldEntryPresentationPreparesBeforeSessionActivation()
+        {
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var sessionObject = new GameObject("EntrySession");
+            var player = new GameObject("PreparedEntryAvatar");
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            var hiddenVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            try
+            {
+                ground.transform.position = new Vector3(0f, -0.5f, 0f);
+                ground.transform.localScale = new Vector3(10f, 1f, 10f);
+                player.transform.position = new Vector3(0f, 0.8f, 0f);
+                visual.transform.SetParent(player.transform, false);
+                var visualRenderer = visual.GetComponent<Renderer>();
+                hiddenVisual.transform.SetParent(player.transform, false);
+                var hiddenRenderer = hiddenVisual.GetComponent<Renderer>();
+                hiddenRenderer.enabled = false;
+
+                var session =
+                    sessionObject.AddComponent<OntologyGameSessionCoordinator>();
+                session.BeginWorldEntry();
+                var identity =
+                    player.AddComponent<OntologyAuthorityEntityIdentity>();
+                identity.SetGuid(System.Guid.NewGuid());
+                var controller = player.AddComponent<CharacterController>();
+                controller.center = new Vector3(0f, 1f, 0f);
+                controller.height = 2f;
+                controller.radius = 0.5f;
+                var input =
+                    player.AddComponent<OntologyInputSystemPlayerInput>();
+                player.AddComponent<Animator>();
+                var animation =
+                    player.AddComponent<OntologyAnimationAdapter>();
+                player.AddComponent<OntologyWorldEntryGroundingAdapter>();
+                var coordinator =
+                    player.AddComponent<
+                        OntologyWorldEntryPresentationCoordinator>();
+                coordinator.Configure(session, identity);
+
+                typeof(OntologyInputSystemPlayerInput)
+                    .GetField(
+                        "verticalVelocity",
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.NonPublic)
+                    ?.SetValue(input, -12f);
+                typeof(OntologyAnimationAdapter)
+                    .GetField(
+                        "transientPresentationActive",
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.NonPublic)
+                    ?.SetValue(animation, true);
+
+                Assert.That(coordinator.BeginPreparation(), Is.True);
+                Assert.That(input.enabled, Is.False);
+                Assert.That(animation.enabled, Is.False);
+                Assert.That(visualRenderer.enabled, Is.False);
+                Assert.That(session.State,
+                    Is.EqualTo(OntologyGameSessionState.EnteringWorld));
+
+                var prepared = false;
+                yield return coordinator.PrepareRoutine(
+                    value => prepared = value);
+
+                Assert.That(prepared, Is.True);
+                Assert.That(coordinator.IsPrepared, Is.True);
+                Assert.That(controller.isGrounded, Is.True);
+                Assert.That(input.VerticalVelocity, Is.Zero);
+                Assert.That(input.IsMovingIntent, Is.False);
+                Assert.That(
+                    coordinator.CommitBeforeSessionActivation(),
+                    Is.True);
+                Assert.That(animation.enabled, Is.True);
+                Assert.That(
+                    (bool)typeof(OntologyAnimationAdapter)
+                        .GetField(
+                            "transientPresentationActive",
+                            System.Reflection.BindingFlags.Instance |
+                            System.Reflection.BindingFlags.NonPublic)
+                        .GetValue(animation),
+                    Is.False);
+                Assert.That(session.State,
+                    Is.EqualTo(OntologyGameSessionState.EnteringWorld),
+                    "Presentation must be prepared before the session gate " +
+                    "opens runtime input and renderers.");
+
+                session.WorldEntryCompleted(true);
+                Assert.That(session.IsInWorld, Is.True);
+                Assert.That(
+                    input.enabled,
+                    Is.True,
+                    "Local input must open only from the completed InWorld " +
+                    "session transition.");
+                Assert.That(
+                    visualRenderer.enabled,
+                    Is.True,
+                    "The local avatar must become visible from the same " +
+                    "completed session transition.");
+                Assert.That(
+                    hiddenRenderer.enabled,
+                    Is.False,
+                    "Opening the entry gate must preserve per-part renderer " +
+                    "visibility instead of enabling every character part.");
+            }
+            finally
+            {
+                Object.Destroy(player);
+                Object.Destroy(sessionObject);
+                Object.Destroy(ground);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator PendingGroundingRetriesWhenControllerBecomesReady()
+        {
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var player = new GameObject("LateControllerGroundingAvatar");
+            try
+            {
+                ground.transform.position = new Vector3(0f, -0.5f, 0f);
+                ground.transform.localScale = new Vector3(10f, 1f, 10f);
+                player.transform.position = new Vector3(0f, 0.8f, 0f);
+                var controller = player.AddComponent<CharacterController>();
+                controller.center = new Vector3(0f, 1f, 0f);
+                controller.height = 2f;
+                controller.radius = 0.5f;
+                controller.enabled = false;
+                var input =
+                    player.AddComponent<OntologyInputSystemPlayerInput>();
+                input.enabled = false;
+                var grounding =
+                    player.AddComponent<OntologyWorldEntryGroundingAdapter>();
+
+                Assert.That(grounding.RequestSettle(), Is.False);
+                Assert.That(grounding.SettlePending, Is.True);
+
+                controller.enabled = true;
+                yield return new WaitForFixedUpdate();
+                yield return null;
+
+                Assert.That(
+                    grounding.SettlePending,
+                    Is.False,
+                    "Grounding must complete after the controller becomes " +
+                    "eligible, without waiting for the first input move. " +
+                    "controllerEnabled=" + controller.enabled +
+                    ", controllerGrounded=" + controller.isGrounded +
+                    ", coordinator=" +
+                    (player.GetComponent<
+                        OntologyCharacterMotionCoordinator>() != null) +
+                    ", supportProbe=" +
+                    (player.GetComponent<
+                        OntologyCharacterSupportProbe>() != null) +
+                    ", playerY=" + player.transform.position.y);
+            }
+            finally
+            {
+                Object.Destroy(player);
+                Object.Destroy(ground);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator LocalPlayerRoleWinsWhenSeveralActorsExist()
+        {
+            var bootstrapObject = new GameObject("Bootstrap");
+            var player = new GameObject("LocalAvatar");
+            var npc = new GameObject("NpcActor");
+            try
+            {
+                var bootstrap =
+                    bootstrapObject.AddComponent<OntologyWorldBootstrap>();
+                var playerOntology = player.AddComponent<OntologyObject>();
+                playerOntology.ConfigureOntologyData(
+                    "PlayerEntity",
+                    new[] { OntologyConcepts.Actor },
+                    new OntologyFactEntry[0]);
+                var input =
+                    player.AddComponent<OntologyInputSystemPlayerInput>();
+                input.enabled = false;
+                var npcOntology = npc.AddComponent<OntologyObject>();
+                npcOntology.ConfigureOntologyData(
+                    "NpcEntity",
+                    new[] { OntologyConcepts.Actor },
+                    new OntologyFactEntry[0]);
+
+                bootstrap.ResetWorld(logReport: false);
+                yield return null;
+
+                Assert.That(
+                    OntologySemanticAdapterSynchronizer
+                        .ResolvePresentationActor(bootstrap),
+                    Is.SameAs(playerOntology),
+                    "NPC Actor entities must not make local equipment " +
+                    "proximity lose the account avatar.");
+            }
+            finally
+            {
+                Object.Destroy(npc);
+                Object.Destroy(player);
+                Object.Destroy(bootstrapObject);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator LightBuoyantProfileKeepsMeshPrefabAboveSolidGround()
         {
             var profile = ScriptableObject.CreateInstance<OntologyPhysicalProfile>();
@@ -276,6 +725,9 @@ namespace Tormia.Ontology.Tests
             profile.profileId = "BackCarry";
             profile.kind = OntologyAttachmentKind.Carryable;
             profile.slotId = "Back";
+            profile.relationPredicate = OntologyPredicates.CarriedBy;
+            profile.relationDirection =
+                OntologyAttachmentRelationDirection.ItemToActor;
             profile.actorAnchorPath = "BackAnchor";
             var database =
                 ScriptableObject.CreateInstance<OntologyAttachmentProfileDatabase>();
@@ -651,6 +1103,67 @@ namespace Tormia.Ontology.Tests
             Object.Destroy(database);
             Object.Destroy(profile);
             yield return null;
+        }
+
+        private static IEnumerable<OntologyCollisionLayerBinding>
+            CreateCollisionLayerBindings()
+        {
+            return new[]
+            {
+                new OntologyCollisionLayerBinding
+                {
+                    role = OntologyCollisionRole.DynamicProp,
+                    layerName = "DynamicProp",
+                    collidesWith = new List<OntologyCollisionRole>
+                    {
+                        OntologyCollisionRole.DynamicProp,
+                        OntologyCollisionRole.WalkableSupport,
+                        OntologyCollisionRole.ActorBody,
+                        OntologyCollisionRole.WaterVolume
+                    }
+                },
+                new OntologyCollisionLayerBinding
+                {
+                    role = OntologyCollisionRole.WalkableSupport,
+                    layerName = "WorldStatic",
+                    collidesWith = new List<OntologyCollisionRole>
+                    {
+                        OntologyCollisionRole.DynamicProp,
+                        OntologyCollisionRole.ActorBody
+                    }
+                },
+                new OntologyCollisionLayerBinding
+                {
+                    role = OntologyCollisionRole.ActorBody,
+                    layerName = "ActorBody",
+                    collidesWith = new List<OntologyCollisionRole>
+                    {
+                        OntologyCollisionRole.DynamicProp,
+                        OntologyCollisionRole.WalkableSupport,
+                        OntologyCollisionRole.InteractionTrigger,
+                        OntologyCollisionRole.WaterVolume
+                    }
+                },
+                new OntologyCollisionLayerBinding
+                {
+                    role = OntologyCollisionRole.InteractionTrigger,
+                    layerName = "InteractionTrigger",
+                    collidesWith = new List<OntologyCollisionRole>
+                    {
+                        OntologyCollisionRole.ActorBody
+                    }
+                },
+                new OntologyCollisionLayerBinding
+                {
+                    role = OntologyCollisionRole.WaterVolume,
+                    layerName = "WaterVolume",
+                    collidesWith = new List<OntologyCollisionRole>
+                    {
+                        OntologyCollisionRole.DynamicProp,
+                        OntologyCollisionRole.ActorBody
+                    }
+                }
+            };
         }
     }
 }

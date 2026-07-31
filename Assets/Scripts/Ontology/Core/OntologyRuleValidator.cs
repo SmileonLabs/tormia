@@ -49,20 +49,48 @@ namespace Tormia.Ontology.Core
                     ValidateEffectVariableBindings(definition.id, definition.effects, boundVariables, warnings);
                 }
 
-                if (definition.effects == null || definition.effects.Count == 0)
+                var hasRuntimePresentation =
+                    definition.runtimePresentation != null &&
+                    !string.IsNullOrWhiteSpace(
+                        definition.runtimePresentation.actorAnimationIntent);
+                if ((definition.effects == null ||
+                     definition.effects.Count == 0) &&
+                    !hasRuntimePresentation)
                 {
                     warnings.Add($"Rule '{definition.id}' has no effects.");
                 }
-                else
+                else if (definition.effects != null)
                 {
                     for (var effectIndex = 0; effectIndex < definition.effects.Count; effectIndex++)
                     {
                         ValidateEffect(definition.id, effectIndex, definition.effects[effectIndex], warnings);
                     }
                 }
+                if (hasRuntimePresentation &&
+                    !IsCanonicalRuntimeIntent(
+                        definition.runtimePresentation.actorAnimationIntent))
+                {
+                    warnings.Add(
+                        $"Rule '{definition.id}' has an invalid runtime presentation intent.");
+                }
             }
 
             return warnings;
+        }
+
+        private static bool IsCanonicalRuntimeIntent(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value.Length > 128)
+                return false;
+            foreach (var character in value)
+            {
+                if (!(char.IsLetterOrDigit(character) ||
+                      character == '_' ||
+                      character == '-' ||
+                      character == '.'))
+                    return false;
+            }
+            return true;
         }
 
         private static void ValidateCondition(string ruleId, int index, OntologyCondition condition, List<string> warnings)

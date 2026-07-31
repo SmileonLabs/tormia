@@ -53,3 +53,83 @@ MonoBehaviour:
     requiredExistingPredicates:
     - grants_skill
     - skill_grant_requires_rule
+  - presetId: autonomous_melee_monster
+    displayNameKey: rule_preset.autonomous_melee_monster
+    descriptionKey: rule_preset.autonomous_melee_monster.description
+    primaryRuleId: AutonomousMeleeCombat
+    bindingVariable: ?actor
+    physicalProfileId: AuthorityKinematic
+    additionalRuleBlocks:
+    - ruleId: AcquireNearestHostileTarget
+      bindingVariable: ?actor
+    - ruleId: ChaseTargetWithinLeash
+      bindingVariable: ?actor
+    - ruleId: LootBecomesAvailableOnDefeat
+      bindingVariable: ?target
+    - ruleId: CollectAvailableLoot
+      bindingVariable: ?target
+    requiredConcepts:
+    - Actor
+    - AutonomousAgent
+    - Monster
+    - Combatant
+    - Damageable
+    requiredFacts:
+    - predicate: current_health
+      obj: 30
+    - predicate: maximum_health
+      obj: 30
+    - predicate: is_alive
+      obj: True
+    - predicate: belongs_to_faction
+      obj: WildMonster
+    - predicate: hostile_to_faction
+      obj: PlayerFaction
+    - predicate: target_concept
+      obj: PlayerControlled
+    - predicate: targeting_profile
+      obj: NearestHostileWithinDetection
+    - predicate: chase_profile
+      obj: ChaseWithinLeash
+    - predicate: target_action
+      obj: acquire_autonomous_target
+    - predicate: chase_action
+      obj: chase_autonomous_target
+    - predicate: combat_disposition
+      obj: Hostile
+    - predicate: grants_capability
+      obj: NaturalMeleeAttack
+    - predicate: attack_action
+      obj: autonomous_melee_attack
+    - predicate: attack_damage
+      obj: 5
+    - predicate: attack_range
+      obj: 2
+    - predicate: attack_cooldown
+      obj: 1
+    - predicate: detection_range
+      obj: 12
+    - predicate: leash_range
+      obj: 18
+    - predicate: movement_speed
+      obj: 2
+    - predicate: idle_animation_intent
+      obj: MonsterIdle
+    - predicate: move_animation_intent
+      obj: MonsterWalk
+    - predicate: hit_animation_intent
+      obj: HitReaction
+    - predicate: death_animation_intent
+      obj: Death
+    - predicate: hit_vfx_intent
+      obj: HitPhysicalLight
+    - predicate: loot_table
+      obj: BeholderBasicLoot
+    - predicate: loot_item
+      obj: OntologyDataFragment
+    - predicate: loot_action
+      obj: collect_loot
+    - predicate: interaction_range
+      obj: 2.5
+    requiredExistingConcepts: []
+    requiredExistingPredicates: []

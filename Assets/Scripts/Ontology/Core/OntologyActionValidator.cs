@@ -71,17 +71,24 @@ namespace Tormia.Ontology.Core
 
                 var hasStructuredEffects =
                     definition.effects != null && definition.effects.Count > 0;
-                if (!hasStructuredEffects && string.IsNullOrWhiteSpace(definition.subjectPattern))
+                var invokesRule =
+                    definition.ruleInvocation != null &&
+                    !string.IsNullOrWhiteSpace(
+                        definition.ruleInvocation.ruleId);
+                if (!hasStructuredEffects && !invokesRule &&
+                    string.IsNullOrWhiteSpace(definition.subjectPattern))
                 {
                     warnings.Add($"ActionEffect '{definition.actionVerb}' has an empty subject pattern.");
                 }
 
-                if (!hasStructuredEffects && string.IsNullOrWhiteSpace(definition.predicate))
+                if (!hasStructuredEffects && !invokesRule &&
+                    string.IsNullOrWhiteSpace(definition.predicate))
                 {
                     warnings.Add($"ActionEffect '{definition.actionVerb}' has an empty predicate.");
                 }
 
-                if (!hasStructuredEffects && string.IsNullOrWhiteSpace(definition.objectPattern))
+                if (!hasStructuredEffects && !invokesRule &&
+                    string.IsNullOrWhiteSpace(definition.objectPattern))
                 {
                     warnings.Add($"ActionEffect '{definition.actionVerb}' has an empty object pattern.");
                 }

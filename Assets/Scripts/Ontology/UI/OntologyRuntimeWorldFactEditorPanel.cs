@@ -36,6 +36,7 @@ namespace Tormia.Ontology.Core
         [SerializeField] private OntologyRuntimeWorldEditorController controller;
         [Header("Hierarchy Bindings (assign in Inspector)")]
         [SerializeField] private GameObject hudRoot;
+        [SerializeField] private TextMeshProUGUI titleLabel;
         [SerializeField] private TextMeshProUGUI objectName;
         [SerializeField] private TextMeshProUGUI objectSubtitle;
         [SerializeField] private TMP_Dropdown languageDropdown;
@@ -75,10 +76,8 @@ namespace Tormia.Ontology.Core
 
         private bool subscribed;
         private bool bound;
-        private EditorMode mode;
-        private OntologyPlaceableInstance pendingRuleOwner;
-        private string pendingRuleId;
-        private string pendingRuleVariable;
+        private EditorMode mode = EditorMode.RuleBlocks;
+        private bool wasOntologyOpen;
         private string pendingConceptConfirmationKey;
         private string footerStatus;
         private bool changingLanguage;
@@ -154,13 +153,14 @@ namespace Tormia.Ontology.Core
                     tripleContent != null &&
                     tripleRowTemplate != null &&
                     ruleRowTemplate != null &&
+                    quickSetupPanelTemplate != null &&
                     resultRowTemplate != null;
             if (!bound) return;
 
             if (addTripleButton != null)
             {
                 addTripleButton.onClick.RemoveAllListeners();
-                addTripleButton.onClick.AddListener(AddBlankRow);
+                addTripleButton.onClick.AddListener(AddBlankTripleRow);
             }
 
             if (closeButton != null)
@@ -215,6 +215,8 @@ namespace Tormia.Ontology.Core
 
             UnityEditor.Undo.RecordObject(this, "Migrate World Edit UI bindings");
             hudRoot = root.gameObject;
+            titleLabel = root.Find("Header/TitlePanel/Title")
+                ?.GetComponent<TextMeshProUGUI>();
             objectName = root.Find("Header/ObjectName")?.GetComponent<TextMeshProUGUI>();
             objectSubtitle = root.Find("Header/ObjectSubtitle")?.GetComponent<TextMeshProUGUI>();
             languageDropdown = root.Find("Header/LanguageDropdown")?.GetComponent<TMP_Dropdown>();
@@ -319,10 +321,41 @@ namespace Tormia.Ontology.Core
         private void ApplyLocalizedStaticLabels()
         {
             OntologyLanguagePackService.EnsureKoreanFontFallback(transform);
+            SetText(titleLabel, "ui.title.ontology_data", "Ontology Data");
+            SetButtonText(tripleTabButton, "ui.tab.triples", "Triples");
+            SetButtonText(ruleTabButton, "ui.tab.rule_blocks", "Rule Blocks");
+            SetButtonText(
+                physicalTabButton,
+                "ui.tab.physics",
+                "Physical Meaning");
+            SetButtonText(resultTabButton, "ui.tab.results", "Results");
+            SetButtonText(saveWorldButton, "ui.button.save_world", "Save World");
+            SetButtonText(loadWorldButton, "ui.button.load_world", "Load World");
         }
 
         private static string L(string key, string fallback) =>
             OntologyLanguagePackService.Text(key, fallback);
+
+        private static void SetText(
+            TMP_Text target,
+            string key,
+            string fallback)
+        {
+            if (target != null)
+                target.text = L(key, fallback);
+        }
+
+        private static void SetButtonText(
+            Button button,
+            string key,
+            string fallback)
+        {
+            if (button == null) return;
+            SetText(
+                button.GetComponentInChildren<TMP_Text>(true),
+                key,
+                fallback);
+        }
 
         private void HandleWorldChanged()
         {
@@ -343,7 +376,8 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            footerStatus = authorityBridge.LastPublishStatus;
+            footerStatus = LocalizeAuthorityStatus(
+                authorityBridge.LastPublishStatus);
             if (controller != null && controller.IsOntologyOpen)
             {
                 Refresh();
@@ -357,9 +391,34 @@ namespace Tormia.Ontology.Core
         private void Close()
         {
             ClosePhysicalDetail();
-            ClearPendingRule();
             pendingConceptConfirmationKey = null;
             controller?.CloseOntologyEditor();
+        }
+
+        private static string LocalizeAuthorityStatus(string technicalStatus)
+        {
+            if (string.IsNullOrWhiteSpace(technicalStatus))
+                return string.Empty;
+            var failed =
+                technicalStatus.IndexOf(
+                    "fail",
+                    System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                technicalStatus.IndexOf(
+                    "reject",
+                    System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                technicalStatus.IndexOf(
+                    "cannot",
+                    System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                technicalStatus.IndexOf(
+                    "stopped",
+                    System.StringComparison.OrdinalIgnoreCase) >= 0;
+            return failed
+                ? L(
+                    "ui.world_editor.authority_update_failed",
+                    "The Authority could not apply the world-data change.")
+                : L(
+                    "ui.world_editor.authority_update_completed",
+                    "The Authority world data was updated.");
         }
 
         private void SaveWorld()
@@ -395,7 +454,6 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            ClearPendingRule();
             var report = saveController.LoadSnapshot();
             footerStatus = report.Contains("Loaded snapshot")
                 ? L("ui.status.loaded", "World loaded successfully.")
@@ -416,9 +474,17 @@ namespace Tormia.Ontology.Core
         private void Refresh()
         {
             Bind();
+            var editorOpen = controller != null && controller.IsOntologyOpen;
+            if (editorOpen && !wasOntologyOpen)
+            {
+                mode = EditorMode.RuleBlocks;
+                footerStatus = null;
+                ClosePhysicalDetail();
+            }
+            wasOntologyOpen = editorOpen;
             if (!bound || hudRoot == null) return;
 
-            hudRoot.SetActive(controller != null && controller.IsOntologyOpen);
+            hudRoot.SetActive(editorOpen);
             if (!Application.isPlaying) return;
 
             RefreshModeContainers();
@@ -432,8 +498,6 @@ namespace Tormia.Ontology.Core
             RefreshFooter();
 
             var selected = controller != null ? controller.Selected : null;
-            if (pendingRuleOwner != null && pendingRuleOwner != selected)
-                ClearPendingRule();
             if (selected == null)
             {
                 SetHeader(
@@ -483,9 +547,11 @@ namespace Tormia.Ontology.Core
         {
             if (addTripleButton == null) return;
             var canAuthor = CanAuthorCurrentWorld;
-            addTripleButton.gameObject.SetActive(
-                mode == EditorMode.Triples ||
-                mode == EditorMode.RuleBlocks);
+            SetButtonText(
+                addTripleButton,
+                "ui.button.add_triple",
+                "+ Add Triple");
+            addTripleButton.gameObject.SetActive(mode == EditorMode.Triples);
             addTripleButton.interactable = canAuthor;
             if (saveWorldButton != null) saveWorldButton.interactable = canAuthor;
             if (physicalDetailApplyButton != null) physicalDetailApplyButton.interactable = canAuthor;
@@ -526,17 +592,17 @@ namespace Tormia.Ontology.Core
             Transform content,
             bool canAuthor)
         {
-            if (content == null) return;
+            if (content == null || canAuthor) return;
             foreach (var dropdown in content.GetComponentsInChildren<TMP_Dropdown>(true))
-                dropdown.interactable = canAuthor;
+                dropdown.interactable = false;
             foreach (var input in content.GetComponentsInChildren<TMP_InputField>(true))
-                input.interactable = canAuthor;
+                input.interactable = false;
             foreach (var button in content.GetComponentsInChildren<Button>(true))
             {
                 var controlName = button.gameObject.name;
                 if (controlName.Contains("Apply") || controlName.Contains("Save") ||
                     controlName.Contains("Delete") || controlName.Contains("Remove"))
-                    button.interactable = canAuthor;
+                    button.interactable = false;
             }
         }
 
@@ -595,46 +661,27 @@ namespace Tormia.Ontology.Core
                    candidate == resultRowTemplate;
         }
 
-        private void AddBlankRow()
+        private void AddBlankTripleRow()
         {
-            if (controller?.Selected == null) return;
-            if (mode == EditorMode.RuleBlocks)
-            {
-                if (pendingRuleOwner == controller.Selected) return;
-                var definition = controller.AvailableRuleDefinitions
-                    .FirstOrDefault(value => value != null && !string.IsNullOrWhiteSpace(value.id));
-                if (definition == null) return;
-                pendingRuleOwner = controller.Selected;
-                pendingRuleId = definition.id;
-                var variables = controller.GetRuleVariables(pendingRuleId);
-                pendingRuleVariable = variables.Contains("?target")
-                    ? "?target"
-                    : variables.FirstOrDefault();
-                Refresh();
-            }
-            else if (mode == EditorMode.Triples)
-                AddRow("has_concept", string.Empty, false, true);
+            if (controller?.Selected == null || mode != EditorMode.Triples) return;
+            AddRow("has_concept", string.Empty, false, true);
         }
 
         private void ShowRuleBlocks()
         {
-            AddRulePresetPickerRow();
+            AddQuickSetupRow();
             foreach (var binding in controller.SelectedRuleBlocks.Where(value => value != null))
-                AddRuleRow(binding.ruleId, binding.bindingVariable, false);
+                AddRuleRow(binding.ruleId, binding.bindingVariable);
 
-            if (pendingRuleOwner == controller.Selected)
-                AddRuleRow(pendingRuleId, pendingRuleVariable, true);
-            else if (controller.SelectedRuleBlocks.Count == 0)
+            if (controller.SelectedRuleBlocks.Count == 0)
                 AddResultRow(L(
                     "result.no_rule_block",
-                    "No rule block is assigned. Add one to enable a database rule for this object."));
+                    "No rule block is assigned. Choose a quick setup above to add a complete behavior."));
         }
 
-        private void AddRulePresetPickerRow()
+        private void AddQuickSetupRow()
         {
-            var template = quickSetupPanelTemplate != null
-                ? quickSetupPanelTemplate
-                : ruleRowTemplate;
+            var template = quickSetupPanelTemplate;
             if (template == null || controller?.Selected == null) return;
             var presets = controller.AvailableRuleBlockPresets
                 .Where(value => value != null &&
@@ -644,7 +691,7 @@ namespace Tormia.Ontology.Core
             if (presets.Count == 0) return;
 
             var row = Instantiate(template, tripleContent);
-            row.name = "RuleBlockPresetPicker";
+            row.name = "MeaningPackageQuickSetup";
             row.SetActive(true);
             PreparePhysicalRow(
                 row,
@@ -652,6 +699,8 @@ namespace Tormia.Ontology.Core
                 out var dropdown,
                 out var apply,
                 out var details);
+            SetButtonText(apply, "ui.button.apply", "Apply");
+            SetButtonText(details, "ui.button.details_short", "Details");
             if (dropdown != null)
             {
                 dropdown.ClearOptions();
@@ -982,6 +1031,7 @@ namespace Tormia.Ontology.Core
                     !string.IsNullOrWhiteSpace(value.profileId))
                 .OrderBy(value =>
                     value.mobilityMode == OntologyPhysicalMobilityMode.Anchored ? 3 :
+                    value.mobilityMode == OntologyPhysicalMobilityMode.AuthorityKinematic ? 2 :
                     value.supportsBuoyancy ? 1 : 0)
                 .ThenBy(value => value.mass)
                 .ToList();
@@ -1052,6 +1102,8 @@ namespace Tormia.Ontology.Core
                 out var dropdown,
                 out var apply,
                 out var details);
+            SetButtonText(apply, "ui.button.apply", "Apply");
+            SetButtonText(details, "ui.button.details_short", "Details");
 
             var profileIds = profiles.Select(value => value.profileId).ToList();
             if (dropdown != null)
@@ -1107,6 +1159,7 @@ namespace Tormia.Ontology.Core
                 out var dropdown,
                 out var apply,
                 out var details);
+            SetButtonText(apply, "ui.button.add", "Add");
 
             var effectIds = effects.Select(value => value.effectId).ToList();
             if (dropdown != null)
@@ -1147,6 +1200,8 @@ namespace Tormia.Ontology.Core
                 out var dropdown,
                 out var apply,
                 out var remove);
+            SetButtonText(apply, "ui.button.selected", "Selected");
+            SetButtonText(remove, "ui.button.remove", "Remove");
             if (apply != null)
             {
                 apply.interactable = false;
@@ -1262,6 +1317,9 @@ namespace Tormia.Ontology.Core
                 "physical_choice." + profile.profileId,
                 profile.mobilityMode == OntologyPhysicalMobilityMode.Anchored
                     ? "Keep this object fixed in place"
+                    : profile.mobilityMode ==
+                      OntologyPhysicalMobilityMode.AuthorityKinematic
+                        ? "Move this actor through Authority runtime motion"
                     : profile.supportsBuoyancy
                         ? profile.mass >= 2f
                             ? "Float strongly on the water"
@@ -1311,29 +1369,12 @@ namespace Tormia.Ontology.Core
                 profile.surfaceOffset);
         }
 
-        private void ClearPendingRule()
-        {
-            pendingRuleOwner = null;
-            pendingRuleId = null;
-            pendingRuleVariable = null;
-        }
-
-        private void AddRuleRow(string originalRuleId, string originalVariable, bool isNew)
+        private void AddRuleRow(string originalRuleId, string originalVariable)
         {
             if (ruleRowTemplate == null || controller?.Selected == null) return;
-            var definitions = controller.AvailableRuleDefinitions
-                .Where(value => value != null && !string.IsNullOrWhiteSpace(value.id))
-                .ToList();
-            if (definitions.Count == 0)
-            {
-                AddResultRow(L(
-                    "result.no_rules",
-                    "No rules are available in the Rule Database."));
-                return;
-            }
 
             var row = Instantiate(ruleRowTemplate, tripleContent);
-            row.name = isNew ? "RuleRow_New" : "RuleRow";
+            row.name = "AssignedRuleBlockRow";
             row.SetActive(true);
 
             var objectText = row.transform.Find("ObjectPill/ObjectText")?.GetComponent<TextMeshProUGUI>();
@@ -1342,101 +1383,42 @@ namespace Tormia.Ontology.Core
             var apply = FindActionButton(row.transform, "ApplyButton");
             var delete = FindActionButton(row.transform, "DeleteButton");
             if (objectText != null) objectText.text = controller.SelectedDisplayName;
+            SetButtonText(delete, "ui.button.remove", "Remove");
 
-            var ruleIds = definitions.Select(value => value.id).ToList();
             if (rule != null)
             {
                 rule.ClearOptions();
-                rule.AddOptions(ruleIds
-                    .Select(OntologyLanguagePackService.RuleName)
-                    .ToList());
-                var index = ruleIds.IndexOf(originalRuleId);
-                rule.value = index >= 0 ? index : 0;
+                rule.AddOptions(new List<string>
+                {
+                    OntologyLanguagePackService.RuleName(originalRuleId)
+                });
+                rule.SetValueWithoutNotify(0);
                 rule.RefreshShownValue();
+                rule.interactable = false;
             }
 
-            void RefreshVariables(int ruleIndex)
+            if (variable != null)
             {
-                if (variable == null) return;
-                var selectedRuleId = ruleIds[Mathf.Clamp(ruleIndex, 0, ruleIds.Count - 1)];
-                var variables = controller.GetRuleVariables(selectedRuleId);
                 variable.ClearOptions();
-                variable.AddOptions(variables.Select(DisplayVariable).ToList());
-                var variableIndex = variables.IndexOf(originalVariable);
-                if (variableIndex < 0)
-                    variableIndex = variables.IndexOf("?target");
-                variable.value = variableIndex >= 0 ? variableIndex : 0;
+                variable.AddOptions(new List<string>
+                {
+                    DisplayVariable(originalVariable)
+                });
+                variable.SetValueWithoutNotify(0);
                 variable.RefreshShownValue();
-                variable.interactable = variables.Count > 1;
-            }
-
-            if (rule != null)
-            {
-                rule.onValueChanged.RemoveAllListeners();
-                rule.onValueChanged.AddListener(ruleIndex =>
-                {
-                    RefreshVariables(ruleIndex);
-                    if (!isNew) return;
-                    pendingRuleId = ruleIds[Mathf.Clamp(ruleIndex, 0, ruleIds.Count - 1)];
-                    var variables = controller.GetRuleVariables(pendingRuleId);
-                    pendingRuleVariable = variables.Count > 0
-                        ? variables[Mathf.Clamp(variable != null ? variable.value : 0, 0, variables.Count - 1)]
-                        : null;
-                });
-                rule.interactable = isNew;
-                RefreshVariables(rule.value);
-            }
-
-            if (variable != null && isNew)
-            {
-                variable.onValueChanged.RemoveAllListeners();
-                variable.onValueChanged.AddListener(variableIndex =>
-                {
-                    var selectedRuleId = ruleIds[Mathf.Clamp(rule != null ? rule.value : 0, 0, ruleIds.Count - 1)];
-                    var variables = controller.GetRuleVariables(selectedRuleId);
-                    if (variables.Count == 0) return;
-                    pendingRuleId = selectedRuleId;
-                    pendingRuleVariable = variables[Mathf.Clamp(variableIndex, 0, variables.Count - 1)];
-                });
+                variable.interactable = false;
             }
 
             if (apply != null)
-            {
-                apply.onClick.RemoveAllListeners();
-                apply.onClick.AddListener(() =>
-                {
-                    var ruleIndex = rule != null ? rule.value : 0;
-                    var nextRuleId = ruleIds[Mathf.Clamp(ruleIndex, 0, ruleIds.Count - 1)];
-                    var variables = controller.GetRuleVariables(nextRuleId);
-                    if (variables.Count == 0) return;
-                    var variableIndex = variable != null ? variable.value : 0;
-                    var nextVariable = variables[Mathf.Clamp(variableIndex, 0, variables.Count - 1)];
-                    if (!isNew)
-                        controller.RemoveSelectedRuleBlock(originalRuleId, originalVariable);
-                    else
-                        ClearPendingRule();
-                    if (!controller.AddSelectedRuleBlock(nextRuleId, nextVariable) && isNew)
-                    {
-                        pendingRuleOwner = controller.Selected;
-                        pendingRuleId = nextRuleId;
-                        pendingRuleVariable = nextVariable;
-                        Refresh();
-                    }
-                });
-            }
+                apply.gameObject.SetActive(false);
 
             if (delete != null)
             {
                 delete.onClick.RemoveAllListeners();
                 delete.onClick.AddListener(() =>
-                {
-                    if (isNew)
-                    {
-                        ClearPendingRule();
-                        Refresh();
-                    }
-                    else controller.RemoveSelectedRuleBlock(originalRuleId, originalVariable);
-                });
+                    controller.RemoveSelectedRuleBlock(
+                        originalRuleId,
+                        originalVariable));
             }
         }
 
@@ -1474,10 +1456,6 @@ namespace Tormia.Ontology.Core
                          .OrderBy(value => value.Predicate.Value)
                          .ThenBy(value => value.Object.Value))
                 AddResultRow(
-                    L("result.current_information", "Current information") +
-                    " · " +
-                    FactOriginLabel(fact, ontology) +
-                    "\n" +
                     OntologyLanguagePackService.FormatFact(
                         fact,
                         controller.GetDisplayNameForEntity));
@@ -1501,27 +1479,6 @@ namespace Tormia.Ontology.Core
                    ontologyEvent.RemovedFacts.Any(value => value.Subject.Value == entityId) ||
                    ontologyEvent.SetFacts.Any(value => value.Subject.Value == entityId) ||
                    ontologyEvent.AdjustedNumberFacts.Any(value => value.Subject.Value == entityId);
-        }
-
-        private string FactOriginLabel(OntologyFact fact, OntologyObject ontology)
-        {
-            if (ontology != null &&
-                (fact.Predicate.Value == OntologyPredicates.HasConcept ||
-                 ontology.Facts.Any(value => value != null &&
-                     value.predicate == fact.Predicate.Value &&
-                     value.obj == fact.Object.Value)))
-            {
-                return L("result.origin.authored", "Authored");
-            }
-
-            if (OntologyDerivedFactPolicy.IsDerived(
-                    fact,
-                    bootstrap == null ? null : bootstrap.AllRuleDefinitions))
-            {
-                return L("result.origin.inferred", "Inferred");
-            }
-
-            return L("result.origin.observed", "Observed");
         }
 
         private string FormatEvent(OntologyEvent ontologyEvent)
@@ -1635,6 +1592,10 @@ namespace Tormia.Ontology.Core
             }
             if (obj != null)
             {
+                SetText(
+                    obj.placeholder as TMP_Text,
+                    "ui.placeholder.object_value",
+                    "Value");
                 // Keep the canonical identifier in the world data, but present rule
                 // identifiers through the language pack when this relation points to a rule.
                 obj.text = DisplayObjectValue(originalObject, originalRelation);

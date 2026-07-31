@@ -2,7 +2,8 @@
 param(
     [switch]$RequireServices,
     [switch]$SkipServerBuild,
-    [switch]$RunAccountWorldLoopSmoke
+    [switch]$RunAccountWorldLoopSmoke,
+    [switch]$RequireUnityMcp
 )
 
 $ErrorActionPreference = 'Stop'
@@ -55,6 +56,33 @@ Write-Check "Core regression manifest" {
             [string]::IsNullOrWhiteSpace($scenario.evidenceTest)) {
             throw 'Scenario is missing id, evidenceFile, or evidenceTest.'
         }
+
+        if ($scenario.kind -like '*gameplay-pipeline*') {
+            if ($scenario.PSObject.Properties.Name -notcontains 'pipelineStages' -or
+                $null -eq $scenario.pipelineStages) {
+                throw "Gameplay pipeline scenario '$($scenario.id)' has no pipelineStages ownership record."
+            }
+
+            $requiredStages = @(
+                'trigger',
+                'intentOrObservation',
+                'triples',
+                'ruleBlock',
+                'evaluation',
+                'result',
+                'authorityBoundary',
+                'meaning',
+                'adapter',
+                'experience'
+            )
+            foreach ($stage in $requiredStages) {
+                if ($scenario.pipelineStages.PSObject.Properties.Name -notcontains $stage -or
+                    [string]::IsNullOrWhiteSpace([string]$scenario.pipelineStages.$stage)) {
+                    throw "Gameplay pipeline scenario '$($scenario.id)' has no owner or N/A reason for stage '$stage'."
+                }
+            }
+        }
+
         $evidencePath = Require-Path $scenario.evidenceFile
         if ($scenario.kind -like 'unity-*') {
             $evidence = Get-Content -LiteralPath $evidencePath -Raw -Encoding utf8
@@ -63,6 +91,109 @@ Write-Check "Core regression manifest" {
             }
         }
     }
+
+    $requiredProductionContracts = @{
+        'player-ontology-production' = 'player-ground-combat-ontology-contract'
+        'weapon-ontology-production' = 'rule-block-owned-primary-melee-attack'
+        'monster-ontology-production' = 'portable-autonomous-monster-ontology-contract'
+    }
+    $requiredProductionStages = @(
+        'resource',
+        'triples',
+        'ruleBlocks',
+        'actions',
+        'physicalMeaning',
+        'animationManifest',
+        'authority',
+        'unityPresentation',
+        'removedPath'
+    )
+
+    foreach ($contractId in $requiredProductionContracts.Keys) {
+        $matches = @($manifest.scenarios | Where-Object {
+            $_.PSObject.Properties.Name -contains 'productionContract' -and
+            $null -ne $_.productionContract -and
+            [string]$_.productionContract.contractId -eq $contractId
+        })
+
+        if ($matches.Count -ne 1) {
+            throw "Required production contract '$contractId' must exist exactly once; found $($matches.Count)."
+        }
+
+        $scenario = $matches[0]
+        if ([string]$scenario.id -ne [string]$requiredProductionContracts[$contractId]) {
+            throw "Production contract '$contractId' must remain attached to canonical scenario '$($requiredProductionContracts[$contractId])'."
+        }
+        if ($scenario.kind -notlike '*gameplay-pipeline*') {
+            throw "Production contract '$contractId' must use a gameplay-pipeline scenario."
+        }
+        if ([int]$scenario.productionContract.version -lt 1) {
+            throw "Production contract '$contractId' has no valid contract version."
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$scenario.productionContract.appliesTo)) {
+            throw "Production contract '$contractId' does not declare what content it governs."
+        }
+        if ($scenario.productionContract.PSObject.Properties.Name -notcontains 'stages' -or
+            $null -eq $scenario.productionContract.stages) {
+            throw "Production contract '$contractId' has no production stages."
+        }
+
+        foreach ($stage in $requiredProductionStages) {
+            if ($scenario.productionContract.stages.PSObject.Properties.Name -notcontains $stage -or
+                [string]::IsNullOrWhiteSpace([string]$scenario.productionContract.stages.$stage)) {
+                throw "Production contract '$contractId' is missing required stage '$stage'."
+            }
+        }
+
+        $forbidden = @($scenario.productionContract.forbiddenImplementations)
+        if ($forbidden.Count -lt 5 -or
+            @($forbidden | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0) {
+            throw "Production contract '$contractId' must declare at least five non-empty forbidden implementation classes."
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$scenario.enabledExpectation) -or
+            [string]::IsNullOrWhiteSpace([string]$scenario.disabledExpectation)) {
+            throw "Production contract '$contractId' must record both enabled and removed expectations."
+        }
+
+        $contractEvidence = @($scenario.productionContract.evidence)
+        if ($contractEvidence.Count -lt 2) {
+            throw "Production contract '$contractId' must record executable evidence across at least two system boundaries."
+        }
+        foreach ($evidenceRecord in $contractEvidence) {
+            if ([string]::IsNullOrWhiteSpace([string]$evidenceRecord.file) -or
+                [string]::IsNullOrWhiteSpace([string]$evidenceRecord.tests)) {
+                throw "Production contract '$contractId' contains an incomplete evidence record."
+            }
+
+            $contractEvidencePath = Require-Path $evidenceRecord.file
+            $contractEvidenceText = Get-Content -LiteralPath $contractEvidencePath -Raw -Encoding utf8
+            $contractEvidenceNames = @([string]$evidenceRecord.tests -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+            foreach ($contractEvidenceName in $contractEvidenceNames) {
+                if (-not $contractEvidenceText.Contains($contractEvidenceName)) {
+                    throw "Production contract '$contractId' does not match evidence '$contractEvidenceName' in '$($evidenceRecord.file)'."
+                }
+            }
+        }
+
+        $evidencePath = Require-Path $scenario.evidenceFile
+        $evidence = Get-Content -LiteralPath $evidencePath -Raw -Encoding utf8
+        $evidenceNames = @([string]$scenario.evidenceTest -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        foreach ($evidenceName in $evidenceNames) {
+            if (-not $evidence.Contains($evidenceName)) {
+                throw "Production contract '$contractId' does not match evidence '$evidenceName' in '$($scenario.evidenceFile)'."
+            }
+        }
+    }
+}
+
+if ($RequireUnityMcp) {
+    Write-Check "Unity MCP persistent HTTP connection" {
+        $mcpVerifier = Require-Path 'scripts/verify-unity-mcp.ps1'
+        & $mcpVerifier
+    }
+}
+else {
+    $warnings.Add('Unity MCP check is opt-in. Run with -RequireUnityMcp while the Unity Editor is open.')
 }
 
 if (-not $SkipServerBuild) {

@@ -90,6 +90,15 @@ namespace Tormia.Ontology.Core
 
         private void Start()
         {
+            if (physicalProfileDatabase != null &&
+                physicalProfileDatabase.CollisionLayers.Count > 0 &&
+                !physicalProfileDatabase.ApplyCollisionMatrix())
+            {
+                Debug.LogError(
+                    "Physical Profile collision-layer mapping is incomplete. " +
+                    "Semantic collision presentation will fail closed.",
+                    this);
+            }
             ResetWorld(logReport: false);
             if (runOnStart)
             {

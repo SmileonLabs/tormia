@@ -41,9 +41,10 @@ namespace Tormia.Ontology.Core
         {
             EnsureReady();
 
-            // Remove legacy derived facts restored before this policy existed, then rebuild
-            // derived relations from the current source facts. This also retracts the result
-            // of a rule block that has just been removed and is no longer in ruleDefinitions.
+            // Remove only inferred-origin contributions, then rebuild derived
+            // relations from current source facts. A matching durable Authority
+            // projection must survive this cleanup even when another active rule
+            // can infer the same triple.
             OntologyDerivedFactPolicy.RemoveFrom(
                 World,
                 derivedFactDefinitions ?? ruleDefinitions);

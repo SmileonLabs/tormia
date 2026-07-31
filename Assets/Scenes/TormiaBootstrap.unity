@@ -264,6 +264,7 @@ MonoBehaviour:
   authorityClient: {fileID: 657970465}
   placementController: {fileID: 0}
   worldEditorController: {fileID: 0}
+  localAvatarIdentity: {fileID: 0}
   lastPublishStatus: 
 --- !u!114 &657970465
 MonoBehaviour:
@@ -349,7 +350,9 @@ MonoBehaviour:
   submissionsPerSecond: 15
   lastStatus: 
   avatarRegistered: 0
+  locomotionApproved: 0
   nextSequence: 1
+  lastAcceptedSequence: 0
 --- !u!114 &657970470
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -397,8 +400,14 @@ MonoBehaviour:
   profileRelationProjector: {fileID: 0}
   sessionCoordinator: {fileID: 0}
   checkpointController: {fileID: 0}
+  entryPresentationCoordinator: {fileID: 0}
+  respawnController: {fileID: 0}
   persistentStateCoordinator: {fileID: 0}
   lastStatus: 
+  lastStatusKey: 
+  lastStatusFallback: 
+  lastStatusArguments: []
+  lastTechnicalStatus: 
   enteredCurrentWorld: 0
   isEnteringWorld: 0
 --- !u!114 &657970472
@@ -447,6 +456,12 @@ MonoBehaviour:
   authorityClient: {fileID: 0}
   sessionCoordinator: {fileID: 0}
   avatarIdentity: {fileID: 0}
+  groundingAdapter: {fileID: 0}
+  drowningRecovery: {fileID: 0}
+  motionReconciler: {fileID: 0}
+  playerInput: {fileID: 0}
+  waterPresenceSensor: {fileID: 0}
+  characterController: {fileID: 0}
   saveIntervalSeconds: 30
   minimumMovedDistance: 2
   saveOnApplicationPause: 1

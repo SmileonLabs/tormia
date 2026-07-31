@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The Unity asmdef is explicitly no-engine-reference. Reusing these source
+         files keeps the server and editor on one rule semantics implementation. -->
+    <Compile Include="..\..\Assets\Scripts\Ontology\Core\*.cs"
+             Link="Core\%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

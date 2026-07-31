@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ca941766d42bcb4f9f8dbf3d8afeef4, type: 3}
+  m_Name: Sword15FrostVisualTemplate
+  m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyMapObjectTemplate
+  description: Equipable sword weapon.
+  concepts:
+  - Item
+  - Weapon
+  - Sword
+  - Carryable
+  facts:
+  - predicate: attachment_profile
+    obj: RightHandCarry
+  - predicate: grants_capability
+    obj: MeleeAttack
+  - predicate: damage_profile
+    obj: BasicSwordDamage
+  - predicate: attack_damage
+    obj: 10
+  - predicate: can_equip
+    obj: True
+  - predicate: has_slot
+    obj: RightHand
+  - predicate: pickup_behavior
+    obj: SelectThenCarry
+  - predicate: physical_profile
+    obj: HandheldWeapon
+  - predicate: attack_action
+    obj: attack
+  - predicate: equip_action
+    obj: equip_weapon
+  - predicate: unequip_action
+    obj: unequip_equipment
+  - predicate: interaction_range
+    obj: 3
+  - predicate: swing_action
+    obj: swing_weapon
+  - predicate: attack_range
+    obj: 3
+  - predicate: attack_cooldown
+    obj: 1
+  - predicate: attack_contact_mode
+    obj: WeaponContactWindow
+  retiredConcepts: []
+  retiredFacts: []

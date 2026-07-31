@@ -488,6 +488,7 @@ namespace Tormia.Ontology.Tests
                 definitionId = "TestHeavy",
                 prefab = sourcePrefab,
                 ontologyTemplate = template,
+                physicalProfile = heavyProfile,
                 placementPolicy = new OntologyPlacementPolicy
                 {
                     requiredSurface =
@@ -497,12 +498,6 @@ namespace Tormia.Ontology.Tests
             };
             var catalog =
                 ScriptableObject.CreateInstance<OntologyPlaceableCatalog>();
-            typeof(OntologyPlaceableCatalog)
-                .GetField(
-                    "defaultPhysicalProfile",
-                    System.Reflection.BindingFlags.Instance |
-                    System.Reflection.BindingFlags.NonPublic)
-                ?.SetValue(catalog, heavyProfile);
             catalog.ReplaceDefinitions(new[] { definition });
 
             var controllerObject = new GameObject("PlacementController");

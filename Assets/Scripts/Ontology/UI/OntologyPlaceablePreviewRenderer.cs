@@ -40,6 +40,7 @@ namespace Tormia.Ontology.Core
 
             previewInstance = Instantiate(definition.previewPrefab != null ? definition.previewPrefab : definition.prefab, previewRoot);
             previewInstance.name = "PreviewModel_" + definition.definitionId;
+            OntologyRenderPipelineMaterialAdapter.ApplyTo(previewInstance);
             foreach (var collider in previewInstance.GetComponentsInChildren<Collider>(true)) collider.enabled = false;
             foreach (var behaviour in previewInstance.GetComponentsInChildren<MonoBehaviour>(true)) behaviour.enabled = false;
             CenterAndFrame(previewRoot, previewInstance, previewSize);

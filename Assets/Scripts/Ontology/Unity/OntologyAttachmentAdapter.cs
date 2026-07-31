@@ -22,8 +22,20 @@ namespace Tormia.Ontology.Core
         private Vector3 mountedActorWorldPosition;
         private Quaternion mountedActorWorldRotation;
         private bool placeInWorldAfterDetach;
+        private Transform activeActorAnchor;
+        private OntologyAttachmentGripPoint activeGripPoint;
+        private Vector3 capturedGripLocalPosition;
+        private Quaternion capturedGripLocalRotation;
+        private Vector3 capturedGripLocalScale;
+        private Vector3 capturedProfileLocalPosition;
+        private Vector3 capturedProfileLocalEulerAngles;
+        private Vector3 capturedProfileLocalScale;
+        private bool hasAttachmentPoseSnapshot;
+        private bool missingAnchorLogged;
+        private bool relationAmbiguityLogged;
 
         public bool IsAttached { get; private set; }
+        public bool OwnsWorldTransform => IsAttached;
         public OntologyAttachmentProfile AttachmentProfile => attachmentProfile;
 
         private void Awake()
@@ -45,6 +57,12 @@ namespace Tormia.Ontology.Core
             var shouldAttach = ShouldBeAttached();
             if (shouldAttach == IsAttached)
             {
+                if (shouldAttach &&
+                    attachmentProfile != null &&
+                    attachmentProfile.kind != OntologyAttachmentKind.Mountable)
+                {
+                    RefreshAttachedPoseIfAuthoringChanged();
+                }
                 return;
             }
 
@@ -69,6 +87,7 @@ namespace Tormia.Ontology.Core
                     attachmentProfile.disableWorldPhysicsWhileAttached,
                     attachmentProfile.disableWorldCollidersWhileAttached);
                 RestoreMountedActorController();
+                ClearAttachmentPoseSnapshot();
                 IsAttached = false;
             }
         }
@@ -96,8 +115,9 @@ namespace Tormia.Ontology.Core
         {
             if (attachmentProfile == null ||
                 bootstrap == null || bootstrap.World == null ||
-                itemObject == null || actorObject == null ||
-                string.IsNullOrWhiteSpace(attachmentProfile.profileId))
+                itemObject == null ||
+                string.IsNullOrWhiteSpace(attachmentProfile.profileId) ||
+                string.IsNullOrWhiteSpace(attachmentProfile.relationPredicate))
             {
                 return false;
             }
@@ -110,21 +130,48 @@ namespace Tormia.Ontology.Core
                 return false;
             }
 
-            return attachmentProfile.kind switch
+            string matchedActorId = null;
+            OntologyObject matchedActor = null;
+            foreach (var fact in bootstrap.World.Facts)
             {
-                OntologyAttachmentKind.Carryable => bootstrap.World.HasFact(
-                    itemObject.EntityId,
-                    OntologyPredicates.CarriedBy,
-                    actorObject.EntityId),
-                OntologyAttachmentKind.Mountable => bootstrap.World.HasFact(
-                    actorObject.EntityId,
-                    OntologyPredicates.MountedIn,
-                    itemObject.EntityId),
-                _ => bootstrap.World.HasFact(
-                    itemObject.EntityId,
-                    OntologyPredicates.EquippedBy,
-                    actorObject.EntityId)
-            };
+                var actorId = ResolveActorIdFromRelation(fact);
+                if (string.IsNullOrWhiteSpace(actorId) ||
+                    !bootstrap.EntityRegistry.TryGet(actorId, out var resolvedActor))
+                {
+                    continue;
+                }
+
+                if (matchedActorId == null)
+                {
+                    matchedActorId = actorId;
+                    matchedActor = resolvedActor;
+                    continue;
+                }
+
+                if (string.Equals(
+                        matchedActorId,
+                        actorId,
+                        System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!relationAmbiguityLogged)
+                {
+                    Debug.LogError(
+                        "[OntologyAttachment] Multiple actors own the same " +
+                        "attachment relation. Presentation is disabled until " +
+                        "Authority repairs the relation.",
+                        this);
+                    relationAmbiguityLogged = true;
+                }
+                return false;
+            }
+
+            relationAmbiguityLogged = false;
+            if (matchedActor != null)
+                actorObject = matchedActor;
+            return matchedActor != null;
         }
 
         private void Attach()
@@ -138,18 +185,28 @@ namespace Tormia.Ontology.Core
             var anchor = ResolveActorAnchor();
             if (anchor == null)
             {
+                if (!missingAnchorLogged)
+                {
+                    Debug.LogError(
+                        "[OntologyAttachment] The authored actor socket could " +
+                        "not be resolved. Attachment presentation remains " +
+                        "disabled; no actor-root fallback is applied.",
+                        this);
+                    missingAnchorLogged = true;
+                }
                 return;
             }
+            missingAnchorLogged = false;
 
             detachedParent = transform.parent;
+            if (!ApplyAttachmentPose(anchor))
+            {
+                return;
+            }
             physicsCoordinator.SetAttachmentOverride(
                 true,
                 attachmentProfile.disableWorldPhysicsWhileAttached,
                 attachmentProfile.disableWorldCollidersWhileAttached);
-            transform.SetParent(anchor, false);
-            transform.localPosition = attachmentProfile.localPosition;
-            transform.localRotation = Quaternion.Euler(attachmentProfile.localEulerAngles);
-            transform.localScale = attachmentProfile.localScale;
             IsAttached = true;
         }
 
@@ -177,7 +234,83 @@ namespace Tormia.Ontology.Core
                 false,
                 attachmentProfile.disableWorldPhysicsWhileAttached,
                 attachmentProfile.disableWorldCollidersWhileAttached);
+            ClearAttachmentPoseSnapshot();
             IsAttached = false;
+        }
+
+        private void RefreshAttachedPoseIfAuthoringChanged()
+        {
+            var anchor = ResolveActorAnchor();
+            var gripPoint =
+                GetComponentInChildren<OntologyAttachmentGripPoint>(true);
+            if (anchor == null)
+            {
+                return;
+            }
+
+            var authoredPoseChanged =
+                !hasAttachmentPoseSnapshot ||
+                anchor != activeActorAnchor ||
+                gripPoint != activeGripPoint ||
+                (gripPoint != null &&
+                 (gripPoint.transform.localPosition !=
+                      capturedGripLocalPosition ||
+                  gripPoint.transform.localRotation !=
+                      capturedGripLocalRotation ||
+                  gripPoint.transform.localScale !=
+                      capturedGripLocalScale)) ||
+                attachmentProfile.localPosition !=
+                    capturedProfileLocalPosition ||
+                attachmentProfile.localEulerAngles !=
+                    capturedProfileLocalEulerAngles ||
+                attachmentProfile.localScale !=
+                    capturedProfileLocalScale;
+            if (authoredPoseChanged)
+            {
+                if (!ApplyAttachmentPose(anchor))
+                {
+                    Detach();
+                }
+            }
+        }
+
+        private bool ApplyAttachmentPose(Transform anchor)
+        {
+            if (!OntologyAttachmentPoseUtility.Apply(
+                    transform,
+                    anchor,
+                    attachmentProfile))
+            {
+                return false;
+            }
+            activeActorAnchor = anchor;
+            activeGripPoint =
+                GetComponentInChildren<OntologyAttachmentGripPoint>(true);
+            if (activeGripPoint != null)
+            {
+                capturedGripLocalPosition =
+                    activeGripPoint.transform.localPosition;
+                capturedGripLocalRotation =
+                    activeGripPoint.transform.localRotation;
+                capturedGripLocalScale =
+                    activeGripPoint.transform.localScale;
+            }
+
+            capturedProfileLocalPosition =
+                attachmentProfile.localPosition;
+            capturedProfileLocalEulerAngles =
+                attachmentProfile.localEulerAngles;
+            capturedProfileLocalScale =
+                attachmentProfile.localScale;
+            hasAttachmentPoseSnapshot = true;
+            return true;
+        }
+
+        private void ClearAttachmentPoseSnapshot()
+        {
+            activeActorAnchor = null;
+            activeGripPoint = null;
+            hasAttachmentPoseSnapshot = false;
         }
 
         public bool TryUnequip()
@@ -342,6 +475,20 @@ namespace Tormia.Ontology.Core
                 return null;
             }
 
+            var authoredSocket =
+                OntologyAttachmentPoseUtility.ResolveActorSocket(
+                    actorObject.transform,
+                    attachmentProfile.actorSocketId);
+            if (authoredSocket != null)
+            {
+                return authoredSocket;
+            }
+            if (!string.IsNullOrWhiteSpace(
+                    attachmentProfile.actorSocketId))
+            {
+                return null;
+            }
+
             if (!string.IsNullOrWhiteSpace(attachmentProfile.actorAnchorPath))
             {
                 var pathAnchor = actorObject.transform.Find(attachmentProfile.actorAnchorPath);
@@ -363,7 +510,7 @@ namespace Tormia.Ontology.Core
                 }
             }
 
-            return actorObject.transform;
+            return null;
         }
 
         private Transform ResolveMountPoint()
@@ -596,31 +743,31 @@ namespace Tormia.Ontology.Core
                 }
             }
 
-            bootstrap.EntityRegistry.TryGetSingleWithConcept(
-                OntologyConcepts.Actor,
-                out actorObject);
+            actorObject =
+                OntologySemanticAdapterSynchronizer
+                    .ResolvePresentationActor(bootstrap);
         }
 
         private string ResolveActorIdFromRelation(OntologyFact fact)
         {
-            if (attachmentProfile == null || itemObject == null)
+            if (attachmentProfile == null ||
+                itemObject == null ||
+                string.IsNullOrWhiteSpace(attachmentProfile.relationPredicate) ||
+                fact.Predicate.Value != attachmentProfile.relationPredicate)
             {
                 return null;
             }
 
-            if (attachmentProfile.kind == OntologyAttachmentKind.Mountable)
+            if (attachmentProfile.relationDirection ==
+                OntologyAttachmentRelationDirection.ActorToItem)
             {
-                return fact.Object.Value == itemObject.EntityId &&
-                       fact.Predicate.Value == OntologyPredicates.MountedIn
+                return fact.Object.Value == itemObject.EntityId
                     ? fact.Subject.Value
                     : null;
             }
 
-            var predicate = attachmentProfile.kind == OntologyAttachmentKind.Carryable
-                ? OntologyPredicates.CarriedBy
-                : OntologyPredicates.EquippedBy;
             return fact.Subject.Value == itemObject.EntityId &&
-                   fact.Predicate.Value == predicate
+                   !string.IsNullOrWhiteSpace(fact.Object.Value)
                 ? fact.Object.Value
                 : null;
         }

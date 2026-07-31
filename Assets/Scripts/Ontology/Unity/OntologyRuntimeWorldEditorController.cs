@@ -78,10 +78,22 @@ namespace Tormia.Ontology.Core
         public event Action<OntologyPlaceableInstance> TransformCommitted;
         /// <summary>Raised after the user commits placement of a duplicated instance.</summary>
         public event Action<OntologyPlaceableInstance> DuplicateCommitted;
+        /// <summary>
+        /// Requests durable retirement of an Authority-projected entity. A handler
+        /// returns true only when it accepted ownership of the request.
+        /// </summary>
+        public event Func<OntologyPlaceableInstance, bool>
+            EntityRetirementRequested;
         /// <summary>Raised after an authored triple is added or removed in the runtime editor.</summary>
         public event Action<OntologyPlaceableInstance, string, string, bool> AuthoredFactChanged;
         /// <summary>Raised after an instance rule-block binding is added or removed.</summary>
         public event Action<OntologyPlaceableInstance, string, string, bool> RuleBlockChanged;
+        /// <summary>
+        /// Raised for a complete Triple + Rule Block + Physical Meaning change.
+        /// The Authority bridge commits it atomically before Unity projects it.
+        /// </summary>
+        public event Action<OntologyPlaceableInstance, OntologyMeaningPackageChange>
+            MeaningPackageChangeRequested;
 
         public string GetDisplayNameForEntity(string entityId)
         {
@@ -210,6 +222,11 @@ namespace Tormia.Ontology.Core
 
         private void Update()
         {
+            if (ReleaseStaleSelectionCapture())
+            {
+                return;
+            }
+
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current == null) return;
             if (WasPressed(toggleKey))
@@ -249,6 +266,21 @@ namespace Tormia.Ontology.Core
                 if (Mouse.current.leftButton.wasPressedThisFrame) HandleWorldClick(Mouse.current.position.ReadValue());
             }
 #endif
+        }
+
+        private bool ReleaseStaleSelectionCapture()
+        {
+            if (!IsEditing || selected != null)
+            {
+                return false;
+            }
+
+            // A selected placeable can be retired or removed by an Authority
+            // projection between frames. Unity then reports the destroyed
+            // reference as null, so edit mode must release its ephemeral input
+            // ownership instead of blocking player clicks indefinitely.
+            SetEditing(false);
+            return true;
         }
 
         public void SetEditing(bool value)
@@ -580,7 +612,23 @@ namespace Tormia.Ontology.Core
         public void DeleteSelection()
         {
             if (selected == null) return;
-            var target = selected; Select(null); Destroy(target.gameObject); RefreshWorld();
+            var target = selected;
+            var request = EntityRetirementRequested;
+            if (request != null)
+            {
+                foreach (Func<OntologyPlaceableInstance, bool> handler in
+                         request.GetInvocationList())
+                {
+                    if (!handler(target)) continue;
+                    Select(null);
+                    StateChanged?.Invoke();
+                    return;
+                }
+            }
+
+            Select(null);
+            Destroy(target.gameObject);
+            RefreshWorld();
         }
 
         public bool AddSelectedConcept(string concept) => ChangeSelectedOntology(concept, null, null, true);
@@ -768,6 +816,30 @@ namespace Tormia.Ontology.Core
                 return false;
             }
 
+            if (MeaningPackageChangeRequested != null)
+            {
+                var change = BuildMeaningPackageChange(preset);
+                change.slotId = "temporary_skill_grant";
+                change.packageId = "temporary_skill_" + skillId;
+                change.replacePredicateIds.Add(
+                    OntologyPredicates.GrantsSkill);
+                change.replacePredicateIds.Add(
+                    OntologyPredicates.SkillGrantRequiresRule);
+                change.authoredFacts.Add(new OntologyFactEntry
+                {
+                    predicate = OntologyPredicates.GrantsSkill,
+                    obj = skillId
+                });
+                change.authoredFacts.Add(new OntologyFactEntry
+                {
+                    predicate =
+                        OntologyPredicates.SkillGrantRequiresRule,
+                    obj = requiredRuleId
+                });
+                MeaningPackageChangeRequested.Invoke(selected, change);
+                return true;
+            }
+
             var ontology = selected.GetComponent<OntologyObject>() ??
                            selected.gameObject.AddComponent<OntologyObject>();
             var conceptsBefore = new HashSet<string>(ontology.Concepts.Where(value =>
@@ -907,6 +979,14 @@ namespace Tormia.Ontology.Core
                     GetSelectedRuleBlockPresetValidationMessage(presetId)))
             {
                 return false;
+            }
+
+            if (MeaningPackageChangeRequested != null)
+            {
+                MeaningPackageChangeRequested.Invoke(
+                    selected,
+                    BuildMeaningPackageChange(preset));
+                return true;
             }
 
             var ontology = selected.GetComponent<OntologyObject>() ??
@@ -1078,24 +1158,12 @@ namespace Tormia.Ontology.Core
             if (assignment == null || !assignment.Remove(ruleId, bindingVariable)) return false;
 
             var ledger = selected.GetComponent<OntologySemanticContributionLedger>();
-            var removedContributions = ledger == null
+            var completedContributions = ledger == null
                 ? Array.Empty<OntologySemanticContribution>()
-                : ledger.RemoveOwnersContainingRule(ruleId, bindingVariable).ToArray();
-            if (removedContributions.Length > 0)
+                : ledger.RemoveRuleBinding(ruleId, bindingVariable).ToArray();
+            if (completedContributions.Length > 0)
             {
-                foreach (var contribution in removedContributions)
-                {
-                    foreach (var binding in contribution.ruleBlocks.Where(value =>
-                                 value != null &&
-                                 !string.IsNullOrWhiteSpace(value.ruleId) &&
-                                 !string.IsNullOrWhiteSpace(value.bindingVariable)))
-                    {
-                        if (!ledger.IsRuleBlockClaimed(binding.ruleId, binding.bindingVariable))
-                            assignment.Remove(binding.ruleId, binding.bindingVariable);
-                    }
-                }
-
-                RemoveUnclaimedContributionData(removedContributions, ledger);
+                RemoveUnclaimedContributionData(completedContributions, ledger);
             }
             OntologySemanticAdapterSynchronizer.SynchronizeAll(
                 selected.gameObject,
@@ -1340,6 +1408,46 @@ namespace Tormia.Ontology.Core
                 OntologyAttachmentKind.Mountable => OntologyObjects.SelectThenMount,
                 _ => OntologyObjects.SelectThenEquip
             };
+            if (MeaningPackageChangeRequested != null)
+            {
+                MeaningPackageChangeRequested.Invoke(
+                    selected,
+                    new OntologyMeaningPackageChange
+                    {
+                        operation = "apply",
+                        applicationId = Guid.NewGuid().ToString("D"),
+                        slotId = "attachment_meaning",
+                        packageId = "attachment_profile_" + profile.profileId,
+                        replacePredicateIds = new List<string>
+                        {
+                            OntologyPredicates.AttachmentProfile,
+                            OntologyPredicates.HasSlot,
+                            OntologyPredicates.PickupBehavior
+                        },
+                        requiredConceptIds = new List<string> { concept },
+                        authoredFacts = new List<OntologyFactEntry>
+                        {
+                            new()
+                            {
+                                predicate =
+                                    OntologyPredicates.AttachmentProfile,
+                                obj = profile.profileId
+                            },
+                            new()
+                            {
+                                predicate = OntologyPredicates.HasSlot,
+                                obj = profile.slotId
+                            },
+                            new()
+                            {
+                                predicate =
+                                    OntologyPredicates.PickupBehavior,
+                                obj = pickupBehavior
+                            }
+                        }
+                    });
+                return true;
+            }
             var ontology = selected.GetComponent<OntologyObject>() ??
                            selected.gameObject.AddComponent<OntologyObject>();
             var concepts = ontology.Concepts
@@ -1404,6 +1512,30 @@ namespace Tormia.Ontology.Core
             if (rule == null || string.IsNullOrWhiteSpace(bindingVariable))
                 return false;
 
+            if (MeaningPackageChangeRequested != null)
+            {
+                var change = new OntologyMeaningPackageChange
+                {
+                    operation = "apply",
+                    applicationId = Guid.NewGuid().ToString("D"),
+                    slotId = "physical_effect_" + effect.effectId,
+                    packageId = "physical_effect_" + effect.effectId,
+                    authoredFacts = new List<OntologyFactEntry>
+                    {
+                        new()
+                        {
+                            predicate =
+                                OntologyPredicates.HasPhysicalEffect,
+                            obj = effect.effectId
+                        }
+                    }
+                };
+                AddMeaningPackageRule(
+                    change, effect.activationRuleId, bindingVariable);
+                MeaningPackageChangeRequested.Invoke(selected, change);
+                return true;
+            }
+
             var ontology = selected.GetComponent<OntologyObject>() ??
                            selected.gameObject.AddComponent<OntologyObject>();
             if (ontology.Facts.Any(value =>
@@ -1464,6 +1596,19 @@ namespace Tormia.Ontology.Core
             var ontology = selected.GetComponent<OntologyObject>();
             if (effect == null || ontology == null) return false;
 
+            if (MeaningPackageChangeRequested != null)
+            {
+                MeaningPackageChangeRequested.Invoke(
+                    selected,
+                    new OntologyMeaningPackageChange
+                    {
+                        operation = "remove",
+                        slotId = "physical_effect_" + effect.effectId,
+                        packageId = string.Empty
+                    });
+                return true;
+            }
+
             var facts = ontology.Facts
                 .Where(value =>
                     value != null &&
@@ -1523,6 +1668,14 @@ namespace Tormia.Ontology.Core
                 : bootstrap.PhysicalProfileDatabase.Find(profileId);
             if (!string.IsNullOrWhiteSpace(profileId) && profile == null)
                 return false;
+
+            if (MeaningPackageChangeRequested != null)
+            {
+                MeaningPackageChangeRequested.Invoke(
+                    selected,
+                    BuildPhysicalMeaningPackageChange(profile));
+                return true;
+            }
 
             var ontology = selected.GetComponent<OntologyObject>() ??
                            selected.gameObject.AddComponent<OntologyObject>();
@@ -1644,6 +1797,124 @@ namespace Tormia.Ontology.Core
             RefreshWorld(runSimulation: true);
             StateChanged?.Invoke();
             return true;
+        }
+
+        private OntologyMeaningPackageChange BuildMeaningPackageChange(
+            OntologyRuleBlockPreset preset)
+        {
+            var change = new OntologyMeaningPackageChange
+            {
+                operation = "apply",
+                applicationId = Guid.NewGuid().ToString("D"),
+                slotId = string.IsNullOrWhiteSpace(preset.physicalProfileId)
+                    ? "rule_preset_" + preset.presetId
+                    : "primary_physical_meaning",
+                packageId = "rule_preset_" + preset.presetId,
+                requiredConceptIds = preset.requiredConcepts
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct()
+                    .ToList(),
+                authoredFacts = preset.requiredFacts
+                    .Where(value => value != null &&
+                                    !string.IsNullOrWhiteSpace(value.predicate) &&
+                                    !string.IsNullOrWhiteSpace(value.obj))
+                    .Select(value => new OntologyFactEntry
+                    {
+                        predicate = value.predicate,
+                        obj = value.obj
+                    })
+                    .ToList()
+            };
+            if (!string.IsNullOrWhiteSpace(preset.physicalProfileId))
+            {
+                change.replacePredicateIds.Add(
+                    OntologyPredicates.PhysicalProfile);
+                change.replacePredicateIds.Add(
+                    OntologyPredicates.PhysicalState);
+                change.authoredFacts.Add(new OntologyFactEntry
+                {
+                    predicate = OntologyPredicates.PhysicalProfile,
+                    obj = preset.physicalProfileId
+                });
+            }
+            AddMeaningPackageRule(
+                change, preset.primaryRuleId, preset.bindingVariable);
+            foreach (var binding in preset.additionalRuleBlocks.Where(
+                         value => value != null))
+            {
+                AddMeaningPackageRule(
+                    change, binding.ruleId, binding.bindingVariable);
+            }
+            return change;
+        }
+
+        private OntologyMeaningPackageChange BuildPhysicalMeaningPackageChange(
+            OntologyPhysicalProfile profile)
+        {
+            var change = new OntologyMeaningPackageChange
+            {
+                operation = profile == null ? "remove" : "apply",
+                applicationId = profile == null
+                    ? string.Empty
+                    : Guid.NewGuid().ToString("D"),
+                slotId = "primary_physical_meaning",
+                packageId = profile == null
+                    ? string.Empty
+                    : "physical_profile_" + profile.profileId
+            };
+            if (profile == null) return change;
+            change.replacePredicateIds.Add(OntologyPredicates.PhysicalProfile);
+            change.replacePredicateIds.Add(OntologyPredicates.PhysicalState);
+            change.authoredFacts.Add(new OntologyFactEntry
+            {
+                predicate = OntologyPredicates.PhysicalProfile,
+                obj = profile.profileId
+            });
+            if (profile.supportsBuoyancy)
+            {
+                change.requiredConceptIds.Add(
+                    OntologyConcepts.FloatableObject);
+                var rule = AvailableRuleDefinitions.FirstOrDefault(value =>
+                    value != null && value.id == profile.buoyancyRuleId);
+                var variable = FindEffectSubject(
+                    rule,
+                    OntologyPredicates.PhysicalState,
+                    OntologyObjects.Floating);
+                AddMeaningPackageRule(
+                    change, profile.buoyancyRuleId, variable);
+            }
+            return change;
+        }
+
+        private void AddMeaningPackageRule(
+            OntologyMeaningPackageChange change,
+            string ruleId,
+            string bindingVariable)
+        {
+            if (change == null || string.IsNullOrWhiteSpace(ruleId) ||
+                change.ruleBlocks.Any(value =>
+                    value != null && value.ruleId == ruleId))
+            {
+                return;
+            }
+            change.ruleBlocks.Add(new OntologyMeaningPackageRuleBlock
+            {
+                bindingId = Guid.NewGuid().ToString("D"),
+                ruleId = ruleId,
+                ruleVersion = ResolveRuleVersion(ruleId),
+                bindingVariable = string.IsNullOrWhiteSpace(bindingVariable)
+                    ? "?target"
+                    : bindingVariable
+            });
+        }
+
+        private int ResolveRuleVersion(string ruleId)
+        {
+            var definition = AvailableRuleDefinitions.FirstOrDefault(value =>
+                value != null && value.id == ruleId);
+            return definition == null
+                ? 1
+                : Math.Max(1, definition.catalogVersion);
         }
 
         private static string FindEffectSubject(

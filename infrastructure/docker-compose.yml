@@ -85,4 +85,4 @@ volumes:
 
 networks:
   tormia_backend:
-    name: tormia_local_backend
+    name: ${TORMIA_NETWORK_NAME:-tormia_local_backend}

@@ -35,6 +35,10 @@ namespace Tormia.Ontology.Core
                                   !string.IsNullOrWhiteSpace(actorObject.EntityId)
             ? actorObject.EntityId
             : actorId;
+        public bool IsSwimmingPresentationActive =>
+            IsSwimming() &&
+            waterPresenceSensor != null &&
+            waterPresenceSensor.TryGetActiveSurfaceHeight(out _);
 
         private void Awake()
         {
@@ -50,11 +54,17 @@ namespace Tormia.Ontology.Core
         }
 
         /// <summary>
-        /// Applies swimming movement when the ontology currently infers Swimming.
-        /// Returns false so the normal ground movement controller can take over otherwise.
+        /// Resolves swimming displacement when the ontology currently infers
+        /// Swimming. The exclusive motion coordinator performs the actual
+        /// CharacterController.Move call.
         /// </summary>
-        public bool TryMove(Vector3 horizontalDirection, float baseSpeed, float deltaTime)
+        public bool TryResolveDisplacement(
+            Vector3 horizontalDirection,
+            float baseSpeed,
+            float deltaTime,
+            out Vector3 displacement)
         {
+            displacement = Vector3.zero;
             if (!IsSwimming() || characterController == null || waterPresenceSensor == null)
             {
                 return false;
@@ -74,7 +84,9 @@ namespace Tormia.Ontology.Core
             var horizontalVelocity = Vector3.ClampMagnitude(horizontalDirection, 1f)
                 * Mathf.Max(0f, baseSpeed)
                 * Mathf.Clamp01(horizontalSpeedMultiplier);
-            characterController.Move((horizontalVelocity + Vector3.up * verticalSpeed) * Mathf.Max(0f, deltaTime));
+            displacement =
+                (horizontalVelocity + Vector3.up * verticalSpeed) *
+                Mathf.Max(0f, deltaTime);
             return true;
         }
 

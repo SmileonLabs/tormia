@@ -304,6 +304,18 @@ Add immutable, ordered `.sql` files under `postgres/migrations`.
 - Run the `migrate` job once per deployment, before starting new game-server instances.
 - A migration contains transactional DDL where PostgreSQL supports it.
 
+## Isolated Authority combat smoke
+
+Run `scripts/run-combat-authority-smoke.ps1` for the full Authority combat
+regression. Its default path creates a uniquely named Compose project and
+network, uses disposable PostgreSQL and Redis volumes, applies every migration,
+builds World Authority, runs the smoke, and removes all temporary resources.
+
+The smoke also publishes one immutable action identity into two different
+packages. This proves that action identity is scoped by package ID and package
+version. Use `-UseExistingServices` only for an intentional diagnostic against
+the persistent local stack; it creates durable test accounts and worlds.
+
 ## Data policy
 
 Only durable world information belongs in PostgreSQL:

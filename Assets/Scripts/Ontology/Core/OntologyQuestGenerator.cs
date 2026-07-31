@@ -57,7 +57,10 @@ namespace Tormia.Ontology.Core
                 var quest = new OntologyQuest(
                     definition.id,
                     definition.title,
-                    string.Format(definition.reasonFormat, hook.Subject));
+                    string.Format(definition.reasonFormat, hook.Subject),
+                    definition.titleKey,
+                    definition.reasonKey,
+                    new[] { hook.Subject.ToString() });
 
                 AddGoals(world, actorId, definition, quest);
                 quests.Add(quest);
@@ -97,7 +100,9 @@ namespace Tormia.Ontology.Core
                     quest.Goals.Add(new OntologyQuestGoal(
                         action,
                         string.Format(goalDefinition.descriptionFormat, source),
-                        world.HasFact(action.ActorId, goalDefinition.completionPredicate, action.TargetId)));
+                        world.HasFact(action.ActorId, goalDefinition.completionPredicate, action.TargetId),
+                        goalDefinition.descriptionKey,
+                        new[] { source.ToString() }));
                 }
             }
         }
@@ -116,7 +121,9 @@ namespace Tormia.Ontology.Core
                 quest.Goals.Add(new OntologyQuestGoal(
                     action,
                     Format(goalDefinition.descriptionFormat, binding),
-                    world.HasFact(action.ActorId, goalDefinition.completionPredicate, action.TargetId)));
+                    world.HasFact(action.ActorId, goalDefinition.completionPredicate, action.TargetId),
+                    goalDefinition.descriptionKey,
+                    new[] { target.ToString() }));
             }
         }
 
@@ -142,7 +149,9 @@ namespace Tormia.Ontology.Core
                 new OntologyQuestDefinition
                 {
                     id = "InvestigateSmokeAndPanic",
+                    titleKey = "quest.InvestigateSmokeAndPanic.title",
                     title = "Investigate Smoke and Panic",
+                    reasonKey = "quest.InvestigateSmokeAndPanic.reason",
                     reasonFormat = "{0} reports smoke and village panic",
                     hookPredicate = "offers",
                     hookObject = "InvestigateSmokeAndPanic",
@@ -152,6 +161,7 @@ namespace Tormia.Ontology.Core
                         {
                             actionVerb = "inspect",
                             completionPredicate = "inspects",
+                            descriptionKey = "quest.InvestigateSmokeAndPanic.goal.inspect",
                             descriptionFormat = "Inspect {target} to identify the source of smoke",
                             targetPattern = "?target",
                             conditions =
@@ -163,6 +173,7 @@ namespace Tormia.Ontology.Core
                         {
                             actionVerb = "help",
                             completionPredicate = "helps",
+                            descriptionKey = "quest.InvestigateSmokeAndPanic.goal.help",
                             descriptionFormat = "Help {target} recover from the disturbance",
                             targetPattern = "?target",
                             conditions =
@@ -175,7 +186,9 @@ namespace Tormia.Ontology.Core
                 new OntologyQuestDefinition
                 {
                     id = "ColdProtectionPreparation",
+                    titleKey = "quest.ColdProtectionPreparation.title",
                     title = "Prepare for the Cold",
+                    reasonKey = "quest.ColdProtectionPreparation.reason",
                     reasonFormat = "{0} recommends protective clothing",
                     hookPredicate = "offers",
                     hookObject = "ColdProtectionPreparation",
@@ -185,6 +198,7 @@ namespace Tormia.Ontology.Core
                         {
                             actionVerb = "equip_part",
                             completionPredicate = OntologyPredicates.EquippedPart,
+                            descriptionKey = "quest.ColdProtectionPreparation.goal.equip",
                             descriptionFormat = "Equip {target} to gain cold protection",
                             targetPattern = "?target",
                             conditions =
@@ -197,7 +211,9 @@ namespace Tormia.Ontology.Core
                 new OntologyQuestDefinition
                 {
                     id = "SwampProtectionPreparation",
+                    titleKey = "quest.SwampProtectionPreparation.title",
                     title = "Prepare for the Swamp",
+                    reasonKey = "quest.SwampProtectionPreparation.reason",
                     reasonFormat = "{0} recommends swamp-resistant equipment",
                     hookPredicate = "offers",
                     hookObject = "SwampProtectionPreparation",
@@ -207,6 +223,7 @@ namespace Tormia.Ontology.Core
                         {
                             actionVerb = "equip_part",
                             completionPredicate = OntologyPredicates.EquippedPart,
+                            descriptionKey = "quest.SwampProtectionPreparation.goal.equip",
                             descriptionFormat = "Equip {target} to gain swamp resistance",
                             targetPattern = "?target",
                             conditions =

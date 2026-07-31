@@ -75,9 +75,94 @@ namespace Tormia.Ontology.Core
                     return ApplyNotFactCondition(world, AsConceptFact(condition), inputBindings);
                 case OntologyConditionKind.NotEqual:
                     return ApplyNotEqualCondition(condition, inputBindings);
+                case OntologyConditionKind.EquipmentSlotAvailable:
+                    return ApplyEquipmentSlotAvailableCondition(
+                        world,
+                        condition,
+                        inputBindings);
                 default:
                     return ApplyFactCondition(world, condition, inputBindings);
             }
+        }
+
+        private static List<Dictionary<string, OntologyId>>
+            ApplyEquipmentSlotAvailableCondition(
+                OntologyWorldState world,
+                OntologyCondition condition,
+                List<Dictionary<string, OntologyId>> inputBindings)
+        {
+            var output = new List<Dictionary<string, OntologyId>>();
+            foreach (var binding in inputBindings)
+            {
+                var actor = Resolve(condition.subject, binding);
+                var target = Resolve(condition.obj, binding);
+                if (actor.IsEmpty || target.IsEmpty)
+                {
+                    continue;
+                }
+
+                OntologyId targetSlot = default;
+                var slotCount = 0;
+                foreach (var fact in world.GetFactsForPredicate(
+                             OntologyPredicates.HasSlot))
+                {
+                    if (!fact.Subject.Equals(target))
+                    {
+                        continue;
+                    }
+
+                    if (slotCount == 0)
+                    {
+                        targetSlot = fact.Object;
+                    }
+                    else if (!targetSlot.Equals(fact.Object))
+                    {
+                        slotCount++;
+                        break;
+                    }
+
+                    slotCount = 1;
+                }
+
+                if (slotCount != 1 || targetSlot.IsEmpty)
+                {
+                    continue;
+                }
+
+                var occupied = false;
+                foreach (var ownerFact in world.GetFactsForPredicate(
+                             OntologyPredicates.EquippedBy))
+                {
+                    if (!ownerFact.Object.Equals(actor) ||
+                        ownerFact.Subject.Equals(target))
+                    {
+                        continue;
+                    }
+
+                    foreach (var slotFact in world.GetFactsForPredicate(
+                                 OntologyPredicates.HasSlot))
+                    {
+                        if (slotFact.Subject.Equals(ownerFact.Subject) &&
+                            slotFact.Object.Equals(targetSlot))
+                        {
+                            occupied = true;
+                            break;
+                        }
+                    }
+
+                    if (occupied)
+                    {
+                        break;
+                    }
+                }
+
+                if (!occupied)
+                {
+                    output.Add(binding);
+                }
+            }
+
+            return output;
         }
 
         private static List<Dictionary<string, OntologyId>> ApplyNotEqualCondition(

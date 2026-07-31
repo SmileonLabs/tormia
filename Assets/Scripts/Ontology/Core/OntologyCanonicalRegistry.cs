@@ -25,7 +25,18 @@ namespace Tormia.Ontology.Core
         Number,
         Boolean,
         UserText,
+        // Opaque canonical action identifier. Its spelling belongs to the
+        // published Action catalog and must not be case-folded through the
+        // global Value/animation-intent vocabulary.
+        ActionRef,
         Value
+    }
+
+    public enum OntologyCardinalityKind
+    {
+        Unknown,
+        Single,
+        Set
     }
 
     public sealed class OntologyTermDefinition
@@ -34,6 +45,7 @@ namespace Tormia.Ontology.Core
         public OntologyTermKind Kind { get; set; }
         public string LabelKey { get; set; }
         public OntologyValueKind ValueKind { get; set; }
+        public OntologyCardinalityKind Cardinality { get; set; }
         public bool Deprecated { get; set; }
         public string Replacement { get; set; }
     }

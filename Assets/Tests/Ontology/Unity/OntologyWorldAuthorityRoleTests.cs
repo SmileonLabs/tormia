@@ -76,6 +76,117 @@ namespace Tormia.Ontology.Tests
             }
         }
 
+        [TestCase(true, true, true)]
+        [TestCase(true, false, false)]
+        [TestCase(false, true, false)]
+        [TestCase(false, false, false)]
+        public void PlacementPublicationUsesRuntimeStateAndWorldPermission(
+            bool isWorldRuntimeReady,
+            bool canEditCurrentWorld,
+            bool expected)
+        {
+            Assert.That(
+                OntologyWorldAuthorityBridge.ShouldPublishAutomatically(
+                    isWorldRuntimeReady,
+                    canEditCurrentWorld),
+                Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void AtomicPlacementFactsAreCapturedBeforeProjectionReplacesLiveOntology()
+        {
+            var target = new GameObject("SemanticPublicationSnapshotTest");
+            try
+            {
+                var ontology = target.AddComponent<OntologyObject>();
+                ontology.ReplaceFactsAndConcepts(
+                    new[] { "Weapon" },
+                    new[]
+                    {
+                        new OntologyFactEntry
+                        {
+                            predicate = "attachment_profile",
+                            obj = "RightHandCarry"
+                        },
+                        new OntologyFactEntry
+                        {
+                            predicate = "grants_capability",
+                            obj = "MeleeAttack"
+                        },
+                        new OntologyFactEntry
+                        {
+                            predicate = "can_equip",
+                            obj = "True"
+                        }
+                    });
+
+                var method = typeof(OntologyWorldAuthorityBridge).GetMethod(
+                    "BuildInitialFacts",
+                    BindingFlags.Static | BindingFlags.NonPublic,
+                    null,
+                    new[] { typeof(GameObject) },
+                    null);
+                Assert.That(method, Is.Not.Null);
+                var initialFacts = (OntologyAuthorityInitialFact[])method.Invoke(
+                    null,
+                    new object[] { target });
+
+                // A projection can replace the live component after the atomic
+                // place payload is built. The captured payload remains complete.
+                ontology.ReplaceFactsAndConcepts(
+                    new[] { "Weapon" },
+                    Array.Empty<OntologyFactEntry>());
+
+                Assert.That(
+                    initialFacts.Length,
+                    Is.EqualTo(4),
+                    "One concept and all three captured weapon facts must be included atomically.");
+                Assert.That(
+                    initialFacts,
+                    Has.Some.Matches<OntologyAuthorityInitialFact>(
+                        fact => fact.predicateId == "grants_capability"
+                                && fact.objectCanonicalId == "MeleeAttack"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void AtomicPlacementDoesNotInventRemovedWeaponFacts()
+        {
+            var target = new GameObject("SemanticPublicationRemovedFactTest");
+            try
+            {
+                var ontology = target.AddComponent<OntologyObject>();
+                ontology.ReplaceFactsAndConcepts(
+                    new[] { "Weapon" },
+                    Array.Empty<OntologyFactEntry>());
+
+                var method = typeof(OntologyWorldAuthorityBridge).GetMethod(
+                    "BuildInitialFacts",
+                    BindingFlags.Static | BindingFlags.NonPublic,
+                    null,
+                    new[] { typeof(GameObject) },
+                    null);
+                Assert.That(method, Is.Not.Null);
+                var initialFacts = (OntologyAuthorityInitialFact[])method.Invoke(
+                    null,
+                    new object[] { target });
+
+                Assert.That(
+                    initialFacts.Length,
+                    Is.EqualTo(1),
+                    "A removed can_equip fact must not be restored by hidden client fallback logic.");
+                Assert.That(initialFacts[0].predicateId, Is.EqualTo("has_concept"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
         [Test]
         public void ExecuteActionPayloadContainsOnlyAuthorityIntentIdentity()
         {
@@ -91,6 +202,24 @@ namespace Tormia.Ontology.Tests
             Assert.That(json, Does.Contain("\"actionId\":\"help\""));
             Assert.That(json, Does.Not.Contain("predicate"));
             Assert.That(json, Does.Not.Contain("effect"));
+        }
+
+        [Test]
+        public void DevelopmentPackageIdentityIsScopedToItsPublishingAccount()
+        {
+            var firstOwner = Guid.NewGuid();
+            var secondOwner = Guid.NewGuid();
+
+            var first = OntologyWorldAuthorityClient.CreateDevelopmentPackageId(
+                "social_village",
+                firstOwner.ToString("D"));
+            var second = OntologyWorldAuthorityClient.CreateDevelopmentPackageId(
+                "social_village",
+                secondOwner.ToString("D"));
+
+            Assert.That(first, Is.EqualTo("social_village_" + firstOwner.ToString("N")));
+            Assert.That(second, Is.EqualTo("social_village_" + secondOwner.ToString("N")));
+            Assert.That(second, Is.Not.EqualTo(first));
         }
 
         [Test]

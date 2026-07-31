@@ -37,10 +37,14 @@ namespace Tormia.Ontology.Core
             var removed = 0;
             foreach (var fact in derived)
             {
-                if (world.RemoveFact(
+                // A relation may be present from both Authority/durable state
+                // and local inference. Rebuilding inference must remove only
+                // the inferred contribution, never the durable projection.
+                if (world.RemoveFactContribution(
                         fact.Subject,
                         fact.Predicate,
-                        fact.Object))
+                        fact.Object,
+                        OntologyFactOrigin.Inferred))
                 {
                     removed++;
                 }
