@@ -36,7 +36,7 @@ namespace Tormia.Ontology.Core
             "When enabled, the canonical state resolver owns base Idle, locomotion, " +
             "airborne, landing, and equipment presentation. Input continues to own movement only.")]
         private bool driveBaseLocomotionFromManifest = true;
-        [SerializeField] private float fallVelocityThreshold = -2f;
+        [SerializeField] private float fallVelocityThreshold = -0.25f;
         [SerializeField] private OntologyAnimatorBoolBinding[] boolBindings =
         {
             new OntologyAnimatorBoolBinding
@@ -70,6 +70,7 @@ namespace Tormia.Ontology.Core
 
         private AnimationClip selectedClip;
         private OntologyInputSystemPlayerInput ontologyInput;
+        private OntologySwimmingMovementAdapter swimmingMovement;
         private PlayableGraph playableGraph;
         private AnimationClipPlayable clipPlayable;
         private AnimatorControllerPlayable controllerPlayable;
@@ -96,12 +97,14 @@ namespace Tormia.Ontology.Core
         private float selectedContactWindowEndNormalized = 1f;
         private float selectedPlaybackStartNormalized;
         private float selectedPlaybackEndNormalized = 1f;
+        private float selectedPlaybackSpeed = 1f;
         private OntologyAnimationLayer selectedLayer;
         private AvatarMask selectedAvatarMask;
         private OntologyAnimationRootMotionMode selectedRootMotionMode;
         private OntologyWorldCommand pendingAuthorityAnimationCommand;
         private OntologyAuthorityCommandResult pendingAuthorityAnimationResult;
         private string pendingTransientIntent = string.Empty;
+        private float pendingTransientPlaybackSpeed = 1f;
         private float pendingPresentationUntil;
         private bool originalApplyRootMotion;
         private bool rootMotionCaptured;
@@ -138,7 +141,11 @@ namespace Tormia.Ontology.Core
                 animator = targetAnimator;
             }
 
+            EnsureFootGroundingPresentation();
+
             ontologyInput = GetComponent<OntologyInputSystemPlayerInput>();
+            swimmingMovement =
+                GetComponent<OntologySwimmingMovementAdapter>();
             stateResolver = new OntologyAnimationStateResolver(
                 fallVelocityThreshold);
             ontologyInput?.SetAnimatorPresentationOwnership(
@@ -177,6 +184,27 @@ namespace Tormia.Ontology.Core
             }
 
             return GetComponent<Animator>();
+        }
+
+        private void EnsureFootGroundingPresentation()
+        {
+            if (animator == null || !animator.isHuman)
+            {
+                return;
+            }
+
+            var coordinator =
+                GetComponentInParent<OntologyCharacterMotionCoordinator>();
+            if (coordinator == null)
+            {
+                return;
+            }
+
+            var adapter =
+                animator.GetComponent<OntologyCharacterFootGroundingAdapter>() ??
+                animator.gameObject.AddComponent<
+                    OntologyCharacterFootGroundingAdapter>();
+            adapter.Configure(coordinator);
         }
 
         private void OnEnable()
@@ -509,6 +537,14 @@ namespace Tormia.Ontology.Core
             string intent,
             out string rejectionCode)
         {
+            return TryPlayTransientIntent(intent, 1f, out rejectionCode);
+        }
+
+        private bool TryPlayTransientIntent(
+            string intent,
+            float authorityPlaybackSpeed,
+            out string rejectionCode)
+        {
             rejectionCode = string.Empty;
             if (string.IsNullOrWhiteSpace(intent))
             {
@@ -553,6 +589,10 @@ namespace Tormia.Ontology.Core
             selectedClipName = best.clip.name;
             selectedIntent = intent;
             ApplySelectedDefinitionMetadata(best, false);
+            selectedPlaybackSpeed *= Mathf.Clamp(
+                authorityPlaybackSpeed > 0f ? authorityPlaybackSpeed : 1f,
+                0.01f,
+                8f);
             selectedFromOntologyIntent = true;
             selectedClip = best.clip;
             transientPresentationActive = true;
@@ -561,7 +601,9 @@ namespace Tormia.Ontology.Core
             // than treating it as an unchanged persistent state.
             replaySelectedClipRequested = true;
             transientPresentationEndsAt =
-                Time.time + Mathf.Max(0.05f, best.clip.length);
+                Time.time + Mathf.Max(
+                    0.05f,
+                    best.clip.length / selectedPlaybackSpeed);
             ApplySelectedClipPlayback();
             lastAuthorityPresentationDiagnostic =
                 "playing:" + intent + ":" + best.animationId;
@@ -720,7 +762,10 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            if (TryPlayTransientIntent(intent, out var rejectionCode))
+            if (TryPlayTransientIntent(
+                    intent,
+                    result.actorAnimationPlaybackSpeed,
+                    out var rejectionCode))
             {
                 ClearPendingAuthorityPresentation();
                 return;
@@ -729,6 +774,10 @@ namespace Tormia.Ontology.Core
             lastAuthorityPresentationDiagnostic = rejectionCode;
             if (presentationReadinessGracePeriod <= 0f) return;
             pendingTransientIntent = intent;
+            pendingTransientPlaybackSpeed =
+                result.actorAnimationPlaybackSpeed > 0f
+                    ? result.actorAnimationPlaybackSpeed
+                    : 1f;
             pendingPresentationUntil =
                 Time.unscaledTime + presentationReadinessGracePeriod;
         }
@@ -787,6 +836,7 @@ namespace Tormia.Ontology.Core
 
             lastAuthorityPresentationDiagnostic = rejectionCode;
             pendingTransientIntent = intent;
+            pendingTransientPlaybackSpeed = 1f;
             return false;
         }
 
@@ -824,6 +874,7 @@ namespace Tormia.Ontology.Core
             {
                 if (TryPlayTransientIntent(
                         pendingTransientIntent,
+                        pendingTransientPlaybackSpeed,
                         out var rejectionCode))
                 {
                     ClearPendingAuthorityPresentation();
@@ -866,6 +917,7 @@ namespace Tormia.Ontology.Core
             pendingAuthorityAnimationCommand = null;
             pendingAuthorityAnimationResult = null;
             pendingTransientIntent = string.Empty;
+            pendingTransientPlaybackSpeed = 1f;
             pendingPresentationUntil = 0f;
         }
 
@@ -927,11 +979,15 @@ namespace Tormia.Ontology.Core
             OntologyAnimationDefinition bestDefinition = null;
             string bestIntent = null;
             var foundFactIntent = false;
+            var semanticMovementPresentationActive =
+                swimmingMovement != null &&
+                swimmingMovement.IsSwimmingPresentationActive;
             var motionStateOwnsSelection =
                 ShouldPrioritizeResolvedMotionState(
                     driveBaseLocomotionFromManifest,
                     ontologyInput != null,
-                    resolvedBaseKind) &&
+                    resolvedBaseKind,
+                    semanticMovementPresentationActive) &&
                 !string.IsNullOrWhiteSpace(resolvedBaseIntent);
             if (motionStateOwnsSelection)
             {
@@ -1040,10 +1096,12 @@ namespace Tormia.Ontology.Core
         public static bool ShouldPrioritizeResolvedMotionState(
             bool stateResolverOwnsBaseLocomotion,
             bool hasLocalMotionObservation,
-            OntologyAnimationStateKind resolvedKind)
+            OntologyAnimationStateKind resolvedKind,
+            bool semanticMovementPresentationActive = false)
         {
             if (!stateResolverOwnsBaseLocomotion ||
-                !hasLocalMotionObservation)
+                !hasLocalMotionObservation ||
+                semanticMovementPresentationActive)
             {
                 return false;
             }
@@ -1102,7 +1160,12 @@ namespace Tormia.Ontology.Core
                         : actorProfile.fastMoveAnimationIntent,
                     ontologyInput.JumpOccurrence,
                     selectedIntent,
-                    IsCurrentBasePresentationCompleted()));
+                    IsCurrentBasePresentationCompleted(),
+                    animationDatabase != null &&
+                    animationDatabase.IsIntentOwnedBy(
+                        OntologyAnimationIntentIds.Landing,
+                        OntologyAnimationPresentationOwner
+                            .MotionStateResolver)));
             resolvedBaseIntent = resolved.Intent;
             resolvedBaseKind = resolved.Kind;
         }
@@ -1160,10 +1223,10 @@ namespace Tormia.Ontology.Core
             controllerPlayable = AnimatorControllerPlayable.Create(playableGraph, animator.runtimeAnimatorController);
             clipPlayable = AnimationClipPlayable.Create(playableGraph, selectedClip);
             clipPlayable.SetApplyFootIK(false);
-            clipPlayable.SetApplyPlayableIK(false);
+            clipPlayable.SetApplyPlayableIK(true);
             clipPlayable.SetDuration(GetPlaybackEndTime());
             clipPlayable.SetTime(GetPlaybackStartTime());
-            clipPlayable.SetSpeed(1d);
+            clipPlayable.SetSpeed(selectedPlaybackSpeed);
             clipMixer = AnimationMixerPlayable.Create(
                 playableGraph,
                 2,
@@ -1209,10 +1272,10 @@ namespace Tormia.Ontology.Core
             playableGraph.Disconnect(clipMixer, nextInput);
             var nextClip = AnimationClipPlayable.Create(playableGraph, selectedClip);
             nextClip.SetApplyFootIK(false);
-            nextClip.SetApplyPlayableIK(false);
+            nextClip.SetApplyPlayableIK(true);
             nextClip.SetDuration(GetPlaybackEndTime());
             nextClip.SetTime(GetPlaybackStartTime());
-            nextClip.SetSpeed(1d);
+            nextClip.SetSpeed(selectedPlaybackSpeed);
             playableGraph.Connect(nextClip, 0, clipMixer, nextInput);
             ConfigureAnimationLayer(1);
             animationMixer.SetInputWeight(0, 0f);
@@ -1559,6 +1622,9 @@ namespace Tormia.Ontology.Core
                     definition.playbackStartNormalized);
             selectedPlaybackEndNormalized =
                 ResolvePlaybackEndNormalized(definition);
+            selectedPlaybackSpeed = definition != null && definition.playbackSpeed > 0f
+                ? definition.playbackSpeed
+                : 1f;
             selectedLayer = definition == null
                 ? OntologyAnimationLayer.FullBody
                 : definition.layer;

@@ -58,6 +58,10 @@ namespace Tormia.Ontology.Core
     public sealed class OntologyActionPresentationDefinition
     {
         public string actorAnimationIntent = string.Empty;
+        // Optional Rule-Block-authored numeric source. Authority resolves this
+        // against the current fact projection and returns the approved value;
+        // Unity never reads the weapon fact to grant or tune the behavior.
+        public OntologyNumericFactSource playbackSpeedFrom = new();
     }
 
     /// <summary>
@@ -78,5 +82,8 @@ namespace Tormia.Ontology.Core
         public OntologyNumericFactSource maxActorTargetDistanceFrom = new();
         // Optional non-durable Authority cooldown sourced from authored data.
         public OntologyNumericFactSource cooldownSecondsFrom = new();
+        // Durable damage is permitted only after an Authority-owned ephemeral
+        // attack occurrence has accepted one contact observation.
+        public bool requiresAuthorityAttackOccurrence;
     }
 }

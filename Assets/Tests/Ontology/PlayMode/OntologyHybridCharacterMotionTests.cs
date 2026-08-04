@@ -147,6 +147,71 @@ namespace Tormia.Ontology.Tests
         }
 
         [UnityTest]
+        public IEnumerator UnityCharacterControllerResolvesAuthoredWalkableStep()
+        {
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var step = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var avatar = new GameObject("UnityOwnedStepAvatar");
+            OntologyPhysicalProfile profile = null;
+            try
+            {
+                ground.transform.position = new Vector3(0f, -0.5f, 0f);
+                ground.transform.localScale = new Vector3(20f, 1f, 20f);
+                ground.AddComponent<OntologyCollisionRoleAdapter>()
+                    .Configure(OntologyCollisionRole.WalkableSupport);
+                step.transform.position = new Vector3(0.9f, 0.1f, 0f);
+                step.transform.localScale = new Vector3(0.8f, 0.2f, 2f);
+                step.AddComponent<OntologyCollisionRoleAdapter>()
+                    .Configure(OntologyCollisionRole.WalkableSupport);
+                avatar.transform.position = new Vector3(0f, 0.02f, 0f);
+
+                var controller = avatar.AddComponent<CharacterController>();
+                controller.height = 2f;
+                controller.center = Vector3.up;
+                controller.radius = 0.35f;
+                var coordinator =
+                    avatar.AddComponent<OntologyCharacterMotionCoordinator>();
+                avatar.AddComponent<OntologyMotionDriverAdapter>()
+                    .Configure(OntologyMotionDriver.LocalCharacterController);
+                profile = ScriptableObject.CreateInstance<OntologyPhysicalProfile>();
+                profile.motionDriver =
+                    OntologyMotionDriver.LocalCharacterController;
+                profile.maximumStepHeight = 0.3f;
+                profile.characterSlopeLimit = 45f;
+                profile.characterSkinWidth = 0.035f;
+                profile.characterMinimumMoveDistance = 0f;
+                coordinator.Configure(profile);
+                Physics.SyncTransforms();
+
+                var startY = avatar.transform.position.y;
+                for (var index = 0; index < 40; index++)
+                {
+                    coordinator.Move(
+                        Vector3.right * 0.04f,
+                        -0.02f,
+                        Vector3.zero);
+                    yield return new WaitForFixedUpdate();
+                }
+
+                Assert.That(controller.stepOffset, Is.EqualTo(0.3f));
+                Assert.That(
+                    avatar.transform.position.y,
+                    Is.GreaterThan(startY + 0.08f),
+                    "Unity CharacterController, not an ontology coordinate " +
+                    "solver, must resolve the authored walkable step.");
+            }
+            finally
+            {
+                if (profile != null) Object.Destroy(profile);
+                Object.Destroy(avatar);
+                Object.Destroy(step);
+                Object.Destroy(ground);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator ActorBodyCannotBeUsedAsACharacterStep()
         {
             var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -185,22 +250,17 @@ namespace Tormia.Ontology.Tests
                 var startY = avatar.transform.position.y;
                 for (var index = 0; index < 30; index++)
                 {
-                    var result = coordinator.Move(
+                    coordinator.Move(
                         Vector3.right * 0.04f,
                         -0.02f,
                         Vector3.zero);
-                    Assert.That(
-                        result.resolvedStepRise,
-                        Is.EqualTo(0f).Within(0.0001f),
-                        "An ActorBody collision role is an obstacle, never a " +
-                        "walkable step.");
                     yield return new WaitForFixedUpdate();
                 }
 
-                Assert.That(controller.stepOffset, Is.EqualTo(0f));
+                Assert.That(controller.stepOffset, Is.EqualTo(0.3f));
                 Assert.That(
                     avatar.transform.position.y,
-                    Is.LessThanOrEqualTo(startY + 0.01f));
+                    Is.LessThanOrEqualTo(startY + controller.skinWidth));
             }
             finally
             {
@@ -334,15 +394,10 @@ namespace Tormia.Ontology.Tests
 
                 for (var index = 0; index < 30; index++)
                 {
-                    var result = coordinator.Move(
+                    coordinator.Move(
                         Vector3.forward * 0.04f,
                         -0.02f,
                         Vector3.zero);
-                    Assert.That(
-                        result.resolvedStepRise,
-                        Is.EqualTo(0f).Within(0.0001f),
-                        "A surface inside CharacterController.slopeLimit is " +
-                        "continuous walkable support, not an explicit step.");
                     yield return new WaitForFixedUpdate();
                 }
             }
@@ -407,45 +462,6 @@ namespace Tormia.Ontology.Tests
             }
 
             yield return null;
-        }
-
-        [Test]
-        public void CurrentSupportColliderCannotBecomeItsOwnStepObstacle()
-        {
-            var support = new GameObject("ContinuousSupport");
-            var separateStep = new GameObject("SeparateStep");
-            try
-            {
-                var supportCollider = support.AddComponent<BoxCollider>();
-                var stepCollider = separateStep.AddComponent<BoxCollider>();
-                const float minimumUpwardNormal = 0.7f;
-
-                Assert.That(
-                    OntologyCharacterSupportProbe.CanTreatAsStepObstacle(
-                        supportCollider,
-                        supportCollider,
-                        true,
-                        Vector3.forward,
-                        minimumUpwardNormal),
-                    Is.False,
-                    "A triangle or vertical face on the current terrain " +
-                    "collider is continuous support, not a step command.");
-                Assert.That(
-                    OntologyCharacterSupportProbe.CanTreatAsStepObstacle(
-                        supportCollider,
-                        stepCollider,
-                        true,
-                        Vector3.forward,
-                        minimumUpwardNormal),
-                    Is.True,
-                    "A separate walkable collider can still be resolved as a " +
-                    "real discrete step.");
-            }
-            finally
-            {
-                Object.DestroyImmediate(separateStep);
-                Object.DestroyImmediate(support);
-            }
         }
 
         [Test]
@@ -523,22 +539,70 @@ namespace Tormia.Ontology.Tests
                     "A nearby support probe hit is not physical ground contact " +
                     "and cannot end the airborne presentation.");
 
-                var result = coordinator.Move(
+                coordinator.Move(
                     Vector3.right * 0.4f,
                     -0.02f,
                     Vector3.zero);
-
-                Assert.That(
-                    result.resolvedStepRise,
-                    Is.EqualTo(0f).Within(0.0001f),
-                    "Proximity is an observation, not grounded permission to " +
-                    "inject an upward step displacement.");
             }
             finally
             {
                 Object.Destroy(avatar);
                 Object.Destroy(step);
                 Object.Destroy(ground);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DynamicPropContactUsesUnityGroundingWithoutSemanticOverride()
+        {
+            var prop = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var avatar = new GameObject("DynamicPropGroundingAvatar");
+            try
+            {
+                prop.transform.position = new Vector3(0f, -0.5f, 0f);
+                prop.transform.localScale = new Vector3(4f, 1f, 4f);
+                prop.AddComponent<OntologyCollisionRoleAdapter>()
+                    .Configure(OntologyCollisionRole.DynamicProp);
+
+                avatar.transform.position = new Vector3(0f, 0.02f, 0f);
+                var controller = avatar.AddComponent<CharacterController>();
+                controller.height = 2f;
+                controller.center = Vector3.up;
+                controller.radius = 0.35f;
+                var coordinator =
+                    avatar.AddComponent<OntologyCharacterMotionCoordinator>();
+                avatar.AddComponent<OntologyMotionDriverAdapter>()
+                    .Configure(OntologyMotionDriver.LocalCharacterController);
+                Physics.SyncTransforms();
+
+                coordinator.Move(Vector3.zero, -0.05f, Vector3.zero);
+                coordinator.RefreshSupport();
+
+                Assert.That(coordinator.LastSupport.hasSupport, Is.False);
+                Assert.That(
+                    coordinator.HasGroundContact,
+                    Is.True,
+                    "A solid prop contact resolved by CharacterController " +
+                    "must remain grounded even when its semantic role is not " +
+                    "WalkableSupport.");
+                var positionBeforeEntryReadiness = avatar.transform.position;
+                Assert.That(
+                    coordinator.TrySettleToSupport(2f, 0.25f, 0.01f),
+                    Is.True,
+                    "World entry must accept an existing Unity contact on an " +
+                    "ontology-permitted solid prop.");
+                Assert.That(
+                    avatar.transform.position,
+                    Is.EqualTo(positionBeforeEntryReadiness),
+                    "An already grounded entry pose must not be snapped to a " +
+                    "different authored fallback surface.");
+            }
+            finally
+            {
+                Object.Destroy(avatar);
+                Object.Destroy(prop);
             }
 
             yield return null;
@@ -637,6 +701,7 @@ namespace Tormia.Ontology.Tests
                     coordinator.QueueAuthorityPlanarCorrection(
                         Vector3.right,
                         10,
+                        1,
                         2f,
                         0.01f),
                     Is.True);
@@ -661,6 +726,7 @@ namespace Tormia.Ontology.Tests
                     coordinator.QueueAuthorityPlanarCorrection(
                         Vector3.left,
                         9,
+                        1,
                         2f,
                         0.01f),
                     Is.False,

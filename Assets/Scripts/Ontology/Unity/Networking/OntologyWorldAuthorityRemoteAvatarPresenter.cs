@@ -17,6 +17,14 @@ namespace Tormia.Ontology.Core
     {
         [SerializeField] private OntologyWorldAuthorityClient authorityClient;
         [SerializeField] private OntologyWorldAuthorityRealtimeClient realtimeClient;
+        [SerializeField, Tooltip(
+            "Optional Authority motion snapshot feed. Leave empty to use the " +
+            "project SignalR plus HTTP recovery feed.")]
+        private MonoBehaviour motionSnapshotFeedSource;
+        [SerializeField, Tooltip(
+            "Session-local transport and interpolation diagnostics. This records " +
+            "presentation health only and has no Authority or gameplay ownership.")]
+        private OntologyRemoteMotionRuntimeMetrics runtimeMetrics;
         [SerializeField] private OntologyWorldZoneStreamer zoneStreamer;
         [SerializeField] private OntologyAuthorityEntityIdentity localAvatarIdentity;
         [SerializeField] private Transform remoteAvatarRoot;
@@ -31,7 +39,28 @@ namespace Tormia.Ontology.Core
         private float pollIntervalSeconds = 0.5f;
         [SerializeField, Min(0.25f), Tooltip("Safety refresh interval while the SignalR notification channel is healthy.")]
         private float realtimeRecoveryPollIntervalSeconds = 2f;
-        [SerializeField, Min(0.01f)] private float maximumVisualSpeed = 8f;
+        [SerializeField, Min(0.05f), Tooltip(
+            "Coalesces bursty Zone notifications into one bounded HTTP " +
+            "snapshot read instead of issuing one request per server tick.")]
+        private float minimumNotificationRefreshSeconds = 0.1f;
+        [SerializeField, Min(0.01f), Tooltip(
+            "Legacy inspector value retained for existing scenes. Remote avatars " +
+            "now render the ordered Authority snapshot timeline and do not chase " +
+            "a latest-position target at an independent visual speed.")]
+        private float maximumVisualSpeed = 8f;
+        [SerializeField, Range(0.1f, 0.15f), Tooltip(
+            "Remote presentation is intentionally rendered this far behind the " +
+            "latest Authority snapshot so two ordered snapshots can be blended.")]
+        private float interpolationDelaySeconds = 0.125f;
+        [SerializeField, Min(0.01f), Tooltip(
+            "Maximum time a remote avatar may continue from an Authority-approved " +
+            "velocity when the next snapshot is late. It never predicts input or a destination.")]
+        private float maximumSnapshotExtrapolationSeconds = 0.15f;
+        [SerializeField, Min(0.25f), Tooltip(
+            "A larger Authority snapshot timeline gap starts a new visual baseline " +
+            "instead of racing across stale space after a reconnect.")]
+        private float maximumSnapshotGapSeconds = 0.75f;
+        [SerializeField, Min(4)] private int snapshotBufferCapacity = 24;
         [SerializeField, Min(0.25f)] private float despawnGraceSeconds = 2f;
         [SerializeField] private string horizontalAnimatorParameter = "Hor";
         [SerializeField] private string verticalAnimatorParameter = "Vert";
@@ -41,6 +70,13 @@ namespace Tormia.Ontology.Core
         private readonly Dictionary<Guid, RemoteAvatarAppearance> appearances = new();
         private bool isLoading;
         private float nextPollAt;
+        private float lastRealtimeMotionFrameAt = float.NegativeInfinity;
+        private IAuthorityMotionSnapshotFeed motionSnapshotFeed;
+        private IAuthorityMotionSnapshotFeed subscribedMotionSnapshotFeed;
+        private bool motionSnapshotFeedSubscriptionActive;
+        private float nextDependencyRetryAt;
+
+        public OntologyRemoteMotionRuntimeMetrics RuntimeMetrics => runtimeMetrics;
 
         private void Awake()
         {
@@ -55,15 +91,12 @@ namespace Tormia.Ontology.Core
                 authorityClient.ProjectionReceived += HandleProjectionReceived;
                 HandleProjectionReceived(authorityClient.CurrentProjection);
             }
-            if (realtimeClient != null)
-            {
-                realtimeClient.ZoneRuntimeChanged += HandleZoneRuntimeChanged;
-            }
+            SetMotionSnapshotFeedSubscription(motionSnapshotFeed);
         }
 
         private void Update()
         {
-            ResolveDependencies();
+            RefreshDependenciesIfNeeded();
             if (!CanReplicate() || isLoading || Time.unscaledTime < nextPollAt)
             {
                 return;
@@ -80,10 +113,33 @@ namespace Tormia.Ontology.Core
             {
                 if (replica.Root == null) continue;
                 var current = replica.Root.transform.position;
-                var next = Vector3.MoveTowards(
-                    current,
-                    replica.TargetPosition,
-                    Mathf.Max(0.01f, maximumVisualSpeed) * Time.deltaTime);
+                if (!TryResolveBufferedRenderSample(
+                        replica.Snapshots,
+                        Time.unscaledTime,
+                        Mathf.Clamp(interpolationDelaySeconds, 0.1f, 0.15f),
+                        Mathf.Max(0.01f, maximumSnapshotExtrapolationSeconds),
+                        out var rendered))
+                {
+                    continue;
+                }
+
+                var isBufferUnderrun = replica.Snapshots.Count < 2;
+                if (isBufferUnderrun && !replica.BufferUnderrunActive)
+                {
+                    runtimeMetrics?.RecordBufferUnderrunEpisode();
+                }
+                replica.BufferUnderrunActive = isBufferUnderrun;
+
+                if (rendered.IsExtrapolated && !replica.ExtrapolationActive)
+                {
+                    runtimeMetrics?.RecordExtrapolationEpisode();
+                }
+                replica.ExtrapolationActive = rendered.IsExtrapolated;
+
+                // The root is a presentation-only replica. It is assigned from an
+                // ordered Authority timeline, never moved toward a latest target at
+                // a locally invented speed and never given a client destination.
+                var next = rendered.Position;
                 var horizontalDirection = next - current;
                 horizontalDirection.y = 0f;
                 if (horizontalDirection.sqrMagnitude > 0.0001f)
@@ -94,7 +150,11 @@ namespace Tormia.Ontology.Core
                         Mathf.Clamp01(Time.deltaTime * 12f));
                 }
                 replica.Root.transform.position = next;
-                ApplyMotionAnimation(replica, horizontalDirection.sqrMagnitude > 0.0001f);
+                ApplyMotionAnimation(
+                    replica,
+                    horizontalDirection.sqrMagnitude > 0.0001f,
+                    rendered.MotionStatus,
+                    rendered.IsExtrapolated);
             }
         }
 
@@ -104,10 +164,7 @@ namespace Tormia.Ontology.Core
             {
                 authorityClient.ProjectionReceived -= HandleProjectionReceived;
             }
-            if (realtimeClient != null)
-            {
-                realtimeClient.ZoneRuntimeChanged -= HandleZoneRuntimeChanged;
-            }
+            SetMotionSnapshotFeedSubscription(null);
             ClearReplicas();
         }
 
@@ -116,7 +173,14 @@ namespace Tormia.Ontology.Core
             isLoading = true;
             nextPollAt = Time.unscaledTime + ResolveRefreshInterval();
             var receivedSnapshot = false;
-            yield return authorityClient.LoadZoneAvatarMotionsRoutine(requestedZoneKey, states =>
+            var feed = ResolveMotionSnapshotFeed();
+            if (feed == null)
+            {
+                SetStatus("Authority remote-motion snapshot feed is unavailable.");
+                isLoading = false;
+                yield break;
+            }
+            yield return feed.LoadZoneAvatarMotionsRoutine(requestedZoneKey, states =>
             {
                 receivedSnapshot = states != null;
                 if (!receivedSnapshot ||
@@ -126,7 +190,7 @@ namespace Tormia.Ontology.Core
                     return;
                 }
 
-                ApplySnapshot(states);
+                ApplySnapshot(states, true);
             });
 
             if (!receivedSnapshot)
@@ -136,7 +200,9 @@ namespace Tormia.Ontology.Core
             isLoading = false;
         }
 
-        private void ApplySnapshot(IReadOnlyList<OntologyAuthorityPlayerMotionState> states)
+        private void ApplySnapshot(
+            IReadOnlyList<OntologyAuthorityPlayerMotionState> states,
+            bool completePresenceSnapshot)
         {
             var now = Time.unscaledTime;
             var receivedIds = new HashSet<Guid>();
@@ -158,18 +224,21 @@ namespace Tormia.Ontology.Core
                     replicas[avatarId] = replica;
                 }
 
-                replica.TargetPosition = target;
+                RecordSnapshot(replica, state, target, now);
                 replica.LastSeenAt = now;
-                replica.MotionStatus = state.motionStatus ?? string.Empty;
                 ApplyAppearance(replica, avatarId);
             }
 
             var staleIds = new List<Guid>();
-            foreach (var pair in replicas)
+            if (completePresenceSnapshot)
             {
-                if (!receivedIds.Contains(pair.Key) && now - pair.Value.LastSeenAt >= despawnGraceSeconds)
+                foreach (var pair in replicas)
                 {
-                    staleIds.Add(pair.Key);
+                    if (!receivedIds.Contains(pair.Key) &&
+                        now - pair.Value.LastSeenAt >= despawnGraceSeconds)
+                    {
+                        staleIds.Add(pair.Key);
+                    }
                 }
             }
             foreach (var avatarId in staleIds)
@@ -269,17 +338,61 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            RequestImmediateRefresh();
+            // A runtime-change notification deliberately carries no transform.
+            // When the realtime motion stream is healthy, a companion
+            // zoneMotionFrame supplies ordered poses directly. Do not turn every
+            // 20 Hz hint into an HTTP read; periodic HTTP remains join/reconnect
+            // recovery only.
+            if (motionSnapshotFeed == null ||
+                !motionSnapshotFeed.IsRealtimeConnected)
+            {
+                RequestImmediateRefresh();
+            }
+        }
+
+        private void HandleZoneMotionFrameReceived(
+            OntologyAuthorityZoneMotionFrame frame)
+        {
+            if (frame == null || authorityClient == null || zoneStreamer == null ||
+                !string.Equals(
+                    frame.worldId,
+                    authorityClient.CurrentWorldId,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(
+                    frame.zoneKey,
+                    zoneStreamer.ActiveZoneKey,
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            lastRealtimeMotionFrameAt = Time.unscaledTime;
+            // Motion frames are deltas containing only avatars changed in this
+            // server tick. Presence eviction belongs to the periodic complete
+            // HTTP recovery snapshot, never to an omitted delta entry.
+            ApplySnapshot(
+                frame.items ?? Array.Empty<OntologyAuthorityPlayerMotionState>(),
+                false);
         }
 
         public void RequestImmediateRefresh()
         {
             if (!CanReplicate()) return;
-            nextPollAt = 0f;
-            if (!isLoading)
-            {
-                StartCoroutine(LoadZoneSnapshotRoutine(zoneStreamer.ActiveZoneKey));
-            }
+            nextPollAt = CoalesceRefreshDeadline(
+                nextPollAt,
+                Time.unscaledTime,
+                Mathf.Max(0.05f, minimumNotificationRefreshSeconds));
+        }
+
+        public static float CoalesceRefreshDeadline(
+            float currentDeadline,
+            float now,
+            float minimumDelay)
+        {
+            var candidate = now + Mathf.Max(0.001f, minimumDelay);
+            return currentDeadline <= now
+                ? candidate
+                : Mathf.Min(currentDeadline, candidate);
         }
 
         private void ApplyAppearance(RemoteReplica replica, Guid avatarId)
@@ -304,10 +417,22 @@ namespace Tormia.Ontology.Core
                 equippedPartIds);
         }
 
-        private void ApplyMotionAnimation(RemoteReplica replica, bool movedThisFrame)
+        private void ApplyMotionAnimation(
+            RemoteReplica replica,
+            bool movedThisFrame,
+            string renderedMotionStatus,
+            bool isExtrapolated)
         {
             if (replica.Animator == null) return;
-            var moving = string.Equals(replica.MotionStatus, "moving", StringComparison.OrdinalIgnoreCase) || movedThisFrame;
+            // A stale extrapolation must not leave the remote avatar walking in
+            // place. During a valid buffered segment, both the evaluated server
+            // status and the actual rendered displacement can drive presentation.
+            var moving = !isExtrapolated &&
+                         (string.Equals(
+                              renderedMotionStatus,
+                              "moving",
+                              StringComparison.OrdinalIgnoreCase) ||
+                          movedThisFrame);
             if (HasAnimatorParameter(replica.Animator, verticalAnimatorParameter))
             {
                 replica.Animator.SetFloat(verticalAnimatorParameter, moving ? 1f : 0f);
@@ -373,18 +498,28 @@ namespace Tormia.Ontology.Core
         {
             if (authorityClient == null) authorityClient = FindAnyObjectByType<OntologyWorldAuthorityClient>();
             if (realtimeClient == null) realtimeClient = FindAnyObjectByType<OntologyWorldAuthorityRealtimeClient>();
-            if (zoneStreamer == null) zoneStreamer = FindAnyObjectByType<OntologyWorldZoneStreamer>();
-            var resolvedLocalAvatar = ResolveLocalAvatarIdentity();
-            if (resolvedLocalAvatar != null &&
-                resolvedLocalAvatar != localAvatarIdentity)
+            ResolveMotionSnapshotFeed();
+            SetMotionSnapshotFeedSubscription(motionSnapshotFeed);
+            if (runtimeMetrics == null)
             {
-                localAvatarIdentity = resolvedLocalAvatar;
-                if (localAvatarIdentity.TryGetGuid(out var localAvatarId))
+                runtimeMetrics = realtimeClient == null
+                    ? GetComponent<OntologyRemoteMotionRuntimeMetrics>()
+                    : realtimeClient.RuntimeMetrics;
+            }
+            if (zoneStreamer == null) zoneStreamer = FindAnyObjectByType<OntologyWorldZoneStreamer>();
+            if (localAvatarIdentity == null)
+            {
+                var resolvedLocalAvatar = ResolveLocalAvatarIdentity();
+                if (resolvedLocalAvatar != null)
                 {
-                    // A stale or incorrectly resolved local identity may already
-                    // have produced a presentation-only replica. Remove it as soon
-                    // as the account/input-owned avatar becomes available.
-                    DestroyReplica(localAvatarId);
+                    localAvatarIdentity = resolvedLocalAvatar;
+                    if (localAvatarIdentity.TryGetGuid(out var localAvatarId))
+                    {
+                        // A stale or incorrectly resolved local identity may already
+                        // have produced a presentation-only replica. Remove it as soon
+                        // as the account/input-owned avatar becomes available.
+                        DestroyReplica(localAvatarId);
+                    }
                 }
             }
             if (remoteAnimatorSource == null)
@@ -397,6 +532,84 @@ namespace Tormia.Ontology.Core
                         break;
                     }
                 }
+            }
+        }
+
+        private void RefreshDependenciesIfNeeded()
+        {
+            if (authorityClient != null && zoneStreamer != null &&
+                motionSnapshotFeed != null && localAvatarIdentity != null)
+            {
+                return;
+            }
+            if (Time.unscaledTime < nextDependencyRetryAt)
+            {
+                return;
+            }
+
+            nextDependencyRetryAt = Time.unscaledTime + 1f;
+            ResolveDependencies();
+        }
+
+        private IAuthorityMotionSnapshotFeed ResolveMotionSnapshotFeed()
+        {
+            if (motionSnapshotFeedSource != null)
+            {
+                var assignedFeed = motionSnapshotFeedSource as
+                    IAuthorityMotionSnapshotFeed;
+                if (assignedFeed == null)
+                {
+                    motionSnapshotFeed = null;
+                    return null;
+                }
+                motionSnapshotFeed = assignedFeed;
+                return motionSnapshotFeed;
+            }
+
+            if (authorityClient == null)
+            {
+                return null;
+            }
+
+            var feed = authorityClient.GetComponent<
+                OntologyWorldAuthorityMotionSnapshotFeed>();
+            if (feed == null)
+            {
+                feed = authorityClient.gameObject.AddComponent<
+                    OntologyWorldAuthorityMotionSnapshotFeed>();
+            }
+            feed.Configure(authorityClient, realtimeClient);
+            motionSnapshotFeedSource = feed;
+            motionSnapshotFeed = feed;
+            return motionSnapshotFeed;
+        }
+
+        private void SetMotionSnapshotFeedSubscription(
+            IAuthorityMotionSnapshotFeed value)
+        {
+            if (!ReferenceEquals(subscribedMotionSnapshotFeed, value))
+            {
+                if (subscribedMotionSnapshotFeed != null &&
+                    motionSnapshotFeedSubscriptionActive)
+                {
+                    subscribedMotionSnapshotFeed.ZoneRuntimeChanged -=
+                        HandleZoneRuntimeChanged;
+                    subscribedMotionSnapshotFeed.ZoneMotionFrameReceived -=
+                        HandleZoneMotionFrameReceived;
+                }
+                subscribedMotionSnapshotFeed = value;
+                motionSnapshotFeedSubscriptionActive = false;
+            }
+
+            if (subscribedMotionSnapshotFeed != null &&
+                isActiveAndEnabled &&
+                !motionSnapshotFeedSubscriptionActive)
+            {
+                subscribedMotionSnapshotFeed.ZoneRuntimeChanged +=
+                    HandleZoneRuntimeChanged;
+                subscribedMotionSnapshotFeed.ZoneMotionFrameReceived +=
+                    HandleZoneMotionFrameReceived;
+                motionSnapshotFeedSubscriptionActive = true;
             }
         }
 
@@ -433,9 +646,215 @@ namespace Tormia.Ontology.Core
 
         private float ResolveRefreshInterval()
         {
-            return authorityClient != null && authorityClient.RealtimeNotificationsActive
-                ? Mathf.Max(0.25f, realtimeRecoveryPollIntervalSeconds)
-                : Mathf.Max(0.25f, pollIntervalSeconds);
+            if (motionSnapshotFeed == null ||
+                !motionSnapshotFeed.IsRealtimeConnected)
+            {
+                return Mathf.Max(0.25f, pollIntervalSeconds);
+            }
+
+            // Healthy realtime frames own ordinary remote presentation. An HTTP
+            // read remains a slow recovery path for a missed first frame, a proxy
+            // that drops frames, or a reconnect; it is not a second pose stream.
+            var recoveryInterval =
+                Mathf.Max(0.25f, realtimeRecoveryPollIntervalSeconds);
+            return Time.unscaledTime - lastRealtimeMotionFrameAt > recoveryInterval
+                ? Mathf.Max(0.25f, pollIntervalSeconds)
+                : recoveryInterval;
+        }
+
+        private void RecordSnapshot(
+            RemoteReplica replica,
+            OntologyAuthorityPlayerMotionState state,
+            Vector3 position,
+            float receivedAt)
+        {
+            if (replica == null || state == null) return;
+
+            var incoming = new RemoteAvatarSnapshotSample(
+                state.serverTick,
+                state.updatedAtUnixMilliseconds,
+                state.runtimeSessionId,
+                position,
+                new Vector3(
+                    (float)state.velocityX,
+                    (float)state.velocityY,
+                    (float)state.velocityZ),
+                state.motionStatus,
+                receivedAt);
+            var requiresBaseline = replica.Snapshots.Count == 0;
+            var timelineReset = false;
+            if (!requiresBaseline)
+            {
+                var latest = replica.Snapshots[replica.Snapshots.Count - 1];
+                var sessionChanged = HasSessionChanged(
+                    latest.RuntimeSessionId,
+                    incoming.RuntimeSessionId);
+                var timelineGap = HasTimelineGap(
+                    latest,
+                    incoming,
+                    Mathf.Max(0.25f, maximumSnapshotGapSeconds));
+                if (sessionChanged || timelineGap ||
+                    ShouldResetSnapshotTimeline(latest, incoming))
+                {
+                    replica.Snapshots.Clear();
+                    requiresBaseline = true;
+                    timelineReset = true;
+                }
+                else if (!IsSnapshotNewer(latest, incoming))
+                {
+                    // HTTP recovery may deliver a repeated or older snapshot after
+                    // a SignalR gap. It must never rewind the presentation timeline.
+                    runtimeMetrics?.RecordSnapshotRejected(
+                        incoming.ServerTick,
+                        incoming.ServerTick < latest.ServerTick);
+                    return;
+                }
+            }
+
+            replica.Snapshots.Add(incoming);
+            runtimeMetrics?.RecordSnapshotAccepted(
+                incoming.ServerTick,
+                incoming.UpdatedAtUnixMilliseconds);
+            var capacity = Mathf.Max(4, snapshotBufferCapacity);
+            if (replica.Snapshots.Count > capacity)
+            {
+                replica.Snapshots.RemoveAt(0);
+            }
+
+            if (requiresBaseline && replica.Root != null)
+            {
+                runtimeMetrics?.RecordTimelineBaseline(timelineReset);
+                // Joining/rejoining has no predecessor to interpolate from. Set one
+                // authoritative baseline and wait for the ordered stream; do not
+                // animate a catch-up toward a potentially seconds-old target.
+                replica.Root.transform.position = incoming.Position;
+                replica.LastRenderedPosition = incoming.Position;
+            }
+        }
+
+        public static bool IsSnapshotNewer(
+            RemoteAvatarSnapshotSample previous,
+            RemoteAvatarSnapshotSample incoming)
+        {
+            if (incoming.ServerTick > previous.ServerTick) return true;
+            if (incoming.ServerTick < previous.ServerTick) return false;
+            return incoming.UpdatedAtUnixMilliseconds >
+                   previous.UpdatedAtUnixMilliseconds;
+        }
+
+        public static bool ShouldResetSnapshotTimeline(
+            RemoteAvatarSnapshotSample previous,
+            RemoteAvatarSnapshotSample incoming)
+        {
+            // A process/runtime restart can reset a tick while preserving an old
+            // session record for a short lease interval. A materially newer server
+            // timestamp is a new timeline, not an out-of-order packet.
+            return incoming.ServerTick < previous.ServerTick &&
+                   incoming.UpdatedAtUnixMilliseconds >
+                   previous.UpdatedAtUnixMilliseconds + 1000L;
+        }
+
+        public static bool HasSessionChanged(string previousSessionId, string incomingSessionId)
+        {
+            return !string.IsNullOrWhiteSpace(previousSessionId) &&
+                   !string.IsNullOrWhiteSpace(incomingSessionId) &&
+                   !string.Equals(
+                       previousSessionId,
+                       incomingSessionId,
+                       StringComparison.Ordinal);
+        }
+
+        public static bool HasTimelineGap(
+            RemoteAvatarSnapshotSample previous,
+            RemoteAvatarSnapshotSample incoming,
+            float maximumGapSeconds)
+        {
+            if (previous.UpdatedAtUnixMilliseconds <= 0L ||
+                incoming.UpdatedAtUnixMilliseconds <= 0L)
+            {
+                return false;
+            }
+
+            return incoming.UpdatedAtUnixMilliseconds -
+                   previous.UpdatedAtUnixMilliseconds >
+                   Mathf.Max(0.01f, maximumGapSeconds) * 1000f;
+        }
+
+        public static bool TryResolveBufferedRenderSample(
+            IReadOnlyList<RemoteAvatarSnapshotSample> snapshots,
+            float localNow,
+            float interpolationDelay,
+            float maximumExtrapolation,
+            out RemoteAvatarRenderedSample rendered)
+        {
+            rendered = default;
+            if (snapshots == null || snapshots.Count == 0) return false;
+
+            var latest = snapshots[snapshots.Count - 1];
+            if (snapshots.Count == 1 || latest.UpdatedAtUnixMilliseconds <= 0L)
+            {
+                rendered = new RemoteAvatarRenderedSample(
+                    latest.Position,
+                    latest.MotionStatus,
+                    false);
+                return true;
+            }
+
+            var localElapsedMilliseconds = Math.Max(
+                0d,
+                (localNow - latest.ReceivedAtUnscaledTime) * 1000d);
+            var targetMilliseconds = latest.UpdatedAtUnixMilliseconds +
+                                     localElapsedMilliseconds -
+                                     Mathf.Max(0.01f, interpolationDelay) * 1000d;
+            var first = snapshots[0];
+            if (targetMilliseconds <= first.UpdatedAtUnixMilliseconds)
+            {
+                rendered = new RemoteAvatarRenderedSample(
+                    first.Position,
+                    first.MotionStatus,
+                    false);
+                return true;
+            }
+
+            for (var index = 1; index < snapshots.Count; index++)
+            {
+                var next = snapshots[index];
+                if (next.UpdatedAtUnixMilliseconds < targetMilliseconds) continue;
+                var previous = snapshots[index - 1];
+                var span = Math.Max(
+                    1d,
+                    next.UpdatedAtUnixMilliseconds -
+                    previous.UpdatedAtUnixMilliseconds);
+                var interpolation = Mathf.Clamp01((float)(
+                    (targetMilliseconds - previous.UpdatedAtUnixMilliseconds) /
+                    span));
+                rendered = new RemoteAvatarRenderedSample(
+                    Vector3.Lerp(previous.Position, next.Position, interpolation),
+                    interpolation < 0.5f
+                        ? previous.MotionStatus
+                        : next.MotionStatus,
+                    false);
+                return true;
+            }
+
+            var extrapolationSeconds = (float)((targetMilliseconds -
+                latest.UpdatedAtUnixMilliseconds) / 1000d);
+            if (extrapolationSeconds <= Mathf.Max(0f, maximumExtrapolation))
+            {
+                rendered = new RemoteAvatarRenderedSample(
+                    latest.Position + latest.Velocity * extrapolationSeconds,
+                    latest.MotionStatus,
+                    true);
+                return true;
+            }
+
+            // The stream is stale. Hold the final approved pose rather than
+            // extrapolating toward an input destination that Unity never owns.
+            rendered = new RemoteAvatarRenderedSample(
+                latest.Position,
+                "idle",
+                true);
+            return true;
         }
 
         private sealed class RemoteReplica
@@ -445,17 +864,19 @@ namespace Tormia.Ontology.Core
                 Root = root;
                 VisualRoot = visualRoot;
                 Animator = animator;
-                TargetPosition = position;
+                LastRenderedPosition = position;
                 LastSeenAt = seenAt;
             }
 
             public GameObject Root { get; }
             public Transform VisualRoot { get; }
             public Animator Animator { get; }
-            public Vector3 TargetPosition { get; set; }
+            public List<RemoteAvatarSnapshotSample> Snapshots { get; } = new();
+            public Vector3 LastRenderedPosition { get; set; }
             public float LastSeenAt { get; set; }
-            public string MotionStatus { get; set; }
             public string AppearanceFingerprint { get; set; }
+            public bool BufferUnderrunActive { get; set; }
+            public bool ExtrapolationActive { get; set; }
         }
 
         private sealed class RemoteAvatarAppearance
@@ -473,5 +894,56 @@ namespace Tormia.Ontology.Core
             public IReadOnlyList<string> EquippedPartIds { get; }
             public string Fingerprint { get; }
         }
+    }
+
+    /// <summary>
+    /// One Authority-owned remote movement observation. It is a presentation
+    /// transport value only: the server has already evaluated the locomotion
+    /// action and collision proxies before publishing it.
+    /// </summary>
+    public readonly struct RemoteAvatarSnapshotSample
+    {
+        public RemoteAvatarSnapshotSample(
+            long serverTick,
+            long updatedAtUnixMilliseconds,
+            string runtimeSessionId,
+            Vector3 position,
+            Vector3 velocity,
+            string motionStatus,
+            float receivedAtUnscaledTime)
+        {
+            ServerTick = serverTick;
+            UpdatedAtUnixMilliseconds = updatedAtUnixMilliseconds;
+            RuntimeSessionId = runtimeSessionId ?? string.Empty;
+            Position = position;
+            Velocity = velocity;
+            MotionStatus = motionStatus ?? string.Empty;
+            ReceivedAtUnscaledTime = receivedAtUnscaledTime;
+        }
+
+        public long ServerTick { get; }
+        public long UpdatedAtUnixMilliseconds { get; }
+        public string RuntimeSessionId { get; }
+        public Vector3 Position { get; }
+        public Vector3 Velocity { get; }
+        public string MotionStatus { get; }
+        public float ReceivedAtUnscaledTime { get; }
+    }
+
+    public readonly struct RemoteAvatarRenderedSample
+    {
+        public RemoteAvatarRenderedSample(
+            Vector3 position,
+            string motionStatus,
+            bool isExtrapolated)
+        {
+            Position = position;
+            MotionStatus = motionStatus ?? string.Empty;
+            IsExtrapolated = isExtrapolated;
+        }
+
+        public Vector3 Position { get; }
+        public string MotionStatus { get; }
+        public bool IsExtrapolated { get; }
     }
 }

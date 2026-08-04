@@ -157,6 +157,11 @@ namespace Tormia.Ontology.Core
                     playbackEndNormalized =
                         existing?.playbackEndNormalized ??
                         definition.playbackEndNormalized,
+                    playbackSpeed = existing != null && existing.playbackSpeed > 0f
+                        ? existing.playbackSpeed
+                        : definition.playbackSpeed > 0f
+                            ? definition.playbackSpeed
+                            : 1f,
                     properties = Copy(definition.properties),
                     contentVersion = existing?.contentVersion ?? "1.0.0",
                     checksum = GetContentHash(assetPath)
@@ -299,6 +304,7 @@ namespace Tormia.Ontology.Core
                 contactWindowEndNormalized = 1f,
                 playbackStartNormalized = 0f,
                 playbackEndNormalized = 1f,
+                playbackSpeed = 1f,
                 properties = Array.Empty<string>(),
                 contentVersion = "1.0.0",
                 checksum = GetContentHash(sourcePath)
@@ -502,6 +508,10 @@ namespace Tormia.Ontology.Core
                 entry.playbackStartNormalized <= 0f)
             {
                 entry.playbackEndNormalized = 1f;
+            }
+            if (entry.playbackSpeed <= 0f)
+            {
+                entry.playbackSpeed = 1f;
             }
         }
 

@@ -18,6 +18,9 @@ namespace Tormia.Ontology.Core
         // Authority may adopt matching unclaimed authored Facts and Rule
         // Blocks that already exist on the target.
         public bool adoptExistingContributions;
+        // Packages whose behavior is expected to close when the final Rule Block
+        // leaves must own at least one binding. Passive data-only packages opt out.
+        public bool requiresOwnedBinding;
         public List<string> replacePredicateIds = new();
         public List<string> requiredConceptIds = new();
         // Preserves canonical, entity, number, boolean, text, and JSON object

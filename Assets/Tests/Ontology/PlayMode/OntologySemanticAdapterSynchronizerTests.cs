@@ -164,6 +164,21 @@ namespace Tormia.Ontology.Tests
                             predicate =
                                 OntologyPredicates.HitAnimationIntent,
                             obj = OntologyAnimationIntentIds.HitReaction
+                        },
+                        new OntologyFactEntry
+                        {
+                            predicate = OntologyPredicates.CollisionProxyShape,
+                            obj = "Capsule"
+                        },
+                        new OntologyFactEntry
+                        {
+                            predicate = OntologyPredicates.CollisionRadius,
+                            obj = "0.5"
+                        },
+                        new OntologyFactEntry
+                        {
+                            predicate = OntologyPredicates.CollisionHeight,
+                            obj = "2"
                         }
                     });
                 var identity =
@@ -183,6 +198,10 @@ namespace Tormia.Ontology.Tests
                     Is.SameAs(identity),
                     "Combat presentation must be created from semantic data, " +
                     "not from a monster prefab.");
+                Assert.That(
+                    presenter.InteractionCollider,
+                    Is.SameAs(target.GetComponent<
+                        OntologyCombatHitProxyAdapter>().Collider));
 
                 ontology.ConfigureOntologyData(
                     "OrdinaryEditedObject",
@@ -196,6 +215,106 @@ namespace Tormia.Ontology.Tests
                     presenter.enabled,
                     Is.False,
                     "Removing Damageable meaning must remove the adapter route.");
+                Assert.That(
+                    target.GetComponent<OntologyCombatHitProxyAdapter>()
+                        .Collider.enabled,
+                    Is.False,
+                    "Removing Damageable meaning must also disable its " +
+                    "query-only hit proxy.");
+            }
+            finally
+            {
+                Object.Destroy(target);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponMeaningOwnsGenericContactPresenterLifecycle()
+        {
+            var target = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            target.name = "ArbitraryCreatorObject";
+            try
+            {
+                Object.DestroyImmediate(target.GetComponent<Collider>());
+                var ontology = target.AddComponent<OntologyObject>();
+                ontology.ConfigureOntologyData(
+                    "ArbitraryCreatorObject",
+                    new[] { OntologyConcepts.Weapon },
+                    new[]
+                    {
+                        new OntologyFactEntry
+                        {
+                            predicate = OntologyPredicates.AttackContactMode,
+                            obj = OntologyObjects.WeaponContactWindow
+                        }
+                    });
+                target.AddComponent<OntologyAuthorityEntityIdentity>()
+                    .SetGuid(System.Guid.NewGuid());
+                var authoredContact = target.AddComponent<BoxCollider>();
+                authoredContact.isTrigger = true;
+                authoredContact.enabled = false;
+
+                OntologySemanticAdapterSynchronizer
+                    .SynchronizeWeaponPresentation(target);
+                yield return null;
+
+                var presenter =
+                    target.GetComponent<OntologyCombatWeaponPresenter>();
+                Assert.That(presenter, Is.Not.Null);
+                Assert.That(presenter.enabled, Is.True);
+                Assert.That(
+                    presenter.SupportsContactMode(
+                        OntologyObjects.WeaponContactWindow),
+                    Is.True,
+                    "Generic weapon contact requires semantic meaning plus " +
+                    "an explicitly authored physical contact proxy.");
+
+                ontology.ConfigureOntologyData(
+                    "ArbitraryCreatorObject",
+                    System.Array.Empty<string>(),
+                    System.Array.Empty<OntologyFactEntry>());
+                OntologySemanticAdapterSynchronizer
+                    .SynchronizeWeaponPresentation(target);
+                yield return null;
+
+                Assert.That(presenter.enabled, Is.False);
+            }
+            finally
+            {
+                Object.Destroy(target);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponWithoutAuthoredContactProxyFailsClosed()
+        {
+            var target = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            try
+            {
+                Object.DestroyImmediate(target.GetComponent<Collider>());
+                var ontology = target.AddComponent<OntologyObject>();
+                ontology.ConfigureOntologyData(
+                    "VisualOnlyWeapon",
+                    new[] { OntologyConcepts.Weapon },
+                    new[] { new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.AttackContactMode,
+                        obj = OntologyObjects.WeaponContactWindow
+                    }});
+                target.AddComponent<OntologyAuthorityEntityIdentity>()
+                    .SetGuid(System.Guid.NewGuid());
+
+                OntologySemanticAdapterSynchronizer
+                    .SynchronizeWeaponPresentation(target);
+                yield return null;
+
+                Assert.That(
+                    target.GetComponent<OntologyCombatWeaponPresenter>(),
+                    Is.Null,
+                    "Renderer bounds must never silently become gameplay " +
+                    "contact geometry.");
             }
             finally
             {

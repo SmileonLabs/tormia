@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "packageId": "social_village",
+  "packageVersion": "4.0.0",
+  "rules": [
+    { "id": "BuoyantWhenInWater", "definitionVersion": 2, "sourceSha256": "b7e00b175762dd7d365f2f919ca1be591dc4f94dd9bbbca74994e5dad59de9df" },
+    { "id": "AutoEquipNearbyWearable", "definitionVersion": 2, "sourceSha256": "7c5f7c1528d8b05122c4ba2cac48b58ea4f4fcc8b72e596bdf2c4cf1d8c3bae1" },
+    { "id": "EquippedItemGrantsTemporarySkill", "definitionVersion": 2, "sourceSha256": "37c1617c8d29b99d70bb2cd94446f2a9234d37cab5398cf1eaf4dc2d73eef540" },
+    { "id": "AutoCarryNearbyCarryable", "definitionVersion": 2, "sourceSha256": "99e68da2e1fdd30e742220cd20cd740887ec7a3786d02f10f63829a9320f1f56" },
+    { "id": "EquipItemOnInteractionIntent", "definitionVersion": 1, "sourceSha256": "79877b279968b7aa489b85cd43e94be02cf7a297f1e4980212a8055c69b9e28b" },
+    { "id": "MeleeAttackOnPrimaryIntent", "definitionVersion": 5, "sourceSha256": "5bfd0a5121f31eee1743af85b10bc367eac81f7d581c25df3fed9eff36511a2f" },
+    { "id": "SwingWeaponOnPrimaryIntent", "definitionVersion": 2, "sourceSha256": "c4421e4a6f6c91754047b792cc00d1260f784bdfc38e386a88497eb991ed1992" },
+    { "id": "UnequipItemOnInteractionIntent", "definitionVersion": 3, "sourceSha256": "135a9e99d6b6445c147384a9037d33ebc653fea29c78531080da66862069fac9" },
+    { "id": "AcquireNearestHostileTarget", "definitionVersion": 2, "sourceSha256": "5d62cc03a663a058171d756fcb007984b518337c3e339b1eb4cf86c94ad7d909" },
+    { "id": "ChaseTargetWithinLeash", "definitionVersion": 2, "sourceSha256": "8ff5d4a2558b7b1858c5ab299bbc32afa1e7b5e3a50751ec2b5a9f009208d8f5" },
+    { "id": "AutonomousMeleeCombat", "definitionVersion": 5, "sourceSha256": "b832de76de1f661139681c749fb51bc342533bc3ed7cf647a0e0cf78763bfb6b" },
+    { "id": "LootBecomesAvailableOnDefeat", "definitionVersion": 1, "sourceSha256": "85518fd4273bb2240b1076f5edcdb1afcffb994247cbce7f33be4c5560761737" },
+    { "id": "CollectAvailableLoot", "definitionVersion": 2, "sourceSha256": "625c9b17dc5bdcc7e9e48d65ee1033002974a37d381295d7ee02de50364f6382" },
+    { "id": "RespawnPlayerOnDeath", "definitionVersion": 2, "sourceSha256": "74efdea505b6627fe8ab20a47ba5f0e9b55433cfcdf4d97d924a1fbeb3f27077" },
+    { "id": "MovePlayerFromIntent", "definitionVersion": 3, "sourceSha256": "5d84550fe3d6d965713d897da043f1a36d6840e85facae9c491ee35a18de73ed" },
+    { "id": "JumpPlayerFromIntent", "definitionVersion": 4, "sourceSha256": "bad6d2c6788d0eda708fae0dfce736e4781e83c00cd10dbb781efdbdf73b4779" }
+  ],
+  "actions": [
+    { "id": "help", "definitionVersion": 3, "sourceSha256": "c243d34b6afbcc8586b8cf613a29c419cb0ea326e59a0f01f06db9bbe988a629" },
+    { "id": "talk", "definitionVersion": 3, "sourceSha256": "01a72a57d60360f7449c095f069f1fb1026c55fa9f74ee54c5f9d3e3d44550f8" },
+    { "id": "attack", "definitionVersion": 12, "sourceSha256": "484d8156f7fbfc346e3b9d663cb2b0aec7841160367ccaf0ad8d5ab2dd983d77" },
+    { "id": "equip_weapon", "definitionVersion": 9, "sourceSha256": "6c5e67832861cc0d6083f236bd3fc56df0d4bd3fce629ff02763a2440a35b6fc" },
+    { "id": "equip_wearable", "definitionVersion": 2, "sourceSha256": "5fcfc63f118efdf542e1107e97b978a6fa309f927e30baa2d1e6f7d18a6eca71" },
+    { "id": "unequip_equipment", "definitionVersion": 3, "sourceSha256": "4a083cb4dee0fd21dd9fb06d0901e0387489e3cd401114bd5a1a8c29530b138b" },
+    { "id": "swing_weapon", "definitionVersion": 2, "sourceSha256": "67878db420ceeffd5d522e95234707b4fa05206ae622681d5f396fbabbebe31d" },
+    { "id": "autonomous_melee_attack", "definitionVersion": 3, "sourceSha256": "4c071b71a1b58b9776bef2ccd506174d8e20784ef7a1fd24ccba82867defb6a9" },
+    { "id": "respawn_avatar", "definitionVersion": 2, "sourceSha256": "2835a3932c7319e71578d4cb3afe6f2f591b366a830408ea49b32a3530765e77" },
+    { "id": "move_avatar", "definitionVersion": 2, "sourceSha256": "b7ab46e70858663b293dc2a5fd0fc001dc4b1171643b979a711f0e8836bc2a4c" },
+    { "id": "collect_loot", "definitionVersion": 2, "sourceSha256": "ebacce773125a7c10036d8c814c3192ddeb79a6b32b8eca054f7ac23d54a37db" },
+    { "id": "acquire_autonomous_target", "definitionVersion": 2, "sourceSha256": "2deb92b389e214ed8ef009cb0f3c8c6afe30655f0d509f5b07d63f26526ef507" },
+    { "id": "chase_autonomous_target", "definitionVersion": 2, "sourceSha256": "0990d1ebd02227e3faabf9a5f72b923c82552048184ff9d341f9801fcffaf95c" },
+    { "id": "jump_avatar", "definitionVersion": 3, "sourceSha256": "20e964d60eaa20abaf7732b6f949d377362c4610f6f9991c1f27e7f135a5d6ec" }
+  ]
+}

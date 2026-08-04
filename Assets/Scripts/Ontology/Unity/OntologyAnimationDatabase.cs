@@ -101,6 +101,7 @@ namespace Tormia.Ontology.Core
         [Range(0f, 1f)] public float contactWindowEndNormalized = 1f;
         [Range(0f, 1f)] public float playbackStartNormalized;
         [Range(0f, 1f)] public float playbackEndNormalized = 1f;
+        [Min(0.01f)] public float playbackSpeed = 1f;
         public OntologyAnimationRootMotionMode rootMotionMode =
             OntologyAnimationRootMotionMode.Inherit;
         public OntologyAnimationPresentationOwner presentationOwner =

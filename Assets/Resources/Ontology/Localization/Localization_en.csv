@@ -99,6 +99,7 @@ ui.account.profile_final_review.enter,ENTER WORLD,Account entry
 ui.account.world_entry_loading.title,ENTERING WORLD,Account entry
 ui.account.world_entry_loading.preparing,Preparing your adventure...,Account entry
 ui.account.world_entry_loading.stage,Loading world data,Account entry
+ui.account.world_entry_loading.preparing_contract,Preparing world contract,Account entry
 ui.account.world_entry_loading.ready,World ready,Account entry
 ui.account.world_entry_loading.failed,World entry failed,Account entry
 ui.account.world_entry_loading.tip_heading,TIP,Account entry
@@ -610,6 +611,7 @@ physical_profile.HeavyBuoyant,Heavy buoyant,Physical profile
 attachment_profile.BackCarry,Back carry,Attachment profile
 attachment_profile.DriverSeatMount,Driver seat mount,Attachment profile
 attachment_profile.RightHandCarry,Right-hand carry,Attachment profile
+attachment_profile.RightHandObjectCarry,Right-hand object carry,Attachment profile
 attachment_profile.WaistInflatableRing,Waist inflatable ring,Attachment profile
 character_part.Part_Body_Base,Body 010,Character part
 character_part.Part_Face_Base,Usual expression,Character part
@@ -929,6 +931,12 @@ value.MonsterRun,monster run,Animation intent
 value.MonsterAttack,monster attack,Animation intent
 relation.attack_contact_mode,attack contact mode,Relation
 fact.attack_contact_mode,{0}'s attack contact mode is {1}.,Readable fact
+relation.attack_contact_reach,attack contact reach,Relation
+fact.attack_contact_reach,{0}'s attack contact reach is {1}.,Readable fact
+relation.attack_contact_open_seconds,attack contact opening time,Relation
+fact.attack_contact_open_seconds,{0}'s contact opens after {1} seconds.,Readable fact
+relation.attack_contact_window_seconds,attack contact window duration,Relation
+fact.attack_contact_window_seconds,{0}'s contact window lasts {1} seconds.,Readable fact
 value.WeaponContactWindow,weapon animation contact window,Value
 category.Combat,Combat,Placeable category
 physical_profile.AuthorityKinematic,Authority-driven kinematic,Physical profile
@@ -1098,6 +1106,8 @@ physical_choice.HandheldWeapon,Use as a handheld weapon,Physical behavior
 physical_result.HandheldWeapon,This object uses the handheld-weapon attachment and contact behavior.,Physical behavior
 relation.attack_action,attack action,Relation
 relation.attack_cooldown,attack cooldown,Relation
+relation.attack_windup_seconds,attack windup time,Relation
+relation.attack_recovery_seconds,attack recovery time,Relation
 relation.attack_damage,attack damage,Relation
 relation.attack_range,attack range,Relation
 relation.belongs_to_faction,faction membership,Relation
@@ -1148,6 +1158,7 @@ collision_proxy_shape.Capsule,capsule,Collision proxy shape
 collision_proxy_shape.Box,box,Collision proxy shape
 relation.respawn_action,respawn action,Relation
 relation.semantic_contract_version,semantic contract version,Relation
+relation.semantic_contract_checksum,semantic contract checksum,Relation
 relation.swing_action,swing action,Relation
 relation.target_action,target action,Relation
 relation.target_concept,target concept,Relation
@@ -1155,6 +1166,8 @@ relation.targeting_profile,targeting profile,Relation
 relation.unequip_action,unequip action,Relation
 fact.attack_action,{0}'s attack action is {1}.,Readable fact
 fact.attack_cooldown,{0}'s attack cooldown is {1}.,Readable fact
+fact.attack_windup_seconds,{0}'s attack windup time is {1} seconds.,Readable fact
+fact.attack_recovery_seconds,{0}'s attack recovery time is {1} seconds.,Readable fact
 fact.attack_damage,{0}'s attack damage is {1}.,Readable fact
 fact.attack_range,{0}'s attack range is {1}.,Readable fact
 fact.belongs_to_faction,{0} belongs to faction {1}.,Readable fact
@@ -1198,6 +1211,7 @@ fact.collision_center_offset_y,{0}'s collision center Y offset is {1}.,Readable 
 fact.collision_center_offset_z,{0}'s collision center Z offset is {1}.,Readable fact
 fact.respawn_action,{0}'s respawn action is {1}.,Readable fact
 fact.semantic_contract_version,{0}'s semantic contract version is {1}.,Readable fact
+fact.semantic_contract_checksum,{0}'s semantic contract checksum is {1}.,Readable fact
 fact.swing_action,{0}'s swing action is {1}.,Readable fact
 fact.target_action,{0}'s target action is {1}.,Readable fact
 fact.target_concept,{0}'s target concept is {1}.,Readable fact
@@ -1264,3 +1278,7 @@ variable.targetfaction,target faction,Rule variable
 variable.tick,tick,Rule variable
 variable.tile,tile,Rule variable
 variable.vitality,vitality,Rule variable
+rule_preset.interaction_equip,Interaction equip,Rule-block quick setup
+rule_preset.interaction_equip.description,Equip or unequip this carryable item when an actor sends an interaction intent.,Rule-block quick setup
+rule_preset.melee_weapon,Make melee weapon,Rule-block quick setup
+rule_preset.melee_weapon.description,"Adds equip, unequip, swing and melee-attack rules plus handheld physical meaning to the selected object as one package.",Rule-block quick setup

@@ -35,7 +35,10 @@ namespace Tormia.Ontology.Core
         private bool relationAmbiguityLogged;
 
         public bool IsAttached { get; private set; }
-        public bool OwnsWorldTransform => IsAttached;
+        public bool OwnsWorldTransform =>
+            IsAttached ||
+            (physicsCoordinator != null &&
+             physicsCoordinator.IsWorldReleasePending);
         public OntologyAttachmentProfile AttachmentProfile => attachmentProfile;
 
         private void Awake()
@@ -199,8 +202,12 @@ namespace Tormia.Ontology.Core
             missingAnchorLogged = false;
 
             detachedParent = transform.parent;
+            GetComponent<OntologyDynamicTransformCheckpointAdapter>()?
+                .SuspendForAttachment();
             if (!ApplyAttachmentPose(anchor))
             {
+                GetComponent<OntologyDynamicTransformCheckpointAdapter>()?
+                    .ResumeAfterAttachmentRelease();
                 return;
             }
             physicsCoordinator.SetAttachmentOverride(
@@ -219,7 +226,8 @@ namespace Tormia.Ontology.Core
             }
 
             transform.SetParent(detachedParent, true);
-            if (placeInWorldAfterDetach)
+            if (placeInWorldAfterDetach ||
+                attachmentProfile.placeInWorldOnRelationRemoval)
             {
                 PlaceInFrontOfActor();
                 placeInWorldAfterDetach = false;
@@ -234,8 +242,35 @@ namespace Tormia.Ontology.Core
                 false,
                 attachmentProfile.disableWorldPhysicsWhileAttached,
                 attachmentProfile.disableWorldCollidersWhileAttached);
+            GetComponent<OntologyDynamicTransformCheckpointAdapter>()?
+                .ResumeAfterAttachmentRelease();
             ClearAttachmentPoseSnapshot();
             IsAttached = false;
+        }
+
+        /// <summary>
+        /// Arms the profile-authored safe world release for the next semantic
+        /// relation removal. Authority still owns whether the relation is
+        /// removed; this method only selects the resulting Unity presentation.
+        /// </summary>
+        public void PrepareForAuthorityDetach()
+        {
+            if (IsAttached &&
+                attachmentProfile != null &&
+                attachmentProfile.kind != OntologyAttachmentKind.Mountable)
+            {
+                placeInWorldAfterDetach = true;
+            }
+        }
+
+        /// <summary>
+        /// Cancels a presentation-only release prepared before an Authority
+        /// command when that command is rejected. The semantic relation and
+        /// attachment remain untouched.
+        /// </summary>
+        public void CancelPreparedAuthorityDetach()
+        {
+            placeInWorldAfterDetach = false;
         }
 
         private void RefreshAttachedPoseIfAuthoringChanged()

@@ -26,7 +26,7 @@ namespace Tormia.Ontology.Tests
                 value.attachmentProfile != null &&
                 value.weaponFamily == "Sword" &&
                 value.contactModeId == "WeaponContactWindow" &&
-                value.actionDefinitionVersion == 10), Is.True);
+                value.actionDefinitionVersion == 12), Is.True);
             Assert.That(catalog.FindVfx("WeaponSwingSwordBasic")?.prefab, Is.Not.Null);
             Assert.That(catalog.FindVfx("HitPhysicalLight")?.prefab, Is.Not.Null);
         }
@@ -94,8 +94,22 @@ namespace Tormia.Ontology.Tests
                              value.obj == "1"));
                 Assert.That(weapon.ontologyTemplate.facts, Has.Some.Matches<OntologyFactEntry>(
                     value => value != null &&
+                             value.predicate == "attack_playback_speed" &&
+                             value.obj == "2"));
+                Assert.That(weapon.ontologyTemplate.facts, Has.Some.Matches<OntologyFactEntry>(
+                    value => value != null &&
                              value.predicate == "attack_contact_mode" &&
                              value.obj == "WeaponContactWindow"));
+                Assert.That(weapon.ontologyTemplate.facts,
+                    Has.Some.Matches<OntologyFactEntry>(value =>
+                        value != null &&
+                        value.predicate == "idle_animation_intent" &&
+                        value.obj == "WeaponIdle"));
+                Assert.That(weapon.ontologyTemplate.facts,
+                    Has.Some.Matches<OntologyFactEntry>(value =>
+                        value != null &&
+                        value.predicate == "move_animation_intent" &&
+                        value.obj == "WeaponWalk"));
                 Assert.That(
                     weapon.defaultRuleBlocks,
                     Has.Some.Matches<OntologyRuleBlockBinding>(value =>
@@ -115,19 +129,14 @@ namespace Tormia.Ontology.Tests
                     "version rather than a test-local number.");
                 Assert.That(
                     weapon.introducedFacts,
-                    Has.Exactly(3).Matches<OntologyFactIntroduction>(value =>
+                    Has.Some.Matches<OntologyFactIntroduction>(value =>
                         value != null &&
                         value.contractVersion == 4 &&
                         value.fact != null &&
-                        new[]
-                        {
-                            "attack_action",
-                            "attack_range",
-                            "attack_cooldown"
-                        }.Contains(value.fact.predicate)));
+                        value.fact.predicate == "attack_action"));
                 Assert.That(
                     weapon.introducedFacts,
-                    Has.Exactly(1).Matches<OntologyFactIntroduction>(value =>
+                    Has.Some.Matches<OntologyFactIntroduction>(value =>
                         value != null &&
                         value.contractVersion == 5 &&
                         value.fact != null &&
@@ -135,12 +144,57 @@ namespace Tormia.Ontology.Tests
                         value.fact.obj == "swing_weapon"));
                 Assert.That(
                     weapon.introducedFacts,
-                    Has.Exactly(1).Matches<OntologyFactIntroduction>(value =>
+                    Has.Some.Matches<OntologyFactIntroduction>(value =>
                         value != null &&
-                        value.contractVersion == 6 &&
+                        value.contractVersion == 11 &&
                         value.fact != null &&
-                        value.fact.predicate == "attack_contact_mode" &&
-                        value.fact.obj == "WeaponContactWindow"));
+                        value.fact.predicate == "attack_contact_reach"));
+                Assert.That(
+                    weapon.introducedFacts,
+                    Has.Some.Matches<OntologyFactIntroduction>(value =>
+                        value != null &&
+                        value.contractVersion == 11 &&
+                        value.fact != null &&
+                        value.fact.predicate ==
+                            "attack_contact_open_seconds" &&
+                        value.fact.obj == "0.4"));
+                Assert.That(
+                    weapon.introducedFacts,
+                    Has.Some.Matches<OntologyFactIntroduction>(value =>
+                        value != null &&
+                        value.contractVersion == 11 &&
+                        value.fact != null &&
+                        value.fact.predicate ==
+                            "attack_contact_window_seconds" &&
+                        value.fact.obj == "2"));
+                Assert.That(
+                    weapon.introducedFacts,
+                    Has.Some.Matches<OntologyFactIntroduction>(value =>
+                        value != null &&
+                        value.contractVersion ==
+                            OntologySemanticContracts.WeaponVersion &&
+                        value.fact != null &&
+                        value.fact.predicate == "idle_animation_intent" &&
+                        value.fact.obj == "WeaponIdle"));
+                Assert.That(
+                    weapon.introducedFacts,
+                    Has.Some.Matches<OntologyFactIntroduction>(value =>
+                        value != null &&
+                        value.contractVersion ==
+                            OntologySemanticContracts.WeaponVersion &&
+                        value.fact != null &&
+                        value.fact.predicate == "move_animation_intent" &&
+                        value.fact.obj == "WeaponWalk"));
+                Assert.That(
+                    weapon.introducedFacts,
+                    Has.Some.Matches<OntologyFactIntroduction>(value =>
+                        value != null &&
+                        value.contractVersion ==
+                            OntologyCombatVerticalSliceAuthoring
+                                .SwingSemanticContractVersion &&
+                        value.fact != null &&
+                        value.fact.predicate == "attack_playback_speed" &&
+                        value.fact.obj == "2"));
                 Assert.That(
                     weapon.introducedRuleBlocks,
                     Has.Some.Matches<OntologyRuleBlockIntroduction>(value =>
@@ -156,10 +210,13 @@ namespace Tormia.Ontology.Tests
                     weapon.introducedRuleBlocks,
                     Has.Some.Matches<OntologyRuleBlockIntroduction>(value =>
                         value != null &&
-                        value.contractVersion == 5 &&
+                        value.contractVersion ==
+                            OntologyCombatVerticalSliceAuthoring
+                                .SwingSemanticContractVersion &&
                         value.binding != null &&
                         value.binding.ruleId ==
-                        "SwingWeaponOnPrimaryIntent" &&
+                            "SwingWeaponOnPrimaryIntent" &&
+                        value.binding.ruleVersion == 2 &&
                         value.binding.bindingVariable == "?tool"),
                     "The swing Rule Block must be a one-time semantic upgrade.");
             }
@@ -180,7 +237,7 @@ namespace Tormia.Ontology.Tests
                 "Assets/Data/Ontology/RuleDatabase.asset");
             var attackRule = rules.Definitions.Single(value =>
                 value.id == "MeleeAttackOnPrimaryIntent");
-            Assert.That(attackRule.catalogVersion, Is.EqualTo(4));
+            Assert.That(attackRule.catalogVersion, Is.EqualTo(5));
             Assert.That(
                 attackRule.conditions,
                 Has.Some.Matches<OntologyCondition>(value =>
@@ -837,11 +894,21 @@ namespace Tormia.Ontology.Tests
                     .FindProperty("attackActionReference")
                     .objectReferenceValue as
                     UnityEngine.InputSystem.InputActionReference;
-                var equipBinding = serialized
-                    .FindProperty("equipBinding")
-                    .stringValue;
+                var equipReference = serialized
+                    .FindProperty("equipActionReference")
+                    .objectReferenceValue as
+                    UnityEngine.InputSystem.InputActionReference;
                 Assert.That(attackReference, Is.Not.Null);
-                Assert.That(equipBinding, Is.EqualTo("<Keyboard>/f"));
+                Assert.That(equipReference, Is.Not.Null);
+                Assert.That(equipReference.action.actionMap.name,
+                    Is.EqualTo("Player"));
+                Assert.That(equipReference.action.name, Is.EqualTo("Equip"));
+                Assert.That(
+                    equipReference.action.bindings.Any(value =>
+                        value.effectivePath == "<Keyboard>/f"),
+                    Is.True,
+                    "Equip input must be authored in the shared Input Action " +
+                    "asset instead of constructed by gameplay code.");
                 Assert.That(
                     serialized.FindProperty("carryableEquipActionId"),
                     Is.Null,
@@ -1040,6 +1107,21 @@ namespace Tormia.Ontology.Tests
                         {
                             entityId = targetId.ToString("D"),
                             templateId = "TestCombatTarget"
+                        }
+                    },
+                    facts = new[]
+                    {
+                        new OntologyAuthorityFactProjection
+                        {
+                            subjectEntityId = targetId.ToString("D"),
+                            predicateId = OntologyPredicates.IsAlive,
+                            objectValueJson = "true"
+                        },
+                        new OntologyAuthorityFactProjection
+                        {
+                            subjectEntityId = targetId.ToString("D"),
+                            predicateId = OntologyPredicates.CurrentHealth,
+                            objectValueJson = "10"
                         }
                     }
                 };
@@ -1287,9 +1369,106 @@ namespace Tormia.Ontology.Tests
                 Is.EqualTo(UnityEngine.Vector3.one),
                 "The shared profile must preserve authored weapon scale.");
             Assert.That(
+                profile.placeInWorldOnRelationRemoval,
+                Is.True,
+                "A pushed Authority relation removal must release the weapon " +
+                "at the actor instead of restoring its old durable pose.");
+            Assert.That(
                 typeof(OntologyCombatWeaponPresenter).GetMethod("PresentEquipped"),
                 Is.Null,
                 "Combat presentation must not retain a hidden direct-parenting fallback.");
+        }
+
+        [Test]
+        public void HumanoidFootGroundingAdapterIsPresentationOnly()
+        {
+            var source = System.IO.File.ReadAllText(
+                "Assets/Scripts/Ontology/Unity/" +
+                "OntologyCharacterFootGroundingAdapter.cs");
+
+            Assert.That(source, Does.Contain("OnAnimatorIK"));
+            Assert.That(source, Does.Contain("Physics.RaycastNonAlloc"));
+            Assert.That(source, Does.Not.Contain("transform.position ="));
+            Assert.That(source, Does.Not.Contain("CharacterController.Move"));
+            Assert.That(source, Does.Not.Contain("Rigidbody.MovePosition"));
+        }
+
+        [Test]
+        public void ArbitraryCarryableUsesExplicitRootAnchoredProfile()
+        {
+            var profile = Load<OntologyAttachmentProfile>(
+                "Assets/Data/Ontology/Profiles/" +
+                "RightHandObjectCarryAttachmentProfile.asset");
+            var database = Load<OntologyAttachmentProfileDatabase>(
+                "Assets/Data/Ontology/Profiles/AttachmentProfileDatabase.asset");
+
+            Assert.That(profile.kind, Is.EqualTo(OntologyAttachmentKind.Carryable));
+            Assert.That(profile.slotId, Is.EqualTo("RightHand"));
+            Assert.That(profile.actorSocketId, Is.EqualTo("RightHand"));
+            Assert.That(profile.relationPredicate,
+                Is.EqualTo(OntologyPredicates.EquippedBy));
+            Assert.That(profile.requireItemGripPoint, Is.False,
+                "Arbitrary objects require an explicit root-anchored profile; " +
+                "the attachment adapter must not silently bypass a calibrated " +
+                "weapon grip contract.");
+            Assert.That(profile.placeInWorldOnRelationRemoval, Is.True);
+            Assert.That(database.Find(profile.profileId), Is.SameAs(profile));
+        }
+
+        [Test]
+        public void EquippedNonWeaponRemainsAvailableToUnequipInput()
+        {
+            var actorObject = new UnityEngine.GameObject("Actor");
+            try
+            {
+                var actorId = System.Guid.NewGuid();
+                var itemId = System.Guid.NewGuid();
+                var identity = actorObject.AddComponent<
+                    OntologyAuthorityEntityIdentity>();
+                identity.SetGuid(actorId);
+                var controller = actorObject.AddComponent<
+                    OntologyCombatController>();
+                controller.Configure(null, identity, null, null);
+                var projection = new OntologyAuthorityWorldProjection
+                {
+                    facts = new[]
+                    {
+                        new OntologyAuthorityFactProjection
+                        {
+                            subjectEntityId = itemId.ToString("D"),
+                            predicateId = OntologyPredicates.EquippedBy,
+                            objectKind = "entity",
+                            objectEntityId = actorId.ToString("D")
+                        },
+                        new OntologyAuthorityFactProjection
+                        {
+                            subjectEntityId = itemId.ToString("D"),
+                            predicateId = OntologyPredicates.UnequipAction,
+                            objectKind = "canonical",
+                            objectCanonicalId = "unequip_equipment"
+                        }
+                    }
+                };
+                typeof(OntologyCombatController).GetMethod(
+                        "ApplyEquipmentProjection",
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(controller, new object[] { projection });
+                var equipped = (System.Guid[])typeof(OntologyCombatController)
+                    .GetField(
+                        "projectedEquippedItemIds",
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.NonPublic)
+                    .GetValue(controller);
+
+                Assert.That(equipped, Is.EquivalentTo(new[] { itemId }),
+                    "F unequip must follow equipped_by for every Item; Weapon " +
+                    "is only a combat-presentation specialization.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(actorObject);
+            }
         }
 
         [Test]
@@ -1387,6 +1566,67 @@ namespace Tormia.Ontology.Tests
         }
 
         [Test]
+        public void EnabledActionSelectsNewestVersionWithinOnePackage()
+        {
+            var projection = new OntologyAuthorityWorldProjection
+            {
+                actions = new[]
+                {
+                    new OntologyAuthorityActionDefinitionProjection
+                    {
+                        packageId = "combat",
+                        actionId = "attack",
+                        definitionVersion = 10
+                    },
+                    new OntologyAuthorityActionDefinitionProjection
+                    {
+                        packageId = "combat",
+                        actionId = "attack",
+                        definitionVersion = 11
+                    }
+                }
+            };
+
+            Assert.That(
+                OntologyWorldAuthorityClient.TryResolveEnabledAction(
+                    projection,
+                    "attack",
+                    out var resolved),
+                Is.True);
+            Assert.That(resolved.definitionVersion, Is.EqualTo(11));
+        }
+
+        [Test]
+        public void EnabledActionRejectsSameIdFromDifferentPackages()
+        {
+            var projection = new OntologyAuthorityWorldProjection
+            {
+                actions = new[]
+                {
+                    new OntologyAuthorityActionDefinitionProjection
+                    {
+                        packageId = "combat-a",
+                        actionId = "attack",
+                        definitionVersion = 11
+                    },
+                    new OntologyAuthorityActionDefinitionProjection
+                    {
+                        packageId = "combat-b",
+                        actionId = "attack",
+                        definitionVersion = 12
+                    }
+                }
+            };
+
+            Assert.That(
+                OntologyWorldAuthorityClient.TryResolveEnabledAction(
+                    projection,
+                    "attack",
+                    out _),
+                Is.False);
+        }
+
+        [Test]
         public void PublishedDevelopmentActionsContainEquipAndGuardedDeath()
         {
             var settings = Load<OntologyWorldAuthoritySettings>(
@@ -1413,12 +1653,12 @@ namespace Tormia.Ontology.Tests
             var swingRule = ruleDatabase.Definitions.Single(value =>
                 value.id == "SwingWeaponOnPrimaryIntent");
 
-            Assert.That(settings.developmentPackageVersion, Is.EqualTo("3.9.0"));
+            Assert.That(settings.developmentPackageVersion, Is.EqualTo("4.0.0"));
             Assert.That(settings.developmentActions.All(value =>
                 !string.IsNullOrWhiteSpace(value.actionId) &&
                 value.definitionVersion >= 1), Is.True);
-            Assert.That(attack.definitionVersion, Is.EqualTo(10));
-            Assert.That(swing.definitionVersion, Is.EqualTo(1));
+            Assert.That(attack.definitionVersion, Is.EqualTo(12));
+            Assert.That(swing.definitionVersion, Is.EqualTo(2));
             Assert.That(
                 manifest.Weapons.All(value =>
                     value != null &&
@@ -1433,9 +1673,9 @@ namespace Tormia.Ontology.Tests
                     value.actionDefinitionVersion ==
                     attack.definitionVersion),
                 Is.True);
-            Assert.That(equip.definitionVersion, Is.EqualTo(8));
-            Assert.That(equipWearable.definitionVersion, Is.EqualTo(1));
-            Assert.That(unequip.definitionVersion, Is.EqualTo(2));
+            Assert.That(equip.definitionVersion, Is.EqualTo(9));
+            Assert.That(equipWearable.definitionVersion, Is.EqualTo(2));
+            Assert.That(unequip.definitionVersion, Is.EqualTo(3));
             Assert.That(
                 settings.developmentRules,
                 Has.Some.Matches<OntologyAuthorityDevelopmentRule>(value =>
@@ -1507,6 +1747,13 @@ namespace Tormia.Ontology.Tests
                 swingRule.runtimePresentation.actorAnimationIntent,
                 Is.EqualTo("AttackLight"));
             Assert.That(
+                swingRule.runtimePresentation.playbackSpeedFrom.subject,
+                Is.EqualTo("?tool"));
+            Assert.That(
+                swingRule.runtimePresentation.playbackSpeedFrom.predicate,
+                Is.EqualTo("attack_playback_speed"));
+            Assert.That(swingRule.catalogVersion, Is.EqualTo(2));
+            Assert.That(
                 OntologyRuleValidator.Validate(new[] { swingRule }),
                 Is.Empty);
             Assert.That(equip.structuredDefinitionJson, Does.Not.Contain("\"equipped_item\""));
@@ -1539,7 +1786,7 @@ namespace Tormia.Ontology.Tests
             Assert.That(
                 equip.structuredDefinitionJson,
                 Does.Contain(
-                    "\"presentation\":{\"actorAnimationIntent\":\"WeaponEquip\"}"));
+                    "\"presentation\":{\"actorAnimationIntent\":\"WeaponEquip\""));
             Assert.That(
                 unequip.structuredDefinitionJson,
                 Does.Not.Contain(
@@ -1617,7 +1864,7 @@ namespace Tormia.Ontology.Tests
         }
 
         [Test]
-        public void AuthorityEquippedTemplateSelectsCatalogOwnedIdleIntent()
+        public void AuthorityEquippedEntitySelectsProjectedAnimationIntent()
         {
             var actorId = System.Guid.NewGuid().ToString("D");
             var itemId = System.Guid.NewGuid().ToString("D");
@@ -1654,6 +1901,18 @@ namespace Tormia.Ontology.Tests
                             subjectEntityId = itemId,
                             predicateId = OntologyPredicates.EquippedBy,
                             objectEntityId = actorId
+                        },
+                        new OntologyAuthorityFactProjection
+                        {
+                            subjectEntityId = itemId,
+                            predicateId = OntologyPredicates.IdleAnimationIntent,
+                            objectCanonicalId = "TestWeaponIdle"
+                        },
+                        new OntologyAuthorityFactProjection
+                        {
+                            subjectEntityId = itemId,
+                            predicateId = OntologyPredicates.MoveAnimationIntent,
+                            objectCanonicalId = "TestWeaponWalk"
                         }
                     }
                 };
@@ -1682,7 +1941,7 @@ namespace Tormia.Ontology.Tests
         }
 
         [Test]
-        public void RemovedEquipmentPresentationDataRemovesWeaponIdleBehavior()
+        public void RemovedProjectedAnimationMeaningRemovesWeaponIdleBehavior()
         {
             var actorId = System.Guid.NewGuid().ToString("D");
             var itemId = System.Guid.NewGuid().ToString("D");
@@ -2195,6 +2454,138 @@ namespace Tormia.Ontology.Tests
                     UnityEngine.Object.DestroyImmediate(converted);
                 }
             }
+        }
+
+        [Test]
+        public void TargetHitPresentationRequiresNewAuthorityHealthDecrease()
+        {
+            Assert.That(
+                OntologyCombatTargetPresenter.ShouldPresentConfirmedDamage(
+                    true, 100, 10, 85, 11, false),
+                Is.True);
+            Assert.That(
+                OntologyCombatTargetPresenter.ShouldPresentConfirmedDamage(
+                    true, 100, 10, 85, 10, false),
+                Is.False,
+                "Replaying the same projection must not replay the reaction.");
+            Assert.That(
+                OntologyCombatTargetPresenter.ShouldPresentConfirmedDamage(
+                    false, 0, -1, 85, 11, false),
+                Is.False,
+                "The initial projection is baseline state, not a hit event.");
+            Assert.That(
+                OntologyCombatTargetPresenter.ShouldPresentConfirmedDamage(
+                    true, 10, 10, 0, 11, true),
+                Is.False,
+                "Defeat owns the death intent instead of the hit reaction.");
+        }
+
+        [Test]
+        public void TargetHitOccurrenceRequiresCommittedDamageForThisTarget()
+        {
+            var occurrence = new OntologyAuthorityRevisionOccurrence
+            {
+                revision = 42,
+                eventId = "event-42",
+                targetEntityId = "target-a",
+                damageResult = true
+            };
+
+            Assert.That(
+                OntologyCombatTargetPresenter
+                    .ShouldPresentAuthorityDamageOccurrence(
+                        occurrence,
+                        "target-a",
+                        string.Empty),
+                Is.True);
+            Assert.That(
+                OntologyCombatTargetPresenter
+                    .ShouldPresentAuthorityDamageOccurrence(
+                        occurrence,
+                        "target-b",
+                        string.Empty),
+                Is.False);
+            Assert.That(
+                OntologyCombatTargetPresenter
+                    .ShouldPresentAuthorityDamageOccurrence(
+                        occurrence,
+                        "target-a",
+                        "event-42"),
+                Is.False,
+                "One Authority occurrence must never replay twice.");
+            occurrence.damageResult = false;
+            Assert.That(
+                OntologyCombatTargetPresenter
+                    .ShouldPresentAuthorityDamageOccurrence(
+                        occurrence,
+                        "target-a",
+                        string.Empty),
+                Is.False,
+                "A targeted non-damage action must not look like a hit.");
+        }
+
+        [Test]
+        public void CombatTargetEligibilityRequiresProjectedLivingState()
+        {
+            var entityId = System.Guid.NewGuid();
+            var projection = new OntologyAuthorityWorldProjection
+            {
+                facts = new[]
+                {
+                    new OntologyAuthorityFactProjection
+                    {
+                        subjectEntityId = entityId.ToString("D"),
+                        predicateId = OntologyPredicates.IsAlive,
+                        objectValueJson = "true"
+                    },
+                    new OntologyAuthorityFactProjection
+                    {
+                        subjectEntityId = entityId.ToString("D"),
+                        predicateId = OntologyPredicates.CurrentHealth,
+                        objectValueJson = "10"
+                    }
+                }
+            };
+
+            Assert.That(
+                OntologyCombatTargetPresenter.IsProjectedAlive(
+                    projection,
+                    entityId),
+                Is.True);
+
+            projection.facts[1].objectValueJson = "0";
+            Assert.That(
+                OntologyCombatTargetPresenter.IsProjectedAlive(
+                    projection,
+                    entityId),
+                Is.False,
+                "A defeated presentation must not intercept combat input.");
+        }
+
+        [Test]
+        public void EquipmentInteractionRequiresAuthorityAndPresentationRange()
+        {
+            var actor = Vector3.zero;
+            var authorityTarget = new Vector3(1f, 0f, 0f);
+
+            Assert.That(
+                OntologyCombatController.IsWithinInteractionRange(
+                    actor,
+                    authorityTarget,
+                    actor,
+                    new Vector3(1f, 0f, 0f),
+                    3f),
+                Is.True);
+            Assert.That(
+                OntologyCombatController.IsWithinInteractionRange(
+                    actor,
+                    authorityTarget,
+                    actor,
+                    new Vector3(1f, -100f, 0f),
+                    3f),
+                Is.False,
+                "A stale durable position must not equip a Dynamic body " +
+                "whose collision presentation moved out of range.");
         }
 
         private static T Load<T>(string path) where T : UnityEngine.Object

@@ -39,6 +39,30 @@ namespace Tormia.Ontology.Tests
                     value != null &&
                     value.predicate == "hostile_to_faction" &&
                     value.obj == "PlayerFaction"));
+            Assert.That(
+                preset.requiredFacts,
+                Has.Some.Matches<OntologyFactEntry>(value =>
+                    value != null &&
+                    value.predicate == "attack_windup_seconds" &&
+                    value.obj == "0.45"));
+            Assert.That(
+                preset.requiredFacts,
+                Has.Some.Matches<OntologyFactEntry>(value =>
+                    value != null &&
+                    value.predicate == "attack_recovery_seconds" &&
+                    value.obj == "0.55"));
+            Assert.That(
+                preset.requiredFacts,
+                Has.Some.Matches<OntologyFactEntry>(value =>
+                    value != null &&
+                    value.predicate == "attack_contact_reach" &&
+                    value.obj == "0.2"));
+            Assert.That(
+                preset.requiredFacts,
+                Has.Some.Matches<OntologyFactEntry>(value =>
+                    value != null &&
+                    value.predicate == "collision_radius" &&
+                    value.obj == "0.65"));
         }
 
         [Test]
@@ -75,24 +99,37 @@ namespace Tormia.Ontology.Tests
                 beholder.introducedRuleBlocks,
                 Has.Some.Matches<OntologyRuleBlockIntroduction>(value =>
                     value != null &&
-                    value.contractVersion == 2 &&
+                    value.contractVersion <=
+                        OntologySemanticContracts.AutonomousActorVersion &&
                     value.binding.ruleId == "AutonomousMeleeCombat"));
             Assert.That(
                 beholder.introducedFacts,
                 Has.Some.Matches<OntologyFactIntroduction>(value =>
                     value != null &&
-                    value.contractVersion == 2 &&
-                    value.fact.predicate == "physical_profile" &&
-                    value.fact.obj == "AuthorityKinematic"));
+                    value.contractVersion <=
+                        OntologySemanticContracts.AutonomousActorVersion &&
+                    value.fact.predicate == "attack_contact_reach" &&
+                    value.fact.obj == "0.2"));
             Assert.That(
                 beholder.ruleBlockMigrations,
                 Has.Some.Matches<OntologyRuleBlockMigration>(value =>
                     value != null &&
-                    value.targetContractVersion == 5 &&
+                    value.targetContractVersion ==
+                        OntologySemanticContracts.AutonomousActorVersion &&
                     value.fromRuleId == "AutonomousMeleeCombat" &&
                     value.replacement != null &&
                     value.replacement.ruleId ==
                     "AutonomousMeleeCombat"));
+            Assert.That(
+                beholder.introducedFacts,
+                Has.None.Matches<OntologyFactIntroduction>(value =>
+                    value != null &&
+                    value.contractVersion ==
+                        OntologySemanticContracts.AutonomousActorVersion &&
+                    (value.fact.predicate == "current_health" ||
+                     value.fact.predicate == "is_alive")),
+                "A semantic contract migration must never heal or resurrect " +
+                "an existing monster.");
             Assert.That(
                 beholder.defaultRuleBlocks,
                 Has.Some.Matches<OntologyRuleBlockBinding>(value =>
@@ -226,19 +263,19 @@ namespace Tormia.Ontology.Tests
 
             Assert.That(
                 settings.developmentPackageVersion,
-                Is.EqualTo("3.6.0"));
+                Is.EqualTo("4.0.0"));
             Assert.That(
                 settings.developmentRules,
                 Has.Some.Matches<OntologyAuthorityDevelopmentRule>(value =>
                     value != null &&
                     value.ruleId == "AutonomousMeleeCombat" &&
-                    value.definitionVersion == 3));
+                    value.definitionVersion == 5));
             Assert.That(
                 settings.developmentActions,
                 Has.Some.Matches<OntologyAuthorityDevelopmentAction>(value =>
                     value != null &&
                     value.actionId == "autonomous_melee_attack" &&
-                    value.definitionVersion == 1 &&
+                    value.definitionVersion == 3 &&
                     !value.requiresTool &&
                     value.structuredDefinitionJson.Contains(
                         "AutonomousMeleeCombat")));
@@ -247,7 +284,7 @@ namespace Tormia.Ontology.Tests
                 Has.Some.Matches<OntologyAuthorityDevelopmentAction>(value =>
                     value != null &&
                     value.actionId == "acquire_autonomous_target" &&
-                    value.definitionVersion == 1 &&
+                    value.definitionVersion == 2 &&
                     value.structuredDefinitionJson.Contains(
                         "AcquireNearestHostileTarget")));
             Assert.That(
@@ -255,7 +292,7 @@ namespace Tormia.Ontology.Tests
                 Has.Some.Matches<OntologyAuthorityDevelopmentAction>(value =>
                     value != null &&
                     value.actionId == "chase_autonomous_target" &&
-                    value.definitionVersion == 1 &&
+                    value.definitionVersion == 2 &&
                     value.structuredDefinitionJson.Contains(
                         "ChaseTargetWithinLeash")));
         }
@@ -284,6 +321,13 @@ namespace Tormia.Ontology.Tests
                     profile.animationIds,
                     Does.Contain(expected.Item1));
             }
+
+            var attack = manifest.Entries.Single(value =>
+                value.animationId == "Anim_Beholder_Attack");
+            Assert.That(attack.hasContactWindow, Is.True);
+            Assert.That(
+                attack.contactWindowStartNormalized,
+                Is.LessThan(attack.contactWindowEndNormalized));
         }
 
         [Test]

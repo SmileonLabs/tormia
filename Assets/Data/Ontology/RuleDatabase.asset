@@ -78,6 +78,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: SmokeEvent
     catalogVersion: 1
     description: A burning object emits smoke, creating a visible world signal.
@@ -110,6 +114,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: FleeEvent
     catalogVersion: 1
     description: A creature that fears fire flees when a nearby object emits fire.
@@ -150,6 +158,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: DisturbanceEvent
     catalogVersion: 1
     description: A fleeing creature near a village creates a local disturbance.
@@ -190,6 +202,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: QuestHookEvent
     catalogVersion: 1
     description: A disturbed place and visible smoke expose an investigation quest
@@ -231,6 +247,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: NpcFearMoodEvent
     catalogVersion: 1
     description: A fleeing NPC becomes afraid.
@@ -267,6 +287,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: NpcDistrustEvent
     catalogVersion: 1
     description: Talking to an afraid NPC makes them distrust the player.
@@ -358,6 +382,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: NpcRespectEvent
     catalogVersion: 1
     description: Helping the village earns respect from nearby NPCs.
@@ -449,6 +477,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: QuestConsequenceEvent
     catalogVersion: 1
     description: Completing the smoke investigation helps the disturbed village recover.
@@ -506,6 +538,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: CraftStoneAxeRule
     catalogVersion: 1
     description: Any actor combining Stone and Stick crafts a StoneAxe.
@@ -576,6 +612,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: TileWaterStatusWetRule
     catalogVersion: 1
     description: Actor standing on a water tile becomes Wet.
@@ -616,6 +656,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: TileFreezingColdExposureRule
     catalogVersion: 1
     description: Actor standing on a freezing tile is exposed to ColdEnvironment.
@@ -656,6 +700,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: SwampResistanceCapabilityRule
     catalogVersion: 1
     description: SwampResistance equipment gives the actor swamp movement protection.
@@ -692,6 +740,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: TileSwampMovementSlowRule
     catalogVersion: 1
     description: Actor standing on a swamp tile becomes Slowed unless protected by
@@ -737,6 +789,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: ColdProtectionWarmthRule
     catalogVersion: 1
     description: ColdProtection equipment keeps a cold-exposed actor Warm.
@@ -777,6 +833,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: ColdExposureVitalityTickRule
     catalogVersion: 1
     description: Cold exposure lowers CoreVitality once per simulation tick unless
@@ -839,6 +899,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: SlowedAnimationIntentRule
     catalogVersion: 1
     description: Slowed actors prefer impaired movement animation intent.
@@ -871,6 +935,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: ColdAnimationIntentRule
     catalogVersion: 1
     description: Cold exposure prefers discomfort animation intent.
@@ -903,6 +971,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: LowVitalityAnimationIntentRule3
     catalogVersion: 1
     description: Core vitality 3 creates animation intent SevereDamageReaction.
@@ -935,6 +1007,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: LowVitalityAnimationIntentRule2
     catalogVersion: 1
     description: Core vitality 2 creates animation intent SevereDamageReaction.
@@ -967,6 +1043,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: LowVitalityAnimationIntentRule1
     catalogVersion: 1
     description: Core vitality 1 creates animation intent SevereDamageReaction.
@@ -999,6 +1079,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: DeathAnimationIntentRule
     catalogVersion: 1
     description: Core vitality 0 creates animation intent DeathReaction.
@@ -1031,6 +1115,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: ColdProtectionQuestHook
     catalogVersion: 1
     description: Cold exposure offers a quest to equip protective clothing.
@@ -1071,6 +1159,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: SwampProtectionQuestHook
     catalogVersion: 1
     description: Entering a swamp without resistance offers a protective equipment
@@ -1116,6 +1208,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: DeepWaterWithoutSwimmingBlockDrowning
     catalogVersion: 1
     description: An actor in deep water drowns when they cannot use the Swimming
@@ -1157,6 +1253,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: SwimmingMovementAnimationIntent
     catalogVersion: 1
     description: Swimming movement expresses the Swimming animation intent unless
@@ -1194,6 +1294,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: SwimmingIntentRequiresSwimmingMovement
     catalogVersion: 1
     description: Swimming animation intent is present only while swimming movement
@@ -1227,6 +1331,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: ShallowWaterOccupancyWading
     catalogVersion: 1
     description: An actor in a WaterRegion whose observed immersion depth is Shallow
@@ -1264,6 +1372,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: SwimmingIdleTreadingWaterIntent
     catalogVersion: 1
     description: Idle swimming activity expresses the TreadingWater animation intent.
@@ -1300,6 +1412,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: TreadingWaterIntentRequiresSwimmingMode
     catalogVersion: 1
     description: TreadingWater intent is removed when swimming movement ends.
@@ -1332,6 +1448,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: TreadingWaterIntentRequiresMovingCleanup
     catalogVersion: 1
     description: TreadingWater intent is removed when the swimming actor starts moving.
@@ -1364,6 +1484,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: BuoyantWhenInWater
     catalogVersion: 2
     description: A FloatableObject occupying a WaterRegion enters the Floating physical
@@ -1409,6 +1533,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: AutoEquipNearbyWearable
     catalogVersion: 2
     description: An Actor that intentionally selected and approached a Wearable reserves
@@ -1504,6 +1632,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: EquippedItemGrantsTemporarySkill
     catalogVersion: 2
     description: An equipped item transfers its authored skill to the actor only
@@ -1545,6 +1677,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: LearnedSkillBecomesUsable
     catalogVersion: 1
     description: A skill owned by an actor becomes usable.
@@ -1573,6 +1709,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: TemporarySkillBecomesUsable
     catalogVersion: 1
     description: A temporary skill granted by equipment becomes usable while the
@@ -1602,6 +1742,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: UsableSwimmingSkillEnablesDeepWaterMovement
     catalogVersion: 1
     description: An actor that can use Swimming uses swimming movement while deeply
@@ -1643,6 +1787,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: UsableSwimmingSkillCancelsDrowning
     catalogVersion: 1
     description: A usable Swimming skill removes a stale drowning movement state.
@@ -1675,6 +1823,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: EquippedSlotItemAttaches
     catalogVersion: 1
     description: The single item reserved by an Actor equipment slot becomes attached
@@ -1720,6 +1872,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: AutoCarryNearbyCarryable
     catalogVersion: 2
     description: An Actor that intentionally selected and approached a Carryable
@@ -1815,6 +1971,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: EquipItemOnInteractionIntent
     catalogVersion: 1
     description: An Actor interaction intent equips a compatible item only when the
@@ -1876,6 +2036,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: CarriedSlotItemAttaches
     catalogVersion: 1
     description: The item reserved by an Actor carry slot is presented at the profile-defined
@@ -1921,6 +2085,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: AutoMountNearbyMountable
     catalogVersion: 1
     description: An Actor that intentionally selected and approached a Mountable
@@ -2016,6 +2184,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: MountedActorUsesMount
     catalogVersion: 1
     description: The Actor reserved by a Mountable seat is presented at that mount
@@ -2061,6 +2233,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: SupportedObjectRestsOnSupport
     catalogVersion: 1
     description: A physical support observation implies that the object is resting
@@ -2090,6 +2266,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: ActivateWindDriftEffect
     catalogVersion: 1
     description: A compatible object with the WindDrift effect is affected by wind.
@@ -2126,6 +2306,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: ActivateWaveRockingEffect
     catalogVersion: 1
     description: A compatible object with the WaveRocking effect is rocked while
@@ -2171,8 +2355,12 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: MeleeAttackOnPrimaryIntent
-    catalogVersion: 4
+    catalogVersion: 5
     description: A primary attack intent lets an equipped melee weapon with an authored
       contact-delivery contract damage one living hostile Damageable target.
     conditions:
@@ -2210,8 +2398,12 @@ MonoBehaviour:
       obj: Damageable
     - kind: 0
       subject: ?target
-      predicate: combat_disposition
-      obj: Hostile
+      predicate: belongs_to_faction
+      obj: ?targetFaction
+    - kind: 0
+      subject: ?actor
+      predicate: hostile_to_faction
+      obj: ?targetFaction
     - kind: 0
       subject: ?target
       predicate: is_alive
@@ -2253,8 +2445,12 @@ MonoBehaviour:
         value: 0
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: SwingWeaponOnPrimaryIntent
-    catalogVersion: 1
+    catalogVersion: 2
     description: A primary swing intent authorizes one ephemeral equipped-weapon
       swing presentation without changing world Facts.
     conditions:
@@ -2285,11 +2481,15 @@ MonoBehaviour:
     effects: []
     runtimePresentation:
       actorAnimationIntent: AttackLight
+      playbackSpeedFrom:
+        subject: ?tool
+        predicate: attack_playback_speed
+        multiplier: 1
   - id: AutonomousMeleeCombat
-    catalogVersion: 3
-    description: An autonomous living combat actor may damage one living hostile
-      target matching its authored target_concept. Removing this Rule Block removes
-      the behavior.
+    catalogVersion: 5
+    description: At an Authority attack occurrence contact tick, an autonomous living
+      combat actor may damage one living hostile target matching its authored target_concept.
+      Removing this Rule Block removes the behavior.
     conditions:
     - kind: 0
       subject: ?actor
@@ -2388,6 +2588,10 @@ MonoBehaviour:
         value: 0
     runtimePresentation:
       actorAnimationIntent: MonsterAttack
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: RespawnPlayerOnDeath
     catalogVersion: 2
     description: A dead player-controlled actor with this Rule Block may restore
@@ -2462,8 +2666,12 @@ MonoBehaviour:
         value: 0
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: MovePlayerFromIntent
-    catalogVersion: 2
+    catalogVersion: 3
     description: A living player-controlled actor may submit ephemeral ground locomotion
       only while this Rule Block and its complete semantic contract are assigned.
     conditions:
@@ -2502,8 +2710,12 @@ MonoBehaviour:
     effects: []
     runtimePresentation:
       actorAnimationIntent: Locomotion
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: UnequipItemOnInteractionIntent
-    catalogVersion: 1
+    catalogVersion: 3
     description: An unequip intent removes both sides of an authored equipment relation
       only while this Rule Block remains assigned to the item.
     conditions:
@@ -2564,8 +2776,12 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: WeaponUnequip
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: AcquireNearestHostileTarget
-    catalogVersion: 1
+    catalogVersion: 2
     description: An autonomous actor may acquire the nearest living hostile entity
       matching its authored target_concept and targeting profile. The Authority scheduler
       supplies ephemeral distance.
@@ -2617,8 +2833,12 @@ MonoBehaviour:
     effects: []
     runtimePresentation:
       actorAnimationIntent: MonsterIdle
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: ChaseTargetWithinLeash
-    catalogVersion: 1
+    catalogVersion: 2
     description: AuthorityKinematic moves an autonomous actor toward its acquired
       target while detection_range, leash_range, and the authored ChaseWithinLeash
       profile permit it.
@@ -2658,6 +2878,10 @@ MonoBehaviour:
     effects: []
     runtimePresentation:
       actorAnimationIntent: MonsterWalk
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: LootBecomesAvailableOnDefeat
     catalogVersion: 1
     description: A defeated Damageable with authored loot data exposes loot only
@@ -2711,6 +2935,10 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: CollectAvailableLoot
     catalogVersion: 2
     description: A living Actor may collect one available authored loot item. The
@@ -2782,8 +3010,12 @@ MonoBehaviour:
         value: 
     runtimePresentation:
       actorAnimationIntent: 
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1
   - id: JumpPlayerFromIntent
-    catalogVersion: 3
+    catalogVersion: 4
     description: A supported living player-controlled actor may receive one ephemeral
       jump impulse only while this Rule Block and the complete authored jump contract
       are assigned.
@@ -2831,3 +3063,7 @@ MonoBehaviour:
     effects: []
     runtimePresentation:
       actorAnimationIntent: JumpStart
+      playbackSpeedFrom:
+        subject: 
+        predicate: 
+        multiplier: 1

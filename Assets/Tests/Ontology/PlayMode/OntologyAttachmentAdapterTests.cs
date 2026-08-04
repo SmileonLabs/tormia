@@ -649,7 +649,20 @@ namespace Tormia.Ontology.Tests
             yield return null;
 
             Assert.That(attachment.IsAttached, Is.False);
+            Assert.That(
+                attachment.OwnsWorldTransform,
+                Is.True,
+                "The release lease must block an old durable projection until " +
+                "Rigidbody ownership resumes.");
+            Assert.That(
+                itemBody.isKinematic,
+                Is.True,
+                "A released attachment must remain kinematic until Unity has " +
+                "observed its restored collider at the safe world pose.");
+            yield return new WaitForFixedUpdate();
+            yield return null;
             Assert.That(itemBody.isKinematic, Is.False);
+            Assert.That(attachment.OwnsWorldTransform, Is.False);
             Assert.That(itemCollider.enabled, Is.True);
             var planarDetach = item.transform.position - actor.transform.position;
             planarDetach.y = 0f;
@@ -846,6 +859,9 @@ namespace Tormia.Ontology.Tests
                 yield return null;
 
                 Assert.That(attachment.IsAttached, Is.False);
+                Assert.That(attachment.OwnsWorldTransform, Is.True);
+                yield return new WaitForFixedUpdate();
+                yield return null;
                 Assert.That(attachment.OwnsWorldTransform, Is.False);
                 Assert.That(body.isKinematic, Is.False);
                 Assert.That(body.useGravity, Is.True);

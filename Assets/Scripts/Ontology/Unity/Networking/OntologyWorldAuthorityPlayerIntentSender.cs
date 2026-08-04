@@ -16,6 +16,14 @@ namespace Tormia.Ontology.Core
     public sealed class OntologyWorldAuthorityPlayerIntentSender : MonoBehaviour
     {
         [SerializeField] private OntologyWorldAuthorityClient authorityClient;
+        [SerializeField, Tooltip(
+            "Optional canonical motion-intent transport. Leave empty to use the " +
+            "project HTTP adapter; input never talks to a concrete transport.")]
+        private MonoBehaviour intentTransportSource;
+        [SerializeField, Tooltip(
+            "Optional Authority motion snapshot feed for the latest approved " +
+            "local state. Leave empty to create one on the Authority host.")]
+        private MonoBehaviour motionSnapshotFeedSource;
         [SerializeField] private OntologyWorldZoneStreamer zoneStreamer;
         [SerializeField] private OntologyInputSystemPlayerInput playerInput;
         [SerializeField] private OntologyAuthorityEntityIdentity avatarIdentity;
@@ -30,14 +38,25 @@ namespace Tormia.Ontology.Core
         [SerializeField] private bool locomotionApproved;
         [SerializeField] private long nextSequence = 1;
         [SerializeField] private long lastAcceptedSequence;
+        [SerializeField] private long lastPredictionAffectingSequence;
 
         private bool isSubmitting;
+        private bool submittingActiveIntent;
+        private bool forceSubmitAfterInFlight;
         private bool sentActiveIntent;
         private float nextSubmitAt;
         private bool locomotionPreparationCompleted;
         private bool hasLocomotionContractFingerprint;
         private string locomotionContractFingerprint = string.Empty;
         private bool jumpRequestPending;
+        private IPlayerMotionIntentTransport intentTransport;
+        private IAuthorityMotionSnapshotFeed motionSnapshotFeed;
+        private long intentTransportGeneration;
+        private Vector2 lastAcceptedMove;
+        private float lastAcceptedRequestedSpeed;
+        private bool lastAcceptedHasDestination;
+        private Vector2 lastAcceptedDestination;
+        private float lastAcceptedDestinationStopDistance;
 
         public bool AvatarRegistered => avatarRegistered;
         public bool RequiresAuthorityLocomotionApproval =>
@@ -49,6 +68,34 @@ namespace Tormia.Ontology.Core
             avatarRegistered &&
             locomotionApproved;
         public long LastAcceptedSequence => lastAcceptedSequence;
+        public long LastPredictionAffectingSequence =>
+            lastPredictionAffectingSequence;
+        public string LastStatus => lastStatus ?? string.Empty;
+        public event Action<long> AcceptedSequenceAdvanced;
+        public bool HasActiveLocomotionIntent =>
+            locomotionApproved && sentActiveIntent;
+        public bool HasAcceptedLocomotionLease =>
+            locomotionApproved && locomotionPreparationCompleted;
+
+        private void SetAcceptedSequence(
+            long sequence,
+            bool predictionAffecting)
+        {
+            if (sequence <= lastAcceptedSequence)
+            {
+                return;
+            }
+
+            lastAcceptedSequence = sequence;
+            if (!predictionAffecting ||
+                sequence <= lastPredictionAffectingSequence)
+            {
+                return;
+            }
+
+            lastPredictionAffectingSequence = sequence;
+            AcceptedSequenceAdvanced?.Invoke(sequence);
+        }
         /// <summary>Called by the durable account-entry coordinator after it
         /// completes the first-time avatar placement and registration.</summary>
         public void SetAvatarRegistered(bool value)
@@ -56,9 +103,11 @@ namespace Tormia.Ontology.Core
             avatarRegistered = value;
             if (!value)
             {
+                intentTransportGeneration++;
                 locomotionApproved = false;
                 locomotionPreparationCompleted = false;
                 lastAcceptedSequence = 0;
+                lastPredictionAffectingSequence = 0;
                 ClearLocomotionContractFingerprint();
                 return;
             }
@@ -78,15 +127,17 @@ namespace Tormia.Ontology.Core
             Action<bool> completed = null)
         {
             ResolveDependencies();
+            var transport = ResolveIntentTransport();
             locomotionApproved = false;
             locomotionPreparationCompleted = false;
 
             if (!submitRuntimeIntents ||
                 authorityClient == null ||
-                !authorityClient.IsWorldRuntimeReady ||
+                transport == null ||
                 !avatarRegistered ||
                 string.IsNullOrWhiteSpace(zoneKey) ||
                 !TryGetAvatarId(out var avatarId) ||
+                !authorityClient.IsPlayerRuntimeActiveFor(avatarId) ||
                 !TryResolveLocomotionAction(out var locomotionAction))
             {
                 SetStatus(
@@ -99,15 +150,38 @@ namespace Tormia.Ontology.Core
             isSubmitting = true;
             var accepted = false;
             var sequence = nextSequence++;
-            yield return authorityClient.SendPlayerIntentRoutine(
+            var callbackGeneration = intentTransportGeneration;
+            var callbackRuntimeSessionId = authorityClient.ActiveRuntimeSessionId;
+            yield return transport.SendPlayerIntentRoutine(
                 avatarId,
                 zoneKey,
                 sequence,
                 Vector2.zero,
                 0f,
+                false,
+                Vector2.zero,
+                0f,
                 locomotionAction,
                 result =>
                 {
+                    if (!IsCurrentIntentTransportCallback(
+                            callbackGeneration,
+                            callbackRuntimeSessionId,
+                            requireActiveComponent: false))
+                    {
+                        SetStatus(
+                            "authority_intent_callback_superseded: " +
+                            "generation=" + callbackGeneration + "/" +
+                            intentTransportGeneration + ", session=" +
+                            (string.Equals(
+                                callbackRuntimeSessionId,
+                                authorityClient?.ActiveRuntimeSessionId,
+                                StringComparison.OrdinalIgnoreCase)
+                                ? "current"
+                                : "changed") + ", avatar=" +
+                            (avatarRegistered ? "registered" : "released"));
+                        return;
+                    }
                     accepted = result != null && result.accepted;
                     if (!accepted)
                     {
@@ -118,7 +192,7 @@ namespace Tormia.Ontology.Core
                     }
 
                     locomotionApproved = true;
-                    lastAcceptedSequence = sequence;
+                    SetAcceptedSequence(sequence, false);
                     sentActiveIntent = false;
                     nextSubmitAt =
                         Time.unscaledTime +
@@ -131,6 +205,15 @@ namespace Tormia.Ontology.Core
 
             isSubmitting = false;
             locomotionPreparationCompleted = accepted;
+            if (accepted &&
+                transport is OntologyWorldAuthorityUdpMotionTransport udp &&
+                udp.IsUdpMotionWriterEnabled)
+            {
+                // Admission and promotion are transport-only optimization.
+                // Failure leaves the Authority-confirmed HTTP writer active
+                // and must not invalidate the locomotion gameplay contract.
+                yield return udp.PrepareUdpAdmissionRoutine(avatarId);
+            }
             completed?.Invoke(accepted);
         }
 
@@ -148,11 +231,13 @@ namespace Tormia.Ontology.Core
         private void OnDisable()
         {
             Unsubscribe();
+            intentTransportGeneration++;
             locomotionApproved = false;
             locomotionPreparationCompleted = false;
             isSubmitting = false;
             jumpRequestPending = false;
             lastAcceptedSequence = 0;
+            lastPredictionAffectingSequence = 0;
             ClearLocomotionContractFingerprint();
         }
 
@@ -225,8 +310,8 @@ namespace Tormia.Ontology.Core
         private void Update()
         {
             ResolveDependencies();
-            if (!submitRuntimeIntents || isSubmitting || authorityClient == null ||
-                !authorityClient.IsWorldRuntimeReady || !avatarRegistered || !TryGetAvatarId(out _) ||
+            if (!submitRuntimeIntents || authorityClient == null ||
+                !authorityClient.IsWorldRuntimeReady || !avatarRegistered || !TryGetAvatarId(out var avatarId) ||
                 string.IsNullOrWhiteSpace(zoneStreamer == null ? string.Empty : zoneStreamer.ActiveZoneKey))
             {
                 if (RequiresAuthorityLocomotionApproval &&
@@ -250,13 +335,43 @@ namespace Tormia.Ontology.Core
 
             var move = Vector2.zero;
             var requestedSpeed = 0f;
+            var hasDestination = false;
+            var destination = Vector2.zero;
+            var destinationStopDistance = 0f;
             var hasMove = playerInput != null &&
                           playerInput.TryGetWorldMoveIntent(
                               out move,
-                              out requestedSpeed);
+                              out requestedSpeed,
+                              out hasDestination,
+                              out destination,
+                              out destinationStopDistance);
             if (!hasMove)
             {
                 move = Vector2.zero;
+            }
+
+            if (isSubmitting)
+            {
+                if (!hasMove &&
+                    (sentActiveIntent || submittingActiveIntent))
+                {
+                    forceSubmitAfterInFlight = true;
+                }
+                return;
+            }
+
+            var snapshotFeed = ResolveMotionSnapshotFeed();
+            if (playerInput != null &&
+                snapshotFeed != null &&
+                snapshotFeed.TryGetLatestPlayerMotion(
+                    avatarId,
+                    1f,
+                    out var latestMotion))
+            {
+                playerInput.TryCompleteAuthorityGroundDestination(
+                    new Vector2(
+                        (float)latestMotion.positionX,
+                        (float)latestMotion.positionZ));
             }
 
             // A stop sample is sent once immediately. Continuing input is sampled
@@ -281,6 +396,9 @@ namespace Tormia.Ontology.Core
             StartCoroutine(SubmitRoutine(
                 move,
                 requestedSpeed,
+                hasDestination,
+                destination,
+                destinationStopDistance,
                 hasMove,
                 locomotionAction));
         }
@@ -296,9 +414,13 @@ namespace Tormia.Ontology.Core
             if (!initialPreparationCompleted)
                 return false;
 
-            return (!locomotionApproved || hasMove)
-                ? now >= nextSubmitAt
-                : sentActiveIntent;
+            // A zero-input sample is still an ephemeral locomotion lease. It
+            // keeps the server's fixed-tick pose and the collision-resolved
+            // observation channel current while the player is standing. A
+            // client crash remains fail-closed through the registry TTL.
+            var movementEdge =
+                locomotionApproved && hasMove != sentActiveIntent;
+            return movementEdge || now >= nextSubmitAt;
         }
 
         [ContextMenu("Register Current Player Avatar with Authority")]
@@ -338,27 +460,65 @@ namespace Tormia.Ontology.Core
         private IEnumerator SubmitRoutine(
             Vector2 move,
             float requestedSpeed,
+            bool hasDestination,
+            Vector2 destination,
+            float destinationStopDistance,
             bool active,
             OntologyAuthorityActionDefinitionProjection locomotionAction)
         {
             isSubmitting = true;
+            submittingActiveIntent = active;
             if (!TryGetAvatarId(out var avatarId))
             {
                 isSubmitting = false;
+                submittingActiveIntent = false;
                 yield break;
             }
 
             var zoneKey = zoneStreamer.ActiveZoneKey;
             var sequence = nextSequence++;
-            yield return authorityClient.SendPlayerIntentRoutine(
+            var transport = ResolveIntentTransport();
+            if (transport == null)
+            {
+                isSubmitting = false;
+                submittingActiveIntent = false;
+                SetStatus("Authority input transport is unavailable.");
+                yield break;
+            }
+            var predictionAffecting =
+                HasPredictionAffectingSampleChange(
+                    active,
+                    sentActiveIntent,
+                    move,
+                    requestedSpeed,
+                    hasDestination,
+                    destination,
+                    destinationStopDistance,
+                    lastAcceptedMove,
+                    lastAcceptedRequestedSpeed,
+                    lastAcceptedHasDestination,
+                    lastAcceptedDestination,
+                    lastAcceptedDestinationStopDistance);
+            var callbackGeneration = intentTransportGeneration;
+            var callbackRuntimeSessionId = authorityClient.ActiveRuntimeSessionId;
+            yield return transport.SendPlayerIntentRoutine(
                 avatarId,
                 zoneKey,
                 sequence,
                 move,
                 requestedSpeed,
+                hasDestination,
+                destination,
+                destinationStopDistance,
                 locomotionAction,
                 result =>
                 {
+                    if (!IsCurrentIntentTransportCallback(
+                            callbackGeneration,
+                            callbackRuntimeSessionId))
+                    {
+                        return;
+                    }
                     if (result == null || !result.accepted)
                     {
                         locomotionApproved = false;
@@ -373,13 +533,60 @@ namespace Tormia.Ontology.Core
                         return;
                     }
                     locomotionApproved = true;
-                    lastAcceptedSequence = sequence;
+                    SetAcceptedSequence(
+                        sequence,
+                        predictionAffecting);
                     CaptureCurrentLocomotionContract();
                     sentActiveIntent = active;
+                    lastAcceptedMove = move;
+                    lastAcceptedRequestedSpeed = requestedSpeed;
+                    lastAcceptedHasDestination = hasDestination;
+                    lastAcceptedDestination = destination;
+                    lastAcceptedDestinationStopDistance =
+                        destinationStopDistance;
                     nextSubmitAt = Time.unscaledTime + 1f / Mathf.Max(1f, submissionsPerSecond);
                     SetStatus("Authority input accepted (" + sequence + ").");
                 });
             isSubmitting = false;
+            submittingActiveIntent = false;
+            if (forceSubmitAfterInFlight)
+            {
+                forceSubmitAfterInFlight = false;
+                nextSubmitAt = 0f;
+            }
+        }
+
+        public static bool HasPredictionAffectingSampleChange(
+            bool active,
+            bool previouslyActive,
+            Vector2 move,
+            float requestedSpeed,
+            bool hasDestination,
+            Vector2 destination,
+            float destinationStopDistance,
+            Vector2 previousMove,
+            float previousRequestedSpeed,
+            bool previousHasDestination,
+            Vector2 previousDestination,
+            float previousDestinationStopDistance)
+        {
+            if (active != previouslyActive)
+                return true;
+            if (!active)
+                return false;
+            if (hasDestination || previousHasDestination)
+            {
+                return hasDestination != previousHasDestination ||
+                       (destination - previousDestination).sqrMagnitude >
+                           0.000001f ||
+                       Mathf.Abs(
+                           destinationStopDistance -
+                           previousDestinationStopDistance) > 0.001f;
+            }
+            return (move - previousMove).sqrMagnitude > 0.000001f ||
+                   Mathf.Abs(
+                       requestedSpeed - previousRequestedSpeed) > 0.001f ||
+                   hasDestination != previousHasDestination;
         }
 
         private bool TryGetAvatarId(out Guid avatarId)
@@ -872,6 +1079,121 @@ namespace Tormia.Ontology.Core
             {
                 avatarIdentity = playerInput.GetComponent<OntologyAuthorityEntityIdentity>();
             }
+        }
+
+        private IPlayerMotionIntentTransport ResolveIntentTransport()
+        {
+            if (intentTransportSource != null)
+            {
+                var assignedTransport = intentTransportSource as
+                    IPlayerMotionIntentTransport;
+                if (assignedTransport == null)
+                {
+                    return null;
+                }
+                SetIntentTransport(assignedTransport);
+                return intentTransport;
+            }
+
+            var adapter = GetComponent<OntologyWorldAuthorityHttpMotionTransport>();
+            if (adapter == null)
+            {
+                adapter = gameObject.AddComponent<
+                    OntologyWorldAuthorityHttpMotionTransport>();
+            }
+            adapter.Configure(authorityClient);
+            var settings = authorityClient?.Settings;
+            if (settings != null &&
+                settings.enableExperimentalUdpMotionTransport)
+            {
+                var udp = GetComponent<
+                    OntologyWorldAuthorityUdpMotionTransport>();
+                if (udp == null)
+                    udp = gameObject.AddComponent<
+                        OntologyWorldAuthorityUdpMotionTransport>();
+                udp.Configure(authorityClient, adapter);
+                udp.ConfigureEndpoint(
+                    settings.ResolveUdpHost(Application.platform),
+                    settings.udpPort, true, true);
+                intentTransportSource = udp;
+                SetIntentTransport(udp);
+                return intentTransport;
+            }
+            intentTransportSource = adapter;
+            SetIntentTransport(adapter);
+            return intentTransport;
+        }
+
+        private IAuthorityMotionSnapshotFeed ResolveMotionSnapshotFeed()
+        {
+            if (motionSnapshotFeedSource != null)
+            {
+                var assignedFeed = motionSnapshotFeedSource as
+                    IAuthorityMotionSnapshotFeed;
+                if (assignedFeed == null)
+                {
+                    motionSnapshotFeed = null;
+                    return null;
+                }
+                motionSnapshotFeed = assignedFeed;
+                return motionSnapshotFeed;
+            }
+
+            if (authorityClient == null)
+            {
+                return null;
+            }
+
+            var feed = authorityClient.GetComponent<
+                OntologyWorldAuthorityMotionSnapshotFeed>();
+            if (feed == null)
+            {
+                feed = authorityClient.gameObject.AddComponent<
+                    OntologyWorldAuthorityMotionSnapshotFeed>();
+            }
+            feed.Configure(
+                authorityClient,
+                authorityClient.GetComponent<
+                    OntologyWorldAuthorityRealtimeClient>());
+            motionSnapshotFeedSource = feed;
+            motionSnapshotFeed = feed;
+            return motionSnapshotFeed;
+        }
+
+        private void SetIntentTransport(
+            IPlayerMotionIntentTransport value)
+        {
+            if (ReferenceEquals(intentTransport, value))
+            {
+                return;
+            }
+
+            intentTransport = value;
+            intentTransportGeneration++;
+        }
+
+        private bool IsCurrentIntentTransportCallback(
+            long callbackGeneration,
+            string callbackRuntimeSessionId,
+            bool requireActiveComponent = true)
+        {
+            // The account-entry coordinator deliberately performs its
+            // zero-motion handshake while gameplay presentation is gated.
+            // A disabled presenter must not discard that Authority response;
+            // ordinary live input callbacks still require an active sender.
+            if ((requireActiveComponent && !isActiveAndEnabled) ||
+                callbackGeneration != intentTransportGeneration ||
+                authorityClient == null ||
+                !avatarRegistered)
+            {
+                return false;
+            }
+
+            return string.IsNullOrWhiteSpace(callbackRuntimeSessionId) ||
+                   string.Equals(
+                       callbackRuntimeSessionId,
+                       authorityClient.ActiveRuntimeSessionId,
+                       StringComparison.OrdinalIgnoreCase);
         }
 
         private void Subscribe()

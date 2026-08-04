@@ -37,6 +37,8 @@ namespace Tormia.Ontology.Core
         [SerializeField] private bool enteredCurrentWorld;
         [SerializeField] private bool isEnteringWorld;
         private Guid baseAvatarEntityId;
+        private Guid entryRuntimeRollbackAvatarId;
+        private string entryRuntimeRollbackSessionId = string.Empty;
 
         public string LastStatus => string.IsNullOrWhiteSpace(lastStatusKey)
             ? lastStatus
@@ -84,6 +86,7 @@ namespace Tormia.Ontology.Core
         private void Awake()
         {
             ResolveDependencies();
+            CaptureBaseAvatarEntityId();
             sessionCoordinator?.Bind(authorityClient);
         }
 
@@ -124,6 +127,7 @@ namespace Tormia.Ontology.Core
             if (isEnteringWorld) return;
             enteredCurrentWorld = false;
             isEnteringWorld = true;
+            lastTechnicalStatus = string.Empty;
             sessionCoordinator?.BeginWorldEntry();
             if (entryPresentationCoordinator == null ||
                 !entryPresentationCoordinator.BeginPreparation())
@@ -347,6 +351,51 @@ namespace Tormia.Ontology.Core
             StartCoroutine(CreateWorldRoutine(title, slug, visibility, completed));
         }
 
+        /// <summary>
+        /// Explicit development/world-authoring operation that atomically
+        /// prepares the selected avatar's semantic contract. Normal entry only
+        /// performs read-only preflight and never invokes this routine.
+        /// </summary>
+        [ContextMenu("Prepare Selected Avatar Semantic Contract")]
+        public void PrepareSelectedAvatarSemanticContract()
+        {
+            PrepareSelectedAvatarSemanticContract(null);
+        }
+
+        public void PrepareSelectedAvatarSemanticContract(
+            Action<bool> completed)
+        {
+            ResolveDependencies();
+            if (authorityClient == null || !authorityClient.IsReady ||
+                avatarIdentity == null ||
+                !TryResolveSelectedWorldAvatarId(out var avatarId))
+            {
+                completed?.Invoke(false);
+                return;
+            }
+
+            StartCoroutine(
+                PrepareAvatarSemanticContractRoutine(
+                    avatarId,
+                    completed));
+        }
+
+        /// <summary>
+        /// Explicit development preparation entry point. This intentionally
+        /// lives outside EnterRoutineCore so admission never authors content
+        /// or repairs an avatar semantic contract.
+        /// </summary>
+        [ContextMenu("Prepare Selected Development World")]
+        public void PrepareSelectedDevelopmentWorld()
+        {
+            PrepareSelectedDevelopmentWorld(null);
+        }
+
+        public void PrepareSelectedDevelopmentWorld(Action<bool> completed)
+        {
+            PrepareSelectedAvatarSemanticContract(completed);
+        }
+
         private IEnumerator CreateWorldRoutine(string title, string slug, string visibility, Action<bool> completed)
         {
             if (string.IsNullOrWhiteSpace(title)) { SetLocalizedStatus("ui.account.status.world_name_required", "Enter a world name first."); completed?.Invoke(false); yield break; }
@@ -359,6 +408,15 @@ namespace Tormia.Ontology.Core
                 yield return EnsureRuntimeZoneRoutine(
                     value => zoneKey = value);
                 created = !string.IsNullOrWhiteSpace(zoneKey);
+            }
+            if (created && TryResolveSelectedWorldAvatarId(out var avatarId))
+            {
+                // World creation is an explicit authoring/preparation phase,
+                // so it may provision the avatar contract before the user
+                // reaches admission. EnterRoutineCore remains read-only.
+                yield return PrepareAvatarSemanticContractRoutine(
+                    avatarId,
+                    value => created = value);
             }
             if (created)
                 SetLocalizedStatus("ui.account.status.world_created", "World created with its Authority runtime zone.");
@@ -399,6 +457,17 @@ namespace Tormia.Ontology.Core
         {
             try
             {
+                var memberAvatarReady = false;
+                yield return PrepareSelectedMemberAvatarRoutine(
+                    value => memberAvatarReady = value);
+                if (!memberAvatarReady)
+                {
+                    SetLocalizedStatus(
+                        "ui.account.status.member_avatar_preparation_failed",
+                        "World entry stopped because your member avatar " +
+                        "could not be prepared.");
+                    yield break;
+                }
                 yield return EnterRoutineCore();
             }
             finally
@@ -406,6 +475,20 @@ namespace Tormia.Ontology.Core
                 isEnteringWorld = false;
                 if (!enteredCurrentWorld)
                 {
+                    if (entryRuntimeRollbackAvatarId != Guid.Empty &&
+                        !string.IsNullOrWhiteSpace(
+                            entryRuntimeRollbackSessionId))
+                    {
+                        var rollbackAvatarId =
+                            entryRuntimeRollbackAvatarId;
+                        var rollbackSessionId =
+                            entryRuntimeRollbackSessionId;
+                        entryRuntimeRollbackAvatarId = Guid.Empty;
+                        entryRuntimeRollbackSessionId = string.Empty;
+                        StartCoroutine(RollbackEntryRuntimeRoutine(
+                            rollbackAvatarId,
+                            rollbackSessionId));
+                    }
                     checkpointController?.CancelPendingRestore();
                     entryPresentationCoordinator?.AbortPreparation();
                 }
@@ -417,112 +500,28 @@ namespace Tormia.Ontology.Core
 
         private IEnumerator EnterRoutineCore()
         {
-            if (avatarIdentity == null || !avatarIdentity.TryGetGuid(out var avatarId))
+            if (avatarIdentity == null ||
+                !TryResolveSelectedWorldAvatarId(out var avatarId))
             {
                 SetLocalizedStatus("ui.account.status.avatar_identity_missing", "The local player does not have a stable world identity.");
                 yield break;
             }
 
-            if (baseAvatarEntityId == Guid.Empty)
-                baseAvatarEntityId = avatarId;
-            avatarId = baseAvatarEntityId;
             avatarIdentity.SetGuid(avatarId);
 
-            var runtimeZoneKey = string.Empty;
-            yield return EnsureRuntimeZoneRoutine(
-                value => runtimeZoneKey = value);
-            if (string.IsNullOrWhiteSpace(runtimeZoneKey))
-            {
-                SetLocalizedStatus(
-                    "ui.account.status.runtime_zone_missing",
-                    "World entry stopped because no Authority runtime zone is available.");
-                yield break;
-            }
-
-            OntologyAuthorityCommandResult registrationResult = null;
-            var registered = false;
-            yield return RegisterAvatarRoutine(avatarId, result =>
-                {
-                    registrationResult = result;
-                    registered = result != null && result.accepted;
-                });
-
-            // A local player is a scene presentation, not a placeable editor
-            // object. On first entry it still needs one Authority-owned entity
-            // before the normal ownership registration can succeed.
-            if (!registered && registrationResult != null &&
-                string.Equals(registrationResult.rejectionCode, "avatar_entity_not_found", StringComparison.Ordinal))
-            {
-                OntologyAuthorityCommandResult placeResult = null;
-                yield return PlaceAvatarRoutine(
-                    avatarId,
-                    runtimeZoneKey,
-                    result => placeResult = result);
-                if (placeResult != null && placeResult.accepted)
-                {
-                    yield return RegisterAvatarRoutine(
-                        avatarId,
-                        result => registered = result != null && result.accepted);
-                }
-                else if (placeResult != null &&
-                         string.Equals(
-                             placeResult.rejectionCode,
-                             "entity_id_already_exists",
-                             StringComparison.Ordinal) &&
-                         Guid.TryParse(authorityClient.CurrentWorldId, out var worldId))
-                {
-                    // World entities are globally keyed, while an avatar is
-                    // world-owned. Reusing a scene's base identity in another
-                    // world therefore resolves to a deterministic world scope.
-                    avatarId = CreateWorldScopedAvatarId(baseAvatarEntityId, worldId);
-                    avatarIdentity.SetGuid(avatarId);
-
-                    OntologyAuthorityCommandResult scopedRegistration = null;
-                    yield return RegisterAvatarRoutine(
-                        avatarId,
-                        result => scopedRegistration = result);
-                    registered = scopedRegistration != null && scopedRegistration.accepted;
-                    if (!registered && scopedRegistration != null &&
-                        string.Equals(
-                            scopedRegistration.rejectionCode,
-                            "avatar_entity_not_found",
-                            StringComparison.Ordinal))
-                    {
-                        OntologyAuthorityCommandResult scopedPlacement = null;
-                        yield return PlaceAvatarRoutine(
-                            avatarId,
-                            runtimeZoneKey,
-                            result => scopedPlacement = result);
-                        if (scopedPlacement != null && scopedPlacement.accepted)
-                        {
-                            yield return RegisterAvatarRoutine(
-                                avatarId,
-                                result => registered = result != null && result.accepted);
-                        }
-                    }
-                }
-            }
-
-            if (registered) intentSender?.SetAvatarRegistered(true);
-
-            if (!registered)
-            {
-                SetLocalizedStatus(
-                    "ui.account.status.avatar_registration_failed",
-                    "World entry stopped because the player avatar could not be registered.");
-                yield break;
-            }
-
-            SetLocalizedStatus("ui.account.status.preparing_actions", "Preparing gameplay actions.");
-            var packageReady = false;
-            yield return authorityClient.EnsureDevelopmentActionPackageRoutine(
-                value => packageReady = value);
-            if (!packageReady)
+            // Content publication is a release/deployment operation. Entry is
+            // allowed to inspect the exact immutable package contract, but it
+            // must not publish or activate content as a side effect of login.
+            var contentPreflightReady = false;
+            yield return authorityClient
+                .VerifyDevelopmentContentReleaseRoutine(
+                    value => contentPreflightReady = value);
+            if (!contentPreflightReady)
             {
                 authorityClient.ResetWorldEntryConfirmation();
                 var technicalStatus = authorityClient.LastStatus;
                 Debug.LogWarning(
-                    "World entry package verification failed: " +
+                    "World entry package preflight failed: " +
                     technicalStatus,
                     authorityClient);
                 SetLocalizedStatus(
@@ -531,8 +530,25 @@ namespace Tormia.Ontology.Core
                 yield break;
             }
 
+            authorityClient.SetProjectionZoneKey(string.Empty, false);
+            var admissionProjectionLoaded = false;
+            yield return LoadWorldForEntryWithRetryRoutine(
+                value => admissionProjectionLoaded = value);
+            var runtimeZoneKey = admissionProjectionLoaded
+                ? ResolveEntityZone(
+                    authorityClient.CurrentProjection,
+                    avatarId)
+                : string.Empty;
+            if (string.IsNullOrWhiteSpace(runtimeZoneKey))
+            {
+                SetLocalizedStatus(
+                    "ui.account.status.runtime_zone_missing",
+                    "World entry stopped because the prepared avatar or its runtime zone is missing.");
+                yield break;
+            }
+
             var avatarSemanticContractReady = false;
-            yield return EnsureAvatarSemanticContractRoutine(
+            yield return VerifyAvatarSemanticContractRoutine(
                 avatarId,
                 value => avatarSemanticContractReady = value);
             if (!avatarSemanticContractReady)
@@ -544,30 +560,9 @@ namespace Tormia.Ontology.Core
                 yield break;
             }
 
-            var preparedRuntimeZoneKey = string.Empty;
-            yield return EnsureAvatarRuntimeFoundationRoutine(
-                avatarId,
-                runtimeZoneKey,
-                value => preparedRuntimeZoneKey = value);
-            if (string.IsNullOrWhiteSpace(preparedRuntimeZoneKey))
-            {
-                SetLocalizedStatus(
-                    "ui.account.status.avatar_runtime_failed",
-                    "World entry stopped because the player runtime foundation could not be prepared.");
-                yield break;
-            }
-            runtimeZoneKey = preparedRuntimeZoneKey;
-
-            var entered = false;
-            yield return authorityClient.EnterWorldRoutine(avatarId, result => entered = result);
-            if (!entered)
-            {
-                SetAuthorityFailureStatus(authorityClient.LastStatus);
-                yield break;
-            }
-
             var projectionLoaded = false;
-            yield return authorityClient.LoadWorldRoutine(value => projectionLoaded = value);
+            yield return LoadWorldForEntryWithRetryRoutine(
+                value => projectionLoaded = value);
             if (!projectionLoaded)
             {
                 authorityClient.ResetWorldEntryConfirmation();
@@ -576,6 +571,42 @@ namespace Tormia.Ontology.Core
                     "World entry was accepted but its durable world data could not be loaded.");
                 yield break;
             }
+            intentSender?.SetAvatarRegistered(true);
+
+            // Recover durable commands before admission commits the account
+            // binding. Recovery failure is a separate state and must not
+            // leave a half-entered session behind.
+            SetLocalizedStatus(
+                "ui.account.status.recovering_changes",
+                "Recovering pending world changes.");
+            var pendingCommandsRecovered = false;
+            yield return authorityClient.ReplayPendingCommandsRoutine(
+                value => pendingCommandsRecovered = value);
+            if (!pendingCommandsRecovered)
+            {
+                sessionCoordinator?.Recovering();
+                SetLocalizedStatus(
+                    "ui.account.status.pending_changes_waiting",
+                    "Pending changes are waiting for the Authority connection.");
+                yield break;
+            }
+
+            var runtimeActivated = false;
+            yield return authorityClient.ActivatePlayerRuntimeRoutine(
+                avatarId,
+                runtimeZoneKey,
+                value => runtimeActivated = value);
+            if (!runtimeActivated)
+            {
+                authorityClient.ResetWorldEntryConfirmation();
+                SetLocalizedStatus(
+                    "ui.account.status.avatar_runtime_failed",
+                    "World entry stopped because the ephemeral player runtime could not be activated.");
+                yield break;
+            }
+            entryRuntimeRollbackAvatarId = avatarId;
+            entryRuntimeRollbackSessionId =
+                authorityClient.ActiveRuntimeSessionId;
 
             SetLocalizedStatus(
                 "ui.account.status.preparing_avatar_life",
@@ -632,22 +663,16 @@ namespace Tormia.Ontology.Core
             if (!locomotionPresentationReady)
             {
                 authorityClient.ResetWorldEntryConfirmation();
+                lastTechnicalStatus = intentSender == null
+                    ? "locomotion_intent_sender_missing"
+                    : intentSender.LastStatus;
+                Debug.LogWarning(
+                    "[AccountEntry] Locomotion presentation preparation " +
+                    "failed: " + lastTechnicalStatus,
+                    this);
                 SetLocalizedStatus(
                     "ui.account.status.locomotion_presentation_failed",
                     "World entry stopped because the Authority did not approve the player's locomotion contract.");
-                yield break;
-            }
-
-            SetLocalizedStatus("ui.account.status.recovering_changes", "Recovering pending world changes.");
-            var pendingCommandsRecovered = false;
-            yield return authorityClient.ReplayPendingCommandsRoutine(
-                value => pendingCommandsRecovered = value);
-            if (!pendingCommandsRecovered)
-            {
-                sessionCoordinator?.Recovering();
-                SetLocalizedStatus(
-                    "ui.account.status.pending_changes_waiting",
-                    "The world loaded but pending changes are waiting for the Authority connection.");
                 yield break;
             }
 
@@ -691,26 +716,6 @@ namespace Tormia.Ontology.Core
                 yield break;
             }
 
-            var authorityBridge =
-                FindAnyObjectByType<OntologyWorldAuthorityBridge>(
-                    FindObjectsInactive.Include);
-            if (authorityBridge != null &&
-                authorityClient.CanAuthorSelectedWorld)
-            {
-                var semanticContractsReady = false;
-                yield return authorityBridge
-                    .RepairLegacySemanticContractsRoutine(
-                        value => semanticContractsReady = value);
-                if (!semanticContractsReady)
-                {
-                    authorityClient.ResetWorldEntryConfirmation();
-                    SetLocalizedStatus(
-                        "ui.account.status.legacy_contract_repair_failed",
-                        "World entry stopped because legacy ontology contracts could not be repaired.");
-                    yield break;
-                }
-            }
-
             var character = authorityClient.CurrentCharacter;
             var appearanceApplied = characterPartAdapter != null
                 && characterPartAdapter.ApplyAccountProfile(character == null ? null : character.equippedPartIds);
@@ -725,6 +730,20 @@ namespace Tormia.Ontology.Core
                 profileRelationProjector.ApplyProfileRelations(CombineProfileRelations(
                     character == null ? null : character.profileRelations,
                     worldAvatarProfile == null ? null : worldAvatarProfile.profileRelations));
+
+            // This is the admission commit. Every read-only preflight,
+            // recovery, runtime readiness check and gated local presentation
+            // preparation has succeeded before the account/world binding is
+            // changed.
+            var entered = false;
+            yield return authorityClient.EnterWorldRoutine(
+                avatarId,
+                result => entered = result);
+            if (!entered)
+            {
+                SetAuthorityFailureStatus(authorityClient.LastStatus);
+                yield break;
+            }
             if (!entryPresentationCoordinator.CommitBeforeSessionActivation())
             {
                 authorityClient.ResetWorldEntryConfirmation();
@@ -734,6 +753,9 @@ namespace Tormia.Ontology.Core
                 yield break;
             }
             enteredCurrentWorld = true;
+            lastTechnicalStatus = string.Empty;
+            entryRuntimeRollbackAvatarId = Guid.Empty;
+            entryRuntimeRollbackSessionId = string.Empty;
             SetLocalizedStatus(
                 appearanceApplied
                     ? "ui.account.status.entered_with_appearance"
@@ -741,6 +763,152 @@ namespace Tormia.Ontology.Core
                 appearanceApplied
                     ? "Entered the selected world with the saved appearance and profile. Gameplay actions are ready."
                     : "Entered the selected world with the saved profile relations. Gameplay actions are ready.");
+        }
+
+        private IEnumerator PrepareSelectedMemberAvatarRoutine(
+            Action<bool> completed)
+        {
+            if (SelectedWorldHasRegisteredAvatar())
+            {
+                completed?.Invoke(true);
+                yield break;
+            }
+
+            if (authorityClient == null ||
+                !TryResolveSelectedWorldAvatarId(out var avatarId))
+            {
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            // This is member-scoped, idempotent avatar provisioning. It does
+            // not publish content, activate a package, define a Zone, or grant
+            // authoring rights. The Authority validates membership and binds
+            // only the authenticated user's world-scoped avatar.
+            var releaseReady = false;
+            yield return authorityClient.VerifyDevelopmentContentReleaseRoutine(
+                value => releaseReady = value);
+            if (!releaseReady)
+            {
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            var zoneKey = string.Empty;
+            yield return EnsureRuntimeZoneRoutine(value => zoneKey = value);
+            if (string.IsNullOrWhiteSpace(zoneKey) ||
+                !TryCreateAvatarSemanticContractPayload(
+                    avatarId,
+                    out var semanticPayload) ||
+                !TryCreateAvatarEntityPayload(
+                    avatarId,
+                    zoneKey,
+                    out var entityPayload))
+            {
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            var prepared = false;
+            yield return authorityClient.PreparePlayerAvatarRoutine(
+                entityPayload,
+                semanticPayload,
+                value => prepared = value);
+            if (!prepared)
+            {
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            OntologyAuthorityAccountDashboard refreshed = null;
+            yield return authorityClient.LoadAccountDashboardRoutine(
+                value => refreshed = value);
+            completed?.Invoke(
+                refreshed != null && SelectedWorldHasRegisteredAvatar());
+        }
+
+        private bool SelectedWorldHasRegisteredAvatar()
+        {
+            var selectedWorldId = SelectedWorldId;
+            if (string.IsNullOrWhiteSpace(selectedWorldId)) return false;
+            foreach (var world in Worlds)
+            {
+                if (world != null &&
+                    string.Equals(
+                        world.worldId,
+                        selectedWorldId,
+                        StringComparison.Ordinal) &&
+                    Guid.TryParse(world.avatarEntityId, out var avatarId) &&
+                    avatarId != Guid.Empty)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private IEnumerator RollbackEntryRuntimeRoutine(
+            Guid avatarId,
+            string runtimeSessionId)
+        {
+            if (authorityClient == null)
+                yield break;
+            yield return authorityClient.DeactivatePlayerRuntimeRoutine(
+                avatarId,
+                runtimeSessionId);
+        }
+
+        private bool TryResolveSelectedWorldAvatarId(out Guid avatarId)
+        {
+            avatarId = Guid.Empty;
+            var selectedWorldId = SelectedWorldId;
+            if (!string.IsNullOrWhiteSpace(selectedWorldId))
+            {
+                foreach (var world in Worlds)
+                {
+                    if (world == null ||
+                        !string.Equals(
+                            world.worldId,
+                            selectedWorldId,
+                            StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (Guid.TryParse(world.avatarEntityId, out avatarId) &&
+                        avatarId != Guid.Empty)
+                    {
+                        return true;
+                    }
+                    break;
+                }
+            }
+
+            CaptureBaseAvatarEntityId();
+            if (baseAvatarEntityId == Guid.Empty ||
+                !Guid.TryParse(selectedWorldId, out var worldId) ||
+                worldId == Guid.Empty ||
+                authorityClient == null ||
+                !Guid.TryParse(authorityClient.CurrentUserId, out var userId) ||
+                userId == Guid.Empty)
+                return false;
+
+            avatarId = CreateWorldScopedAvatarId(
+                baseAvatarEntityId,
+                worldId,
+                userId);
+            return avatarId != Guid.Empty;
+        }
+
+        private void CaptureBaseAvatarEntityId()
+        {
+            if (baseAvatarEntityId != Guid.Empty || avatarIdentity == null)
+                return;
+            if (avatarIdentity.TryGetGuid(out var sceneAvatarId) &&
+                sceneAvatarId != Guid.Empty)
+            {
+                baseAvatarEntityId = sceneAvatarId;
+            }
         }
 
         private IEnumerator RegisterAvatarRoutine(
@@ -890,6 +1058,51 @@ namespace Tormia.Ontology.Core
                 fact =>
                     fact != null &&
                     predicates.Contains(fact.predicateId));
+        }
+
+        public static OntologyAuthorityInitialFact[]
+            CreateAvatarHitPresentationSemanticFacts(
+                OntologyActorProfile profile)
+        {
+            return Array.FindAll(
+                CreateProfileSemanticFacts(profile),
+                fact =>
+                    fact != null &&
+                    string.Equals(
+                        fact.predicateId,
+                        OntologyPredicates.HitAnimationIntent,
+                        StringComparison.Ordinal));
+        }
+
+        public static OntologyAuthorityInitialFact[]
+            CreateAvatarDeathPresentationSemanticFacts(
+                OntologyActorProfile profile)
+        {
+            return Array.FindAll(
+                CreateProfileSemanticFacts(profile),
+                fact =>
+                    fact != null &&
+                    string.Equals(
+                        fact.predicateId,
+                        OntologyPredicates.DeathAnimationIntent,
+                        StringComparison.Ordinal));
+        }
+
+        public static OntologyAuthorityInitialFact[]
+            CreateAvatarCombatRelationshipSemanticFacts(
+                OntologyActorProfile profile)
+        {
+            return Array.FindAll(
+                CreateProfileSemanticFacts(profile),
+                fact => fact != null &&
+                        (string.Equals(
+                             fact.predicateId,
+                             OntologyPredicates.BelongsToFaction,
+                             StringComparison.Ordinal) ||
+                         string.Equals(
+                             fact.predicateId,
+                             OntologyPredicates.HostileToFaction,
+                             StringComparison.Ordinal)));
         }
 
         private static OntologyAuthorityInitialFact[]
@@ -1247,6 +1460,264 @@ namespace Tormia.Ontology.Core
                     : string.Empty);
         }
 
+        private IEnumerator VerifyAvatarSemanticContractRoutine(
+            Guid avatarId,
+            Action<bool> completed)
+        {
+            if (!TryCreateAvatarSemanticContractPayload(
+                    avatarId,
+                    out var payload))
+            {
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            // Semantic preflight is read-only. A remote mobile/test connection
+            // can close an HTTP response without changing Authority state, so
+            // retry the exact immutable manifest rather than treating a
+            // transport interruption as an ontology contract failure. A
+            // rejected or still-unreadable contract continues to fail closed.
+            const int maximumAttempts = 3;
+            for (var attempt = 1; attempt <= maximumAttempts; attempt++)
+            {
+                var verified = false;
+                yield return authorityClient.VerifySemanticContractRoutine(
+                    payload,
+                    value => verified = value);
+                if (verified)
+                {
+                    completed?.Invoke(true);
+                    yield break;
+                }
+
+                if (attempt < maximumAttempts)
+                    yield return new WaitForSecondsRealtime(0.2f * attempt);
+            }
+
+            completed?.Invoke(false);
+        }
+
+        private IEnumerator PrepareAvatarSemanticContractRoutine(
+            Guid avatarId,
+            Action<bool> completed)
+        {
+            if (!authorityClient.CanAuthorSelectedWorld)
+            {
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            // Explicit preparation owns both release publication/activation
+            // and the following atomic avatar contract transaction. Neither
+            // operation is reachable from normal runtime entry.
+            var releaseReady = false;
+            yield return authorityClient
+                .PrepareDevelopmentContentReleaseRoutine(
+                    value => releaseReady = value);
+            if (!releaseReady)
+            {
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            var zoneKey = string.Empty;
+            yield return EnsureRuntimeZoneRoutine(value => zoneKey = value);
+            if (string.IsNullOrWhiteSpace(zoneKey) ||
+                !TryCreateAvatarSemanticContractPayload(
+                    avatarId,
+                    out var payload) ||
+                !TryCreateAvatarEntityPayload(
+                    avatarId,
+                    zoneKey,
+                    out var entityPayload))
+            {
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            var contractPrepared = false;
+            yield return authorityClient.PreparePlayerAvatarRoutine(
+                entityPayload,
+                payload,
+                value => contractPrepared = value);
+            if (!contractPrepared)
+            {
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            // Preparation is not considered complete until the exact same
+            // immutable manifest passes the read-only admission preflight.
+            var contractVerified = false;
+            yield return authorityClient.VerifySemanticContractRoutine(
+                payload,
+                value => contractVerified = value);
+            if (!contractVerified)
+            {
+                completed?.Invoke(false);
+                yield break;
+            }
+
+            var preparedRuntimeZoneKey = string.Empty;
+            yield return EnsureAvatarRuntimeFoundationRoutine(
+                avatarId,
+                zoneKey,
+                value => preparedRuntimeZoneKey = value);
+            completed?.Invoke(!string.IsNullOrWhiteSpace(
+                preparedRuntimeZoneKey));
+        }
+
+        private bool TryCreateAvatarEntityPayload(
+            Guid avatarId,
+            string zoneKey,
+            out string payload)
+        {
+            payload = string.Empty;
+            var settings = authorityClient?.Settings;
+            var profile = settings?.playerAvatarProfile;
+            if (avatarId == Guid.Empty || settings == null || profile == null ||
+                avatarIdentity == null || string.IsNullOrWhiteSpace(zoneKey) ||
+                string.IsNullOrWhiteSpace(settings.playerAvatarTemplateId) ||
+                string.IsNullOrWhiteSpace(settings.playerAvatarDisplayName))
+            {
+                return false;
+            }
+
+            payload = OntologyWorldAuthorityClient.CreatePlaceEntityPayload(
+                avatarId,
+                settings.playerAvatarTemplateId,
+                settings.playerAvatarDisplayName,
+                avatarIdentity.transform,
+                zoneKey,
+                CreateAvatarSemanticFacts(
+                    profile,
+                    settings.defaultAvatarMovementSpeed));
+            return !string.IsNullOrWhiteSpace(payload);
+        }
+
+        private bool TryCreateAvatarSemanticContractPayload(
+            Guid avatarId,
+            out string payload)
+        {
+            payload = string.Empty;
+            var settings = authorityClient?.Settings;
+            var profile = settings?.playerAvatarProfile;
+            if (avatarId == Guid.Empty || settings == null || profile == null ||
+                !TryResolveDevelopmentRuleVersion(
+                    settings,
+                    OntologyRuleBlocks.RespawnPlayerOnDeath,
+                    out var respawnVersion) ||
+                !TryResolveDevelopmentRuleVersion(
+                    settings,
+                    OntologyRuleBlocks.MovePlayerFromIntent,
+                    out var locomotionVersion) ||
+                !TryResolveDevelopmentRuleVersion(
+                    settings,
+                    OntologyRuleBlocks.JumpPlayerFromIntent,
+                    out var jumpVersion))
+            {
+                return false;
+            }
+
+            const string slotId = "player_avatar_semantic_contract";
+            const string contractId = "player_avatar";
+            if (!authorityClient.TryGetSelectedWorldContentPackage(
+                    out var packageId,
+                    out var packageVersion))
+            {
+                return false;
+            }
+
+            var staticFacts = CreateAvatarSemanticFacts(
+                    profile,
+                    settings.defaultAvatarMovementSpeed)
+                .Where(value =>
+                    value != null &&
+                    !string.Equals(
+                        value.predicateId,
+                        OntologyPredicates.CurrentHealth,
+                        StringComparison.Ordinal) &&
+                    !string.Equals(
+                        value.predicateId,
+                        OntologyPredicates.IsAlive,
+                        StringComparison.Ordinal))
+                .ToList();
+            var change = new OntologyMeaningPackageChange
+            {
+                operation = "apply",
+                applicationId = OntologyWorldAuthorityBridge
+                    .CreateMeaningPackageApplicationId(
+                        avatarId,
+                        slotId,
+                        contractId)
+                    .ToString("D"),
+                slotId = slotId,
+                packageId = packageId,
+                adoptExistingContributions = true,
+                requiresOwnedBinding = true,
+                authorityFacts = staticFacts,
+                replacePredicateIds = staticFacts
+                    .Select(value => value.predicateId)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList(),
+                requiredConceptIds = (profile.defaultConcepts ??
+                                      Array.Empty<string>())
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(value => value.Trim())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList(),
+                ruleBlocks = new List<OntologyMeaningPackageRuleBlock>
+                {
+                    CreateAvatarContractRuleBlock(
+                        avatarId,
+                        OntologyRuleBlocks.RespawnPlayerOnDeath,
+                        respawnVersion),
+                    CreateAvatarContractRuleBlock(
+                        avatarId,
+                        OntologyRuleBlocks.MovePlayerFromIntent,
+                        locomotionVersion),
+                    CreateAvatarContractRuleBlock(
+                        avatarId,
+                        OntologyRuleBlocks.JumpPlayerFromIntent,
+                        jumpVersion)
+                }
+            };
+            payload = OntologyWorldAuthorityClient
+                .CreateSemanticContractPayload(
+                    avatarId,
+                    change,
+                    contractId,
+                    OntologySemanticContracts.PlayerAvatarVersion,
+                    packageVersion,
+                    OntologyPredicates.SemanticContractVersion,
+                    OntologyPredicates.SemanticContractChecksum);
+            return !string.IsNullOrWhiteSpace(payload) && payload != "{}";
+        }
+
+        private static OntologyMeaningPackageRuleBlock
+            CreateAvatarContractRuleBlock(
+                Guid avatarId,
+                string ruleId,
+                int ruleVersion)
+        {
+            return new OntologyMeaningPackageRuleBlock
+            {
+                bindingId = OntologyWorldAuthorityBridge.CreateRuleBindingId(
+                        avatarId,
+                        ruleId,
+                        "?actor")
+                    .ToString("D"),
+                ruleId = ruleId,
+                ruleVersion = ruleVersion,
+                bindingVariable = "?actor"
+            };
+        }
+
+        // Retained temporarily as an explicit legacy migration implementation
+        // for source compatibility. Runtime entry never calls this method; the
+        // atomic PrepareAvatarSemanticContractRoutine is the supported path.
+        [Obsolete("Use PrepareAvatarSemanticContractRoutine atomic contract preparation.")]
         private IEnumerator EnsureAvatarSemanticContractRoutine(
             Guid avatarId,
             Action<bool> completed)
@@ -1794,6 +2265,116 @@ namespace Tormia.Ontology.Core
                 }
             }
 
+            if (currentVersion < 10)
+            {
+                // Version 10 migrates only the authored presentation intent.
+                // It does not re-author unrelated player semantics, so a later
+                // user removal remains effective once this migration is marked.
+                foreach (var semanticFact in
+                         CreateAvatarHitPresentationSemanticFacts(
+                             playerProfile))
+                {
+                    var hasFact = string.Equals(
+                            semanticFact.objectKind,
+                            "canonical",
+                            StringComparison.Ordinal)
+                        ? HasActiveFactObject(
+                            authorityClient.CurrentProjection,
+                            avatarId,
+                            semanticFact.predicateId,
+                            semanticFact.objectCanonicalId)
+                        : HasActiveFact(
+                            authorityClient.CurrentProjection,
+                            avatarId,
+                            semanticFact.predicateId);
+                    if (hasFact) continue;
+
+                    OntologyAuthorityCommandResult factResult = null;
+                    yield return SendCommandWithRevisionRetryRoutine(
+                        () => OntologyWorldAuthorityClient.CreateCommand(
+                            OntologyWorldCommandKinds.SetAuthoredFact,
+                            OntologyWorldAuthorityClient.CreateFactPayload(
+                                avatarId,
+                                semanticFact)),
+                        value => factResult = value);
+                    if (factResult == null || !factResult.accepted)
+                    {
+                        completed?.Invoke(false);
+                        yield break;
+                    }
+                }
+            }
+
+            if (currentVersion < 11)
+            {
+                // Version 11 adds only the Authority-projected death
+                // presentation contract. Death state still belongs to the
+                // evaluated vitality/lifecycle rules, never to this adapter.
+                foreach (var semanticFact in
+                         CreateAvatarDeathPresentationSemanticFacts(
+                             playerProfile))
+                {
+                    var hasFact = string.Equals(
+                            semanticFact.objectKind,
+                            "canonical",
+                            StringComparison.Ordinal)
+                        ? HasActiveFactObject(
+                            authorityClient.CurrentProjection,
+                            avatarId,
+                            semanticFact.predicateId,
+                            semanticFact.objectCanonicalId)
+                        : HasActiveFact(
+                            authorityClient.CurrentProjection,
+                            avatarId,
+                            semanticFact.predicateId);
+                    if (hasFact) continue;
+
+                    OntologyAuthorityCommandResult factResult = null;
+                    yield return SendCommandWithRevisionRetryRoutine(
+                        () => OntologyWorldAuthorityClient.CreateCommand(
+                            OntologyWorldCommandKinds.SetAuthoredFact,
+                            OntologyWorldAuthorityClient.CreateFactPayload(
+                                avatarId,
+                                semanticFact)),
+                        value => factResult = value);
+                    if (factResult == null || !factResult.accepted)
+                    {
+                        completed?.Invoke(false);
+                        yield break;
+                    }
+                }
+            }
+
+            if (currentVersion < 12)
+            {
+                foreach (var semanticFact in
+                         CreateAvatarCombatRelationshipSemanticFacts(
+                             playerProfile))
+                {
+                    if (HasActiveFactObject(
+                            authorityClient.CurrentProjection,
+                            avatarId,
+                            semanticFact.predicateId,
+                            semanticFact.objectCanonicalId))
+                    {
+                        continue;
+                    }
+                    OntologyAuthorityCommandResult factResult = null;
+                    yield return SendCommandWithRevisionRetryRoutine(
+                        () => OntologyWorldAuthorityClient.CreateCommand(
+                            OntologyWorldCommandKinds.SetAuthoredFact,
+                            OntologyWorldAuthorityClient.CreateFactPayload(
+                                avatarId,
+                                semanticFact)),
+                        value => factResult = value);
+                    if (factResult == null || !factResult.accepted)
+                    {
+                        completed?.Invoke(false);
+                        yield break;
+                    }
+                }
+            }
+
             OntologyAuthorityCommandResult markerResult = null;
             yield return SendCommandWithRevisionRetryRoutine(
                 () => OntologyWorldAuthorityClient.CreateCommand(
@@ -1909,7 +2490,19 @@ namespace Tormia.Ontology.Core
                   HasActiveFact(
                       authorityClient.CurrentProjection,
                       avatarId,
-                      OntologyPredicates.GroundClearance))));
+                      OntologyPredicates.GroundClearance))) &&
+                (currentVersion >= 10 ||
+                 HasActiveFactObject(
+                     authorityClient.CurrentProjection,
+                     avatarId,
+                     OntologyPredicates.HitAnimationIntent,
+                     OntologyAnimationIntentIds.HitReaction)) &&
+                (currentVersion >= 11 ||
+                 HasActiveFactObject(
+                     authorityClient.CurrentProjection,
+                     avatarId,
+                     OntologyPredicates.DeathAnimationIntent,
+                     OntologyAnimationIntentIds.Death)));
         }
 
         private IEnumerator EnsureRuleBindingVersionRoutine(
@@ -1995,6 +2588,36 @@ namespace Tormia.Ontology.Core
                 }
 
                 yield return new WaitForSecondsRealtime(0.2f);
+            }
+
+            completed?.Invoke(false);
+        }
+
+        /// <summary>
+        /// Projection reads are safe to retry because they are read-only. This
+        /// deliberately does not retry package conflicts, ontology migrations,
+        /// durable commands, or entry commits; those require an explicit new
+        /// decision rather than an automatic duplicate mutation.
+        /// </summary>
+        private IEnumerator LoadWorldForEntryWithRetryRoutine(
+            Action<bool> completed)
+        {
+            const int maximumAttempts = 3;
+            for (var attempt = 1; attempt <= maximumAttempts; attempt++)
+            {
+                var loaded = false;
+                yield return authorityClient.LoadWorldRoutine(
+                    value => loaded = value);
+                if (loaded)
+                {
+                    completed?.Invoke(true);
+                    yield break;
+                }
+
+                if (attempt < maximumAttempts)
+                {
+                    yield return new WaitForSecondsRealtime(0.2f * attempt);
+                }
             }
 
             completed?.Invoke(false);
@@ -2575,6 +3198,22 @@ namespace Tormia.Ontology.Core
                         StringComparison.OrdinalIgnoreCase));
         }
 
+        private static string ResolveEntityZone(
+            OntologyAuthorityWorldProjection projection,
+            Guid entityId)
+        {
+            if (projection?.entities == null || entityId == Guid.Empty)
+                return string.Empty;
+            var canonicalId = entityId.ToString("D");
+            var entity = Array.Find(
+                projection.entities,
+                value => value != null && string.Equals(
+                    value.entityId,
+                    canonicalId,
+                    StringComparison.OrdinalIgnoreCase));
+            return entity?.zoneKey?.Trim() ?? string.Empty;
+        }
+
         private static bool IsFinite(Vector3 value) =>
             float.IsFinite(value.x) &&
             float.IsFinite(value.y) &&
@@ -2616,14 +3255,20 @@ namespace Tormia.Ontology.Core
             return new Guid(bytes);
         }
 
-        public static Guid CreateWorldScopedAvatarId(Guid baseAvatarId, Guid worldId)
+        public static Guid CreateWorldScopedAvatarId(
+            Guid baseAvatarId,
+            Guid worldId,
+            Guid userId)
         {
-            if (baseAvatarId == Guid.Empty || worldId == Guid.Empty)
+            if (baseAvatarId == Guid.Empty ||
+                worldId == Guid.Empty ||
+                userId == Guid.Empty)
                 return Guid.Empty;
 
-            var input = new byte[32];
+            var input = new byte[48];
             Buffer.BlockCopy(baseAvatarId.ToByteArray(), 0, input, 0, 16);
             Buffer.BlockCopy(worldId.ToByteArray(), 0, input, 16, 16);
+            Buffer.BlockCopy(userId.ToByteArray(), 0, input, 32, 16);
             byte[] hash;
             using (var sha256 = SHA256.Create())
                 hash = sha256.ComputeHash(input);

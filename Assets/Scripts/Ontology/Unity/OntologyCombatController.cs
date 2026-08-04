@@ -30,7 +30,8 @@ namespace Tormia.Ontology.Core
             "is being projected into the Unity scene.")]
         private float equipReadinessGracePeriod = 2f;
         [SerializeField] private InputActionReference attackActionReference;
-        [SerializeField] private string equipBinding = "<Keyboard>/f";
+        [SerializeField] private InputActionReference equipActionReference;
+        [SerializeField, Min(0.02f)] private float equipPromptRefreshInterval = 0.1f;
         [SerializeField] private string lastAttackDiagnostic;
 
         private InputAction attackAction;
@@ -43,6 +44,16 @@ namespace Tormia.Ontology.Core
         private Vector2 pendingEquipScreenPosition;
         private float pendingEquipUntil;
         private float nextPendingEquipProbeAt;
+        private float nextEquipPromptRefreshAt;
+        private float nextAuthorityInteractionProbeAt;
+        private bool authorityInteractionProbePending;
+        private float authorityInteractionProbeStartedAt;
+        private int authorityInteractionProbeGeneration;
+        private bool hasAuthorityInteractionPosition;
+        private Vector3 authorityInteractionPosition;
+        private OntologyAuthorityEntityIdentity promptedEquipCandidate;
+        private OntologyRuntimeSelectionMarker equipAvailabilityMarker;
+        private OntologyWorldInteractionPrompt equipInteractionPrompt;
         public string LastAttackDiagnostic => lastAttackDiagnostic;
         public bool IsPrimaryAttackBusy =>
             actionPending || primaryPointerRoutePending;
@@ -59,10 +70,7 @@ namespace Tormia.Ontology.Core
         {
             ResolveRuntimeDependencies();
             attackAction = attackActionReference?.action?.Clone();
-            equipAction = new InputAction(
-                "OntologyCombatEquip",
-                InputActionType.Button,
-                equipBinding);
+            equipAction = equipActionReference?.action?.Clone();
         }
 
         private void ResolveRuntimeDependencies()
@@ -132,6 +140,10 @@ namespace Tormia.Ontology.Core
             ClearPendingEquip();
             primaryPointerRoutePending = false;
             actionPending = false;
+            authorityInteractionProbePending = false;
+            authorityInteractionProbeGeneration++;
+            hasAuthorityInteractionPosition = false;
+            HideEquipAvailabilityPresentation();
             StopAllCoroutines();
             if (subscribedAuthorityClient != null)
             {
@@ -143,6 +155,10 @@ namespace Tormia.Ontology.Core
 
         private void OnDestroy()
         {
+            if (equipAvailabilityMarker != null)
+                Destroy(equipAvailabilityMarker.gameObject);
+            if (equipInteractionPrompt != null)
+                Destroy(equipInteractionPrompt.gameObject);
             attackAction?.Dispose();
             equipAction?.Dispose();
             if (subscribedAuthorityClient != null)
@@ -155,8 +171,97 @@ namespace Tormia.Ontology.Core
 
         private void Update()
         {
+            RefreshAuthorityInteractionPosition();
             RetryPendingEquip();
+            RefreshEquipAvailabilityPresentation();
         }
+
+        private void RefreshAuthorityInteractionPosition()
+        {
+            if (authorityClient == null ||
+                !authorityClient.IsWorldRuntimeReady ||
+                actorIdentity == null ||
+                !actorIdentity.TryGetGuid(out var actorId))
+            {
+                return;
+            }
+
+            if (authorityClient.TryGetLatestPlayerMotion(
+                    actorId,
+                    Mathf.Max(0.25f, equipPromptRefreshInterval * 3f),
+                    out var cachedMotion) &&
+                IsRuntimePositionReady(cachedMotion))
+            {
+                ApplyAuthorityInteractionPosition(cachedMotion);
+                return;
+            }
+
+            if (authorityInteractionProbePending)
+            {
+                if (!IsInteractionProbeExpired(
+                        authorityInteractionProbeStartedAt,
+                        Time.unscaledTime,
+                        1f))
+                {
+                    return;
+                }
+
+                authorityInteractionProbePending = false;
+                authorityInteractionProbeGeneration++;
+                hasAuthorityInteractionPosition = false;
+            }
+
+            if (Time.unscaledTime < nextAuthorityInteractionProbeAt)
+                return;
+
+            authorityInteractionProbePending = true;
+            authorityInteractionProbeStartedAt = Time.unscaledTime;
+            var probeGeneration = ++authorityInteractionProbeGeneration;
+            nextAuthorityInteractionProbeAt =
+                Time.unscaledTime + Mathf.Max(0.1f, equipPromptRefreshInterval);
+            StartCoroutine(
+                authorityClient.LoadPlayerMotionRoutine(
+                    actorId,
+                    motion =>
+                    {
+                        if (probeGeneration !=
+                            authorityInteractionProbeGeneration)
+                        {
+                            return;
+                        }
+                        authorityInteractionProbePending = false;
+                        hasAuthorityInteractionPosition =
+                            IsRuntimePositionReady(motion);
+                        if (hasAuthorityInteractionPosition)
+                        {
+                            ApplyAuthorityInteractionPosition(motion);
+                        }
+                    }));
+        }
+
+        private void ApplyAuthorityInteractionPosition(
+            OntologyAuthorityPlayerMotionState motion)
+        {
+            hasAuthorityInteractionPosition =
+                IsRuntimePositionReady(motion);
+            if (!hasAuthorityInteractionPosition)
+                return;
+
+            authorityInteractionPosition = new Vector3(
+                (float)motion.positionX,
+                (float)motion.positionY,
+                (float)motion.positionZ);
+        }
+
+        public static bool IsInteractionProbeExpired(
+            float startedAt,
+            float now,
+            float timeoutSeconds) =>
+            float.IsFinite(startedAt) &&
+            float.IsFinite(now) &&
+            float.IsFinite(timeoutSeconds) &&
+            timeoutSeconds > 0f &&
+            now - startedAt >= timeoutSeconds;
 
         private void HandleAttackPerformed(InputAction.CallbackContext context)
         {
@@ -188,7 +293,15 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            var candidate = FindEquipCandidate(screenPosition);
+            // Consume the exact semantic opportunity that the prompt exposed.
+            // Re-running an asynchronous Authority-position probe between the
+            // displayed F prompt and the key event can otherwise turn one
+            // visible interaction into a false "no equipment" result. The
+            // Authority command remains the final range/permission boundary.
+            var candidate = IsCurrentPromptEquipCandidate(
+                    promptedEquipCandidate)
+                ? promptedEquipCandidate
+                : FindEquipCandidate(screenPosition);
             if (candidate != null &&
                 candidate.TryGetGuid(out var candidateId))
             {
@@ -230,6 +343,16 @@ namespace Tormia.Ontology.Core
             }
 
             TryEquip(screenPosition);
+        }
+
+        private bool IsCurrentPromptEquipCandidate(
+            OntologyAuthorityEntityIdentity candidate)
+        {
+            return candidate != null &&
+                   candidate.gameObject.activeInHierarchy &&
+                   IsEquipmentActionTarget(candidate) &&
+                   candidate.TryGetGuid(out var candidateId) &&
+                   !projectedEquippedItemIds.Contains(candidateId);
         }
 
         private void TryCollectLoot(Guid lootEntityId)
@@ -632,6 +755,12 @@ namespace Tormia.Ontology.Core
             OntologyAuthorityActionDefinitionProjection definition)
         {
             actionPending = true;
+            // Arm the presentation before sending the command. A pushed
+            // Authority projection may remove equipped_by before the HTTP
+            // response coroutine resumes; preparing afterward would be too
+            // late and the object would detach at its old durable position.
+            var attachment = ResolveAttachedPresentation(weaponId);
+            attachment?.PrepareForAuthorityDetach();
             var payload =
                 OntologyWorldAuthorityClient.CreateExecuteActionPayload(
                     actorId,
@@ -656,12 +785,39 @@ namespace Tormia.Ontology.Core
             }
             else
             {
+                attachment?.CancelPreparedAuthorityDetach();
                 LogTechnicalFailure("unequip_failed", authorityClient.LastStatus);
                 ShowCombatStatus(
                     "unequip_failed",
                     CombatStatusSeverity.Warning);
             }
             actionPending = false;
+        }
+
+        private OntologyAttachmentAdapter ResolveAttachedPresentation(
+            Guid entityId)
+        {
+            if (equippedToolIdentity != null &&
+                equippedToolIdentity.TryGetGuid(out var equippedId) &&
+                equippedId == entityId)
+            {
+                var current = equippedToolIdentity
+                    .GetComponent<OntologyAttachmentAdapter>();
+                if (current != null && current.IsAttached)
+                {
+                    return current;
+                }
+            }
+
+            return FindObjectsByType<OntologyAuthorityEntityIdentity>(
+                    FindObjectsInactive.Include)
+                .Where(value =>
+                    value != null &&
+                    value.TryGetGuid(out var candidateId) &&
+                    candidateId == entityId)
+                .Select(value =>
+                    value.GetComponent<OntologyAttachmentAdapter>())
+                .FirstOrDefault(value => value != null && value.IsAttached);
         }
 
         private OntologyAuthorityEntityIdentity FindEquipCandidate(
@@ -691,7 +847,7 @@ namespace Tormia.Ontology.Core
                     .Select(hit =>
                         hit.collider.GetComponentInParent<OntologyAuthorityEntityIdentity>())
                     .FirstOrDefault(candidate =>
-                        IsEquipmentActionTarget(candidate) &&
+                        IsEnabledEquipmentActionTarget(candidate) &&
                         !projectedEquippedItemIds.Contains(
                             ResolveEntityId(candidate)) &&
                         IsWithinInteractionRange(candidate));
@@ -700,18 +856,60 @@ namespace Tormia.Ontology.Core
 
             // F is a proximity interaction. The mouse ray is only a preference,
             // so a thin weapon or a terrain collider cannot make the key unusable.
+            return FindNearestAvailableEquipCandidate();
+        }
+
+        private OntologyAuthorityEntityIdentity FindNearestAvailableEquipCandidate()
+        {
             return FindObjectsByType<OntologyAuthorityEntityIdentity>(
                     FindObjectsInactive.Exclude)
                 .Where(candidate =>
-                    IsEquipmentActionTarget(candidate) &&
+                    IsEnabledEquipmentActionTarget(candidate) &&
                     !projectedEquippedItemIds.Contains(
                         ResolveEntityId(candidate)) &&
                     !candidate.transform.IsChildOf(transform) &&
                     IsWithinInteractionRange(candidate))
                 .OrderBy(candidate =>
-                    Vector3.SqrMagnitude(
-                        candidate.transform.position - transform.position))
+                    ResolveInteractionSurfaceDistanceSqr(
+                        transform.position,
+                        candidate.transform))
                 .FirstOrDefault();
+        }
+
+        private void RefreshEquipAvailabilityPresentation()
+        {
+            if (Time.unscaledTime < nextEquipPromptRefreshAt)
+                return;
+            nextEquipPromptRefreshAt = Time.unscaledTime +
+                                       Mathf.Max(0.02f, equipPromptRefreshInterval);
+
+            var candidate = actionPending
+                ? null
+                : FindNearestAvailableEquipCandidate();
+            if (promptedEquipCandidate == candidate)
+                return;
+            promptedEquipCandidate = candidate;
+            if (equipAvailabilityMarker == null)
+                equipAvailabilityMarker =
+                    OntologyRuntimeSelectionMarker.Create();
+            if (equipInteractionPrompt == null)
+                equipInteractionPrompt =
+                    OntologyWorldInteractionPrompt.Create("F");
+
+            var target = candidate == null ? null : candidate.transform;
+            equipAvailabilityMarker.SetTarget(target);
+            equipInteractionPrompt.SetTarget(target);
+        }
+
+        private void HideEquipAvailabilityPresentation()
+        {
+            promptedEquipCandidate = null;
+            // Unity destroyed-object references require the overloaded null
+            // check; the null-conditional operator would still invoke them.
+            if (equipAvailabilityMarker != null)
+                equipAvailabilityMarker.SetTarget(null);
+            if (equipInteractionPrompt != null)
+                equipInteractionPrompt.SetTarget(null);
         }
 
         private OntologyAuthorityEntityIdentity FindAvailableLootCandidate(
@@ -839,7 +1037,65 @@ namespace Tormia.Ontology.Core
         private bool IsEquipmentActionTarget(
             OntologyAuthorityEntityIdentity candidate)
         {
-            return TryResolveEquipActionId(candidate, out _);
+            return TryResolveEquipActionId(candidate, out _) &&
+                   IsCandidateSlotAvailable(candidate);
+        }
+
+        private bool IsEnabledEquipmentActionTarget(
+            OntologyAuthorityEntityIdentity candidate)
+        {
+            return IsEquipmentActionTarget(candidate) &&
+                   TryResolveEquipActionId(candidate, out var actionId) &&
+                   authorityClient != null &&
+                   authorityClient.TryResolveEnabledAction(actionId, out _);
+        }
+
+        private bool IsCandidateSlotAvailable(
+            OntologyAuthorityEntityIdentity candidate)
+        {
+            if (candidate == null || authorityClient?.CurrentProjection == null ||
+                actorIdentity == null ||
+                !candidate.TryGetGuid(out var candidateId) ||
+                !actorIdentity.TryGetGuid(out var actorId) ||
+                !TryResolveCanonicalFact(
+                    authorityClient.CurrentProjection,
+                    candidateId,
+                    OntologyPredicates.HasSlot,
+                    out var candidateSlot))
+            {
+                return false;
+            }
+
+            foreach (var relation in authorityClient.CurrentProjection.facts)
+            {
+                if (relation == null ||
+                    (relation.predicateId != OntologyPredicates.EquippedBy &&
+                     relation.predicateId != OntologyPredicates.CarriedBy) ||
+                    !string.Equals(
+                        relation.objectEntityId,
+                        actorId.ToString("D"),
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !Guid.TryParse(relation.subjectEntityId, out var itemId) ||
+                    itemId == candidateId ||
+                    !TryResolveCanonicalFact(
+                        authorityClient.CurrentProjection,
+                        itemId,
+                        OntologyPredicates.HasSlot,
+                        out var occupiedSlot))
+                {
+                    continue;
+                }
+
+                if (string.Equals(
+                        occupiedSlot,
+                        candidateSlot,
+                        StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private bool TryResolveEquipActionId(
@@ -879,10 +1135,132 @@ namespace Tormia.Ontology.Core
                 return false;
             }
 
+            if (authorityClient != null &&
+                authorityClient.IsWorldRuntimeReady)
+            {
+                if (!hasAuthorityInteractionPosition ||
+                    !TryResolveProjectedEntityPosition(
+                        authorityClient.CurrentProjection,
+                        entityId,
+                        out var targetPosition))
+                {
+                    return false;
+                }
+
+                // Authority distance is the permission boundary, while the
+                // current Unity transform is collision-presentation evidence.
+                // A Dynamic body can fall or roll before its next settled
+                // checkpoint; its durable spawn transform must never make an
+                // invisible/stale presentation interactable.
+                return IsWithinInteractionRange(
+                    authorityInteractionPosition,
+                    targetPosition,
+                    transform.position,
+                    ResolveInteractionSurfacePoint(
+                        transform.position,
+                        candidate.transform),
+                    range);
+            }
+
             return Vector3.Distance(
                        transform.position,
-                       candidate.transform.position) <=
+                       ResolveInteractionSurfacePoint(
+                           transform.position,
+                           candidate.transform)) <=
                    range;
+        }
+
+        public static bool IsWithinInteractionRange(
+            Vector3 authorityActorPosition,
+            Vector3 authorityTargetPosition,
+            Vector3 presentationActorPosition,
+            Vector3 presentationTargetPosition,
+            float range)
+        {
+            return IsFinite(authorityActorPosition) &&
+                   IsFinite(authorityTargetPosition) &&
+                   IsFinite(presentationActorPosition) &&
+                   IsFinite(presentationTargetPosition) &&
+                   float.IsFinite(range) &&
+                   range > 0f &&
+                   Vector3.Distance(
+                       authorityActorPosition,
+                       authorityTargetPosition) <= range &&
+                   Vector3.Distance(
+                       presentationActorPosition,
+                       presentationTargetPosition) <= range;
+        }
+
+        public static Vector3 ResolveInteractionSurfacePoint(
+            Vector3 actorPosition,
+            Transform candidateRoot)
+        {
+            if (candidateRoot == null || !IsFinite(actorPosition))
+                return candidateRoot == null
+                    ? actorPosition
+                    : candidateRoot.position;
+
+            var closestPoint = candidateRoot.position;
+            var closestDistanceSqr =
+                (closestPoint - actorPosition).sqrMagnitude;
+            var foundCollider = false;
+            foreach (var collider in
+                     candidateRoot.GetComponentsInChildren<Collider>(false))
+            {
+                if (collider == null || !collider.enabled ||
+                    !collider.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                var point = collider.ClosestPoint(actorPosition);
+                var distanceSqr = (point - actorPosition).sqrMagnitude;
+                if (foundCollider && distanceSqr >= closestDistanceSqr)
+                    continue;
+
+                foundCollider = true;
+                closestPoint = point;
+                closestDistanceSqr = distanceSqr;
+            }
+
+            return closestPoint;
+        }
+
+        public static float ResolveInteractionSurfaceDistanceSqr(
+            Vector3 actorPosition,
+            Transform candidateRoot)
+        {
+            var point = ResolveInteractionSurfacePoint(
+                actorPosition,
+                candidateRoot);
+            return (point - actorPosition).sqrMagnitude;
+        }
+
+        private static bool IsFinite(Vector3 value) =>
+            float.IsFinite(value.x) &&
+            float.IsFinite(value.y) &&
+            float.IsFinite(value.z);
+
+        private static bool TryResolveProjectedEntityPosition(
+            OntologyAuthorityWorldProjection projection,
+            Guid entityId,
+            out Vector3 position)
+        {
+            position = default;
+            var entity = projection?.entities?.FirstOrDefault(value =>
+                value != null &&
+                string.Equals(
+                    value.entityId,
+                    entityId.ToString("D"),
+                    StringComparison.OrdinalIgnoreCase));
+            if (entity?.transform == null)
+                return false;
+
+            position = new Vector3(
+                entity.transform.positionX,
+                entity.transform.positionY,
+                entity.transform.positionZ);
+            return true;
         }
 
         private static Guid ResolveEntityId(
@@ -1072,7 +1450,7 @@ namespace Tormia.Ontology.Core
         {
             actionPending = true;
             var prepared = false;
-            yield return authorityClient.EnsureDevelopmentActionPackageRoutine(
+            yield return authorityClient.VerifyDevelopmentContentReleaseRoutine(
                 value => prepared = value);
             actionPending = false;
             if (prepared)
@@ -1098,7 +1476,7 @@ namespace Tormia.Ontology.Core
         {
             actionPending = true;
             var prepared = false;
-            yield return authorityClient.EnsureDevelopmentActionPackageRoutine(
+            yield return authorityClient.VerifyDevelopmentContentReleaseRoutine(
                 value => prepared = value);
             actionPending = false;
             if (prepared)
@@ -1190,7 +1568,17 @@ namespace Tormia.Ontology.Core
                         value,
                         OntologyConcepts.Weapon))
                 .ToArray();
-            projectedEquippedItemIds = equippedWeaponIds;
+            // F toggles every equipped relation that explicitly authors an
+            // unequip_action. Weapon filtering belongs only to combat
+            // presentation; proximity wearables without that action must not
+            // make an unrelated right-hand F interaction ambiguous.
+            projectedEquippedItemIds = equippedIds
+                .Where(value => TryResolveCanonicalFact(
+                    projection,
+                    value,
+                    OntologyPredicates.UnequipAction,
+                    out _))
+                .ToArray();
             if (equippedWeaponIds.Length > 1)
             {
                 Debug.LogError(
@@ -1606,20 +1994,22 @@ namespace Tormia.Ontology.Core
             OntologyCombatTargetPresenter target,
             Action<bool> completed)
         {
-            OntologyAuthorityActionPreviewResult attackPreview = null;
-            yield return authorityClient.PreviewActionRoutine(
+            OntologyAuthorityAttackOccurrenceResult attackOccurrence = null;
+            yield return authorityClient.BeginPlayerAttackOccurrenceRoutine(
                 actorId,
                 targetId,
                 toolId,
                 attackDefinition,
-                value => attackPreview = value);
-            if (attackPreview == null || !attackPreview.accepted)
+                value => attackOccurrence = value);
+            if (attackOccurrence == null || !attackOccurrence.accepted ||
+                !Guid.TryParse(attackOccurrence.occurrenceId,
+                    out var attackOccurrenceId))
             {
                 FinishPrimaryPointerRoute(
                     completed,
                     false,
                     "attack_preview_rejected:" +
-                    (attackPreview?.rejectionCode ??
+                    (attackOccurrence?.rejectionCode ??
                      "authority_no_response"));
                 yield break;
             }
@@ -1650,6 +2040,7 @@ namespace Tormia.Ontology.Core
                 actorId,
                 toolId,
                 swingDefinition,
+                attackOccurrenceId,
                 true,
                 targetId,
                 attackDefinition,
@@ -1732,6 +2123,7 @@ namespace Tormia.Ontology.Core
             Guid actorId,
             Guid toolId,
             OntologyAuthorityActionDefinitionProjection swingDefinition,
+            Guid attackOccurrenceId,
             bool hasDamageTarget,
             Guid targetId,
             OntologyAuthorityActionDefinitionProjection attackDefinition,
@@ -1771,10 +2163,8 @@ namespace Tormia.Ontology.Core
                 if (contactObserved)
                 {
                     yield return ExecuteDamageRoutine(
-                        actorId,
+                        attackOccurrenceId,
                         targetId,
-                        toolId,
-                        attackDefinition,
                         target,
                         contactPoint);
                 }
@@ -1896,26 +2286,14 @@ namespace Tormia.Ontology.Core
         }
 
         private IEnumerator ExecuteDamageRoutine(
-            Guid actorId,
+            Guid attackOccurrenceId,
             Guid targetId,
-            Guid toolId,
-            OntologyAuthorityActionDefinitionProjection definition,
             OntologyCombatTargetPresenter target,
             Vector3 hitPoint)
         {
-            var payload = OntologyWorldAuthorityClient.CreateExecuteActionPayload(
-                actorId,
-                targetId,
-                toolId,
-                definition.packageId,
-                definition.packageVersion,
-                definition.actionId,
-                definition.definitionVersion);
-            OntologyAuthorityCommandResult result = null;
-            yield return authorityClient.SendCommandWithRevisionRetryRoutine(
-                () => OntologyWorldAuthorityClient.CreateCommand(
-                    OntologyWorldCommandKinds.ExecuteAction,
-                    payload),
+            OntologyAuthorityAttackContactResult result = null;
+            yield return authorityClient.ResolvePlayerAttackContactRoutine(
+                attackOccurrenceId,
                 value => result = value);
             if (result != null && result.accepted)
             {

@@ -28,12 +28,14 @@ namespace Tormia.Ontology.Core
         private float nextAttemptAt;
         private bool initialized;
         private bool commandPending;
+        private bool attachmentSuspended;
 
         private void OnEnable()
         {
             initialized = false;
             commandPending = false;
             stableSince = -1f;
+            attachmentSuspended = false;
         }
 
         private void FixedUpdate()
@@ -42,12 +44,16 @@ namespace Tormia.Ontology.Core
             var body = physicalBody == null ? null : physicalBody.TargetBody;
             var profile = physicalBody == null ? null : physicalBody.PhysicalProfile;
             var attachment = GetComponent<OntologyAttachmentAdapter>();
+            if (attachmentSuspended ||
+                (attachment != null && attachment.OwnsWorldTransform))
+            {
+                return;
+            }
             var canCheckpoint =
                 profile != null &&
                 profile.mobilityMode == OntologyPhysicalMobilityMode.Dynamic &&
                 body != null &&
-                !body.isKinematic &&
-                (attachment == null || !attachment.OwnsWorldTransform);
+                !body.isKinematic;
 
             if (!canCheckpoint)
             {
@@ -115,8 +121,37 @@ namespace Tormia.Ontology.Core
             float minimumRotationChange) =>
             Vector3.Distance(position, baselinePosition) >=
             Mathf.Max(0f, minimumPositionChange) ||
-            Quaternion.Angle(rotation, baselineRotation) >=
-            Mathf.Max(0f, minimumRotationChange);
+                   Quaternion.Angle(rotation, baselineRotation) >=
+                   Mathf.Max(0f, minimumRotationChange);
+
+        /// <summary>
+        /// Captures the last world-owned pose before an attachment presentation
+        /// temporarily moves the object under an actor socket. The socket pose
+        /// is never allowed to become a durable world checkpoint baseline.
+        /// </summary>
+        public void SuspendForAttachment()
+        {
+            ResolveDependencies();
+            if (!initialized)
+            {
+                Rebaseline();
+                initialized = true;
+            }
+            attachmentSuspended = true;
+            stableSince = -1f;
+        }
+
+        /// <summary>
+        /// Resumes checkpoint observation after the attachment adapter has
+        /// selected a collision-safe world release pose. Normal settle rules
+        /// still decide when that pose becomes a durable Authority checkpoint.
+        /// </summary>
+        public void ResumeAfterAttachmentRelease()
+        {
+            attachmentSuspended = false;
+            stableSince = -1f;
+            nextAttemptAt = Time.unscaledTime + settleDurationSeconds;
+        }
 
         private void HandleCheckpointCompleted(bool accepted)
         {

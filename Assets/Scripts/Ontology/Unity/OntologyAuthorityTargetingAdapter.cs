@@ -84,7 +84,10 @@ namespace Tormia.Ontology.Core
                     candidate == actorIdentity ||
                     candidate == equippedToolIdentity ||
                     !candidate.TryGetGuid(out var candidateId) ||
-                    !authorityClient.ContainsProjectedEntity(candidateId))
+                    !authorityClient.ContainsProjectedEntity(candidateId) ||
+                    !OntologyCombatTargetPresenter.IsProjectedAlive(
+                        authorityClient.CurrentProjection,
+                        candidateId))
                 {
                     continue;
                 }
@@ -167,6 +170,9 @@ namespace Tormia.Ontology.Core
                     identity.transform == toolRoot ||
                     !identity.TryGetGuid(out var candidateId) ||
                     !authorityClient.ContainsProjectedEntity(candidateId) ||
+                    !OntologyCombatTargetPresenter.IsProjectedAlive(
+                        authorityClient.CurrentProjection,
+                        candidateId) ||
                     !IsWithinPlanarBoundsFootprint(
                         collider.bounds,
                         surfacePoint,

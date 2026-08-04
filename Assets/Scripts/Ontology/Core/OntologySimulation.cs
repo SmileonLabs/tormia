@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Tormia.Ontology.Core
 {
@@ -47,11 +48,23 @@ namespace Tormia.Ontology.Core
             var changes = forceFullInitialEvaluation ? null : world.ConsumeChanges();
             for (var iteration = 1; iteration <= MaxIterations; iteration++)
             {
+                var startedAt = Stopwatch.GetTimestamp();
                 var step = engine.EvaluateStep(world, changes, inferredFacts);
+                var evaluationElapsedTicks = Stopwatch.GetTimestamp() - startedAt;
                 result.Iterations = iteration;
                 result.TotalAddedFacts += step.AddedFactCount;
                 result.TotalChangedFacts += step.ChangedFactCount;
-                result.Steps.Add(new OntologySimulationStep(iteration, step.Events, step.AddedFactCount, step.ChangedFactCount));
+                result.TotalEvaluatedRules += step.EvaluatedRuleCount;
+                result.TotalSkippedRules += step.SkippedRuleCount;
+                result.TotalEvaluationElapsedTicks += evaluationElapsedTicks;
+                result.Steps.Add(new OntologySimulationStep(
+                    iteration,
+                    step.Events,
+                    step.AddedFactCount,
+                    step.ChangedFactCount,
+                    step.EvaluatedRuleCount,
+                    step.SkippedRuleCount,
+                    evaluationElapsedTicks));
 
                 if (step.ChangedFactCount == 0)
                 {

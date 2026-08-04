@@ -190,7 +190,7 @@ namespace Tormia.Ontology.Core
         private void SendJson(string method, string route, string json, bool authenticated, Action<UnityWebRequest> completed)
         {
             StopRequest();
-            var baseUrl = authoritySettings.baseUrl?.Trim().TrimEnd('/');
+            var baseUrl = authoritySettings.RuntimeBaseUrl;
             if (string.IsNullOrWhiteSpace(baseUrl))
             {
                 status = "Authority base URL is empty.";
@@ -246,13 +246,13 @@ namespace Tormia.Ontology.Core
         private bool TryGetAccessToken(out string token)
         {
             token = string.Empty;
-            if (authoritySettings == null || string.IsNullOrWhiteSpace(authoritySettings.baseUrl))
+            if (authoritySettings == null || string.IsNullOrWhiteSpace(authoritySettings.RuntimeBaseUrl))
             {
                 status = "Assign World Authority Settings first.";
                 return false;
             }
             token = PlayerPrefs.GetString(
-                OntologyWorldAuthorityClient.SessionTokenPreferenceKey(authoritySettings.baseUrl),
+                OntologyWorldAuthorityClient.SessionTokenPreferenceKey(authoritySettings.RuntimeBaseUrl),
                 string.Empty);
             if (!string.IsNullOrWhiteSpace(token)) return true;
             status = "Sign in through the account UI before publishing or refreshing the rule catalog.";

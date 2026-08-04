@@ -1617,9 +1617,9 @@ CharacterController:
   m_Height: 2
   m_Radius: 0.45
   m_SlopeLimit: 45
-  m_StepOffset: 0
+  m_StepOffset: 0.3
   m_SkinWidth: 0.03
-  m_MinMoveDistance: 0.001
+  m_MinMoveDistance: 0
   m_Center: {x: 0, y: 1, z: 0}
 --- !u!114 &472011343
 MonoBehaviour:
@@ -1757,7 +1757,7 @@ MonoBehaviour:
   defaultMoveIntent: Locomotion
   movementIntentThreshold: 0.01
   driveBaseLocomotionFromManifest: 1
-  fallVelocityThreshold: -2
+  fallVelocityThreshold: -0.25
   boolBindings:
   - predicate: movement_state
     obj: Slowed
@@ -2105,7 +2105,7 @@ MonoBehaviour:
     m_Bits: 4294967295
   equipReadinessGracePeriod: 2
   attackActionReference: {fileID: 11400000, guid: 595186362c5d01d43a04e62c6d85c655, type: 2}
-  equipBinding: <Keyboard>/f
+  equipActionReference: {fileID: 11400000, guid: e2831b1e31ef4e24a0ff8ebcb835f82e, type: 2}
   lastAttackDiagnostic: 
 --- !u!114 &472011362
 MonoBehaviour:

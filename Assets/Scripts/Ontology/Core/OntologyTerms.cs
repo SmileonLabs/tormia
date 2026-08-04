@@ -17,8 +17,18 @@ namespace Tormia.Ontology.Core
         public const string AttackDamage = "attack_damage";
         public const string AttackRange = "attack_range";
         public const string AttackCooldown = "attack_cooldown";
+        public const string AttackPlaybackSpeed = "attack_playback_speed";
+        public const string AttackWindupSeconds =
+            "attack_windup_seconds";
+        public const string AttackRecoverySeconds =
+            "attack_recovery_seconds";
         public const string DamageProfile = "damage_profile";
         public const string AttackContactMode = "attack_contact_mode";
+        public const string AttackContactReach = "attack_contact_reach";
+        public const string AttackContactOpenSeconds =
+            "attack_contact_open_seconds";
+        public const string AttackContactWindowSeconds =
+            "attack_contact_window_seconds";
         public const string DetectionRange = "detection_range";
         public const string LeashRange = "leash_range";
         public const string TargetConcept = "target_concept";
@@ -110,6 +120,8 @@ namespace Tormia.Ontology.Core
         public const string HasRuleBlock = "has_rule_block";
         public const string SemanticContractVersion =
             "semantic_contract_version";
+        public const string SemanticContractChecksum =
+            "semantic_contract_checksum";
         public const string PhysicalProfileContractVersion =
             "physical_profile_contract_version";
         public const string ImmersionDepth = "immersion_depth";
@@ -259,8 +271,8 @@ namespace Tormia.Ontology.Core
 
     public static class OntologySemanticContracts
     {
-        public const int PlayerAvatarVersion = 9;
-        public const int WeaponVersion = 9;
-        public const int AutonomousActorVersion = 7;
+        public const int PlayerAvatarVersion = 12;
+        public const int WeaponVersion = 13;
+        public const int AutonomousActorVersion = 12;
     }
 }

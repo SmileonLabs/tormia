@@ -51,6 +51,15 @@ namespace Tormia.Ontology.Core
         private readonly Dictionary<string, HashSet<OntologyFact>> authoredFactsByEntity = new();
         private OntologyWorldService worldService;
         private bool simulationRequested;
+        [SerializeField, Tooltip(
+            "Ephemeral duration/allocation observation for the latest explicit or queued simulation. " +
+            "It is not authored ontology data.")]
+        private OntologyRuntimePerformanceObservation lastSimulationObservation;
+        [SerializeField, Tooltip(
+            "Ephemeral duration/allocation observation for the latest scene-object synchronization. " +
+            "This includes a nested RunSimulation call when requested.")]
+        private OntologyRuntimePerformanceObservation
+            lastSceneObjectSynchronizationObservation;
 
         public OntologyWorldState World => worldService?.World;
         public OntologySession Session => worldService?.Session;
@@ -71,6 +80,11 @@ namespace Tormia.Ontology.Core
             attachmentProfileDatabase;
         public OntologyFeaturePackDatabase FeaturePackDatabase => featurePackDatabase;
         public OntologyEntityRegistry EntityRegistry => entityRegistry;
+        public OntologyRuntimePerformanceObservation LastSimulationObservation =>
+            lastSimulationObservation;
+        public OntologyRuntimePerformanceObservation
+            LastSceneObjectSynchronizationObservation =>
+            lastSceneObjectSynchronizationObservation;
         /// <summary>
         /// Raised only after the runtime world instance is replaced by reset or restore.
         /// Runtime observation adapters use this to discard their publication ownership
@@ -157,27 +171,36 @@ namespace Tormia.Ontology.Core
         /// </summary>
         public string RunSimulation(bool buildReport = true)
         {
-            simulationRequested = false;
-            EnsureWorldService();
-            if (World == null)
+            var observation = OntologyRuntimePerformanceObservation.Begin();
+            try
             {
-                worldService.Reset(BuildWorldFromScene());
-                WorldRebuilt?.Invoke();
-            }
+                simulationRequested = false;
+                EnsureWorldService();
+                if (World == null)
+                {
+                    worldService.Reset(BuildWorldFromScene());
+                    WorldRebuilt?.Invoke();
+                }
 
-            worldService.Simulate(
-                GetRuleDefinitions(),
-                CreateQuestService(),
-                ActiveActorId,
-                maxIterations,
-                AllRuleDefinitions);
-            var report = buildReport ? BuildReport() : string.Empty;
-            if (buildReport && logExplicitSimulationReports)
-            {
-                Debug.Log(report);
+                worldService.Simulate(
+                    GetRuleDefinitions(),
+                    CreateQuestService(),
+                    ActiveActorId,
+                    maxIterations,
+                    AllRuleDefinitions);
+                var report = buildReport ? BuildReport() : string.Empty;
+                if (buildReport && logExplicitSimulationReports)
+                {
+                    Debug.Log(report);
+                }
+                WorldChanged?.Invoke();
+                return report;
             }
-            WorldChanged?.Invoke();
-            return report;
+            finally
+            {
+                observation.Complete();
+                lastSimulationObservation = observation;
+            }
         }
 
         /// <summary>
@@ -246,66 +269,75 @@ namespace Tormia.Ontology.Core
         /// </summary>
         public string SynchronizeSceneObjects(bool runSimulation = true)
         {
-            EnsureWorldReady();
-            var objects = FindObjectsByType<OntologyObject>(FindObjectsInactive.Include);
-            var currentIds = new HashSet<string>();
-            foreach (var ontologyObject in objects)
+            var observation = OntologyRuntimePerformanceObservation.Begin();
+            try
             {
-                if (ontologyObject != null)
+                EnsureWorldReady();
+                var objects = FindObjectsByType<OntologyObject>(FindObjectsInactive.Include);
+                var currentIds = new HashSet<string>();
+                foreach (var ontologyObject in objects)
                 {
-                    currentIds.Add(ontologyObject.EntityId);
+                    if (ontologyObject != null)
+                    {
+                        currentIds.Add(ontologyObject.EntityId);
+                    }
                 }
-            }
 
-            var removedEntityIds = new List<string>();
-            foreach (var entityId in authoredFactsByEntity.Keys)
-            {
-                if (!currentIds.Contains(entityId))
+                var removedEntityIds = new List<string>();
+                foreach (var entityId in authoredFactsByEntity.Keys)
                 {
-                    removedEntityIds.Add(entityId);
+                    if (!currentIds.Contains(entityId))
+                    {
+                        removedEntityIds.Add(entityId);
+                    }
                 }
-            }
 
-            foreach (var authoredFacts in authoredFactsByEntity.Values)
-            {
-                foreach (var fact in authoredFacts)
+                foreach (var authoredFacts in authoredFactsByEntity.Values)
                 {
-                    World.RemoveFact(fact.Subject, fact.Predicate, fact.Object);
-                }
-            }
-
-            if (removedEntityIds.Count > 0)
-            {
-                var currentFacts = new List<OntologyFact>(World.Facts);
-                foreach (var fact in currentFacts)
-                {
-                    if (removedEntityIds.Contains(fact.Subject.Value) ||
-                        removedEntityIds.Contains(fact.Object.Value))
+                    foreach (var fact in authoredFacts)
                     {
                         World.RemoveFact(fact.Subject, fact.Predicate, fact.Object);
                     }
                 }
-            }
 
-            entityRegistry.Rebuild(objects);
-            ReportDuplicateEntityIds();
-            authoredFactsByEntity.Clear();
-            foreach (var ontologyObject in objects)
+                if (removedEntityIds.Count > 0)
+                {
+                    var currentFacts = new List<OntologyFact>(World.Facts);
+                    foreach (var fact in currentFacts)
+                    {
+                        if (removedEntityIds.Contains(fact.Subject.Value) ||
+                            removedEntityIds.Contains(fact.Object.Value))
+                        {
+                            World.RemoveFact(fact.Subject, fact.Predicate, fact.Object);
+                        }
+                    }
+                }
+
+                entityRegistry.Rebuild(objects);
+                ReportDuplicateEntityIds();
+                authoredFactsByEntity.Clear();
+                foreach (var ontologyObject in objects)
+                {
+                    ApplySceneObjectToWorld(ontologyObject, World);
+                    RecordAuthoredFacts(ontologyObject);
+                }
+
+                physicalProfileDatabase?.ApplyTo(World);
+                physicalEffectDatabase?.ApplyTo(World);
+                attachmentProfileDatabase?.ApplyTo(World);
+                if (runSimulation)
+                {
+                    return RunSimulation();
+                }
+
+                WorldChanged?.Invoke();
+                return BuildReport();
+            }
+            finally
             {
-                ApplySceneObjectToWorld(ontologyObject, World);
-                RecordAuthoredFacts(ontologyObject);
+                observation.Complete();
+                lastSceneObjectSynchronizationObservation = observation;
             }
-
-            physicalProfileDatabase?.ApplyTo(World);
-            physicalEffectDatabase?.ApplyTo(World);
-            attachmentProfileDatabase?.ApplyTo(World);
-            if (runSimulation)
-            {
-                return RunSimulation();
-            }
-
-            WorldChanged?.Invoke();
-            return BuildReport();
         }
 
         public string AttackTargetWithTool()

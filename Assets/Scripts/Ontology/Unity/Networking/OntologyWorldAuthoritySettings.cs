@@ -15,6 +15,52 @@ namespace Tormia.Ontology.Core
         [Header("Endpoint")]
         [Tooltip("Authority endpoint only. Unity clients never receive a PostgreSQL or Redis connection string.")]
         public string baseUrl = "http://127.0.0.1:5272";
+        [Tooltip(
+            "Remote test endpoint used by Android players and, when explicitly " +
+            "enabled below, by Unity Editor play mode and authoring tools.")]
+        public string androidBaseUrl;
+        [Tooltip(
+            "When enabled, Unity Editor play mode and Authority authoring tools " +
+            "use the Android test endpoint. Disable it to return to the local " +
+            "Authority endpoint without changing either URL.")]
+        public bool useRemoteEndpointInEditor;
+
+        [Header("Experimental UDP motion transport")]
+        [Tooltip(
+            "Default-off rollout gate. Enabling this selects the project-owned " +
+            "UDP motion adapter; it does not bypass Authority admission.")]
+        public bool enableExperimentalUdpMotionTransport;
+        [Tooltip("UDP Authority host used outside Android. No scheme or path.")]
+        public string udpHost;
+        [Tooltip("Optional Android UDP host. Falls back to udpHost when empty.")]
+        public string androidUdpHost;
+        [Min(0), Tooltip("Authority UDP listener port. Zero keeps UDP disabled.")]
+        public int udpPort;
+
+        public string ResolveBaseUrl(RuntimePlatform platform)
+        {
+            var editorPlatform = platform == RuntimePlatform.WindowsEditor ||
+                                 platform == RuntimePlatform.OSXEditor ||
+                                 platform == RuntimePlatform.LinuxEditor;
+            var useRemote = platform == RuntimePlatform.Android ||
+                            (editorPlatform && useRemoteEndpointInEditor);
+            var selected = useRemote &&
+                           !string.IsNullOrWhiteSpace(androidBaseUrl)
+                ? androidBaseUrl
+                : baseUrl;
+            return selected?.Trim().TrimEnd('/') ?? string.Empty;
+        }
+
+        public string RuntimeBaseUrl => ResolveBaseUrl(Application.platform);
+
+        public string ResolveUdpHost(RuntimePlatform platform)
+        {
+            var selected = platform == RuntimePlatform.Android &&
+                           !string.IsNullOrWhiteSpace(androidUdpHost)
+                ? androidUdpHost
+                : udpHost;
+            return selected?.Trim() ?? string.Empty;
+        }
 
         [Header("Local world defaults")]
         [Tooltip("Paste a shared world GUID here to join an existing local world. Leave empty to create and remember a personal world.")]
@@ -85,8 +131,11 @@ namespace Tormia.Ontology.Core
         [Min(0.25f), Tooltip("How often a connected client refreshes the durable world projection. Commands remain immediate; this is for other clients' accepted changes.")]
         public float projectionPollIntervalSeconds = 1f;
 
-        [Header("Development content seed")]
-        [Tooltip("Development-only convenience. Production worlds should be provisioned by an authenticated content workflow.")]
+        [Header("Development content release")]
+        [Tooltip(
+            "Legacy serialized flag: when enabled, runtime entry requires the " +
+            "configured development release to pass read-only Authority " +
+            "preflight. Publishing is explicit and never occurs during entry.")]
         public bool publishDevelopmentPackageOnWorldEntry = true;
         [Tooltip("Canonical Authority package ID used by the development seed.")]
         public string developmentPackageId = "social_village";

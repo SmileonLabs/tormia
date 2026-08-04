@@ -18,7 +18,7 @@ MonoBehaviour:
     weaponFamily: Sword
     grantedCapability: MeleeAttack
     attackActionId: attack
-    actionDefinitionVersion: 10
+    actionDefinitionVersion: 12
     equipAnimationIntent: WeaponEquip
     unequipAnimationIntent: WeaponUnequip
     idleAnimationIntent: WeaponIdle
@@ -31,7 +31,7 @@ MonoBehaviour:
     weaponFamily: Sword
     grantedCapability: MeleeAttack
     attackActionId: attack
-    actionDefinitionVersion: 10
+    actionDefinitionVersion: 12
     equipAnimationIntent: WeaponEquip
     unequipAnimationIntent: WeaponUnequip
     idleAnimationIntent: WeaponIdle
@@ -44,7 +44,7 @@ MonoBehaviour:
     weaponFamily: Sword
     grantedCapability: MeleeAttack
     attackActionId: attack
-    actionDefinitionVersion: 10
+    actionDefinitionVersion: 12
     equipAnimationIntent: WeaponEquip
     unequipAnimationIntent: WeaponUnequip
     idleAnimationIntent: WeaponIdle

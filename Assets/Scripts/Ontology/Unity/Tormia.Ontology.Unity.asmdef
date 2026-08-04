@@ -3,6 +3,8 @@
     "rootNamespace": "Tormia.Ontology.Core",
     "references": [
         "Tormia.Ontology.Core",
+        "Tormia.Ontology.Realtime.Protocol",
+        "LiteNetLib",
         "ithappy.Creative_Characters_FREE",
         "Unity.InputSystem",
         "Unity.TextMeshPro",

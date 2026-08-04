@@ -15,6 +15,7 @@ MonoBehaviour:
   contentVersion: 1.0.0
   entries:
   - animationId: Anim_Idle_Breathing
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 3ed56c1c8d524197b0c60b0b09bb8d84, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Idle_Breathing.anim
     deliveryKey: animations/Anim_Idle_Breathing
@@ -30,10 +31,16 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 10
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Idle
     - Breathing
@@ -41,6 +48,7 @@ MonoBehaviour:
     contentVersion: 1.0.0
     checksum: 5e9cf096b64db2ec101d1fb6687a63de
   - animationId: Anim_Idle_Look_Around
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: c7ab98e30fdf4ecfb26a439b0cb318c5, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Idle_Look_Around.anim
     deliveryKey: animations/Anim_Idle_Look_Around
@@ -56,16 +64,23 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 15
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Idle
     - AlertIdle
     contentVersion: 1.0.0
     checksum: dbe9fd48f2788391eec4b6904e3d393e
   - animationId: Anim_Idle_Relaxed
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: c52272260b5340bbbc2512932157aac3, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Idle_Relaxed.anim
     deliveryKey: animations/Anim_Idle_Relaxed
@@ -82,16 +97,23 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 5
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Idle
     - RelaxedIdle
     contentVersion: 1.0.0
     checksum: da701d131f9417fa6825603b811e9051
   - animationId: Anim_Walk_Forward
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 98b6a2eb86734f97bdcfb9fcd236f27d, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Walk_Forward.anim
     deliveryKey: animations/Anim_Walk_Forward
@@ -107,10 +129,16 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 20
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Forward
@@ -118,6 +146,7 @@ MonoBehaviour:
     contentVersion: 1.0.0
     checksum: ad283f86f4a1487f47e7bd6a6ec350cb
   - animationId: Anim_Walk_Backward
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 212ae36e2e204ce2844c1c4905285b65, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Walk_Backward.anim
     deliveryKey: animations/Anim_Walk_Backward
@@ -132,10 +161,16 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 20
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Backward
@@ -143,6 +178,7 @@ MonoBehaviour:
     contentVersion: 1.0.0
     checksum: a29137106c6f2bc401a414bf9723a350
   - animationId: Anim_Run_Forward
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: f32e0a8fd4d44af18ae7f0562fe8cf75, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Run_Forward.anim
     deliveryKey: animations/Anim_Run_Forward
@@ -157,10 +193,16 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 30
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Forward
@@ -169,6 +211,7 @@ MonoBehaviour:
     contentVersion: 1.0.0
     checksum: 5a9881921b02e911796f6e8a8b7f2b61
   - animationId: Anim_Run_Backward
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: ddae1c8eb8e14567b4b6d8d41607d2db, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Run_Backward.anim
     deliveryKey: animations/Anim_Run_Backward
@@ -183,10 +226,16 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 30
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Backward
@@ -195,6 +244,7 @@ MonoBehaviour:
     contentVersion: 1.0.0
     checksum: c41384b2b1df5eaf383fc93821f03255
   - animationId: Anim_Run_Left
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 543b8c31fa1141d897f189b4765741d2, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Run_Left.anim
     deliveryKey: animations/Anim_Run_Left
@@ -209,10 +259,16 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 30
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Left
@@ -221,6 +277,7 @@ MonoBehaviour:
     contentVersion: 1.0.0
     checksum: 613fbe0ed323a92af9cd61ef26b4fe51
   - animationId: Anim_Run_Right
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 04e87bdc25744cfdab0e7838576047c3, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Run_Right.anim
     deliveryKey: animations/Anim_Run_Right
@@ -235,10 +292,16 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 30
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Right
@@ -247,6 +310,7 @@ MonoBehaviour:
     contentVersion: 1.0.0
     checksum: c1d6531326e63c25af90e191f9465171
   - animationId: Anim_Strafe_Left
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 5a3832995d7c4cd0affdb41cd20d0fc5, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Strafe_Left.anim
     deliveryKey: animations/Anim_Strafe_Left
@@ -261,10 +325,16 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 25
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Left
@@ -272,6 +342,7 @@ MonoBehaviour:
     contentVersion: 1.0.0
     checksum: 3b0e60c966732fc84784b5530f12b0e2
   - animationId: Anim_Strafe_Right
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 50f3545cb7134cc7bbb47ed9d151c7d1, type: 2}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Strafe_Right.anim
     deliveryKey: animations/Anim_Strafe_Right
@@ -286,10 +357,16 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 25
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Right
@@ -317,6 +394,9 @@ MonoBehaviour:
     priority: 40
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
     playbackStartNormalized: 0
     playbackEndNormalized: 0.28
     properties:
@@ -346,6 +426,9 @@ MonoBehaviour:
     priority: 35
     canBlend: 1
     transitionDuration: 0.12
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
     playbackStartNormalized: 0
     playbackEndNormalized: 0.5
     properties:
@@ -356,8 +439,8 @@ MonoBehaviour:
     checksum: 8bf9de8d27ea8fab1d8e9ff97f4a8a69
   - animationId: Anim_Jump_Fall
     legacyAnimationIds: []
-    clip: {fileID: 7400000, guid: 7cc61edbc91e4638a961fc0228920a80, type: 2}
-    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Jump_Loop.anim
+    clip: {fileID: -203655887218126122, guid: 7957c1d0990e4f3429339972f3fe5d1d, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/Jump_Fall.fbx
     deliveryKey: animations/Anim_Jump_Fall
     intents:
     - Fall
@@ -374,45 +457,20 @@ MonoBehaviour:
     interruptible: 1
     priority: 35
     canBlend: 1
-    transitionDuration: 0.12
-    playbackStartNormalized: 0.5
+    transitionDuration: 0.2
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
     playbackEndNormalized: 1
     properties:
     - Jump
     - Airborne
     - Fall
     contentVersion: 1.0.0
-    checksum: 8bf9de8d27ea8fab1d8e9ff97f4a8a69
-  - animationId: Anim_Jump_End
-    legacyAnimationIds: []
-    clip: {fileID: 7400000, guid: e234e2a5d3e04f9a8fa6d6295555c345, type: 2}
-    sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Other_Animations/Jump_End.anim
-    deliveryKey: animations/Anim_Jump_End
-    intents:
-    - Landing
-    actorTypes: []
-    rigTypes: []
-    profiles:
-    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
-    layer: 0
-    avatarMask: {fileID: 0}
-    loop: 0
-    loopPose: 0
-    rootMotionMode: 1
-    presentationOwner: 1
-    interruptible: 1
-    priority: 35
-    canBlend: 1
-    transitionDuration: 0.15
-    playbackStartNormalized: 0.85
-    playbackEndNormalized: 1
-    properties:
-    - Jump
-    - Landing
-    - End
-    contentVersion: 1.0.0
-    checksum: 372f18b3edfc508e8205073d81b61744
+    checksum: bf40b10817a48ce0e1a7aaff1f0bb576
   - animationId: Anim_Crouch_Walk_Forward
+    legacyAnimationIds: []
     clip: {fileID: 9198153334671162169, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Crouch_Walk_Forward
@@ -428,18 +486,25 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 55
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Crouch
     - ImpairedMovement
     - Forward
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Crouch_Walk_Backward
+    legacyAnimationIds: []
     clip: {fileID: 439784503820603027, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Crouch_Walk_Backward
@@ -455,18 +520,25 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 55
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Crouch
     - ImpairedMovement
     - Backward
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Crouch_Walk_Left
+    legacyAnimationIds: []
     clip: {fileID: -7504226609968954862, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Crouch_Walk_Left
@@ -482,18 +554,25 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 55
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Crouch
     - ImpairedMovement
     - Left
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Crouch_Walk_Right
+    legacyAnimationIds: []
     clip: {fileID: -7624677252082611786, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Crouch_Walk_Right
@@ -509,18 +588,25 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 55
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Locomotion
     - Crouch
     - ImpairedMovement
     - Right
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Hit_Reaction_Light
+    legacyAnimationIds: []
     clip: {fileID: 732519596084210561, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Hit_Reaction_Light
@@ -536,16 +622,23 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 60
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - DamageReaction
     - LightSeverity
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Hit_Reaction_Heavy
+    legacyAnimationIds: []
     clip: {fileID: 4298968129520807213, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Hit_Reaction_Heavy
@@ -560,15 +653,21 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 80
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - DamageReaction
     - HeavySeverity
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Collapse_Reaction
     legacyAnimationIds:
     - Anim_Fall
@@ -591,13 +690,17 @@ MonoBehaviour:
     priority: 85
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
     playbackStartNormalized: 0
     playbackEndNormalized: 1
     properties:
     - CollapseReaction
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Death_Backward
+    legacyAnimationIds: []
     clip: {fileID: -4950758156531648292, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Death_Backward
@@ -612,16 +715,23 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 100
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - DeathReaction
     - Backward
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Death_Forward
+    legacyAnimationIds: []
     clip: {fileID: 6182763086745782283, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Death_Forward
@@ -636,16 +746,23 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 100
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - DeathReaction
     - Forward
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Attack_Punch
+    legacyAnimationIds: []
     clip: {fileID: -7394484345467444417, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Attack_Punch
@@ -660,17 +777,24 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 70
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Attack
     - Unarmed
     - UpperBody
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Attack_Kick
+    legacyAnimationIds: []
     clip: {fileID: 2771865946972476010, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Attack_Kick
@@ -685,17 +809,24 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 70
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Attack
     - Unarmed
     - LowerBody
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Block_With_Hands
+    legacyAnimationIds: []
     clip: {fileID: -4478515264891265488, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Block_With_Hands
@@ -710,17 +841,24 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 65
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Defense
     - Block
     - UpperBody
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Dodge_Roll
+    legacyAnimationIds: []
     clip: {fileID: 1396319113448604862, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Dodge_Roll
@@ -735,17 +873,24 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 75
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Evasion
     - Roll
     - FullBody
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Dodge_Sidestep
+    legacyAnimationIds: []
     clip: {fileID: 2737883252764492063, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Dodge_Sidestep
@@ -760,16 +905,23 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 70
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Evasion
     - Sidestep
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Climb_Ladder
+    legacyAnimationIds: []
     clip: {fileID: -6200094899576005654, guid: ffb21f0d1dfb40158559b32459459762, type: 3}
     sourceAssetPath: Assets/ithappy/Creative_Characters_FREE/Animations/Animation_Mesh/Aminset_Basic.fbx
     deliveryKey: animations/Anim_Climb_Ladder
@@ -784,16 +936,23 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 50
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Traversal
     - Climb
     contentVersion: 1.0.0
-    checksum: 62b505236f4114f7fcc0738e807d582a
+    checksum: 0686bae7208dcf71bdf06c2bc5b70a17
   - animationId: Anim_Swimming
+    legacyAnimationIds: []
     clip: {fileID: -203655887218126122, guid: 4659398749ed1334ab4d1d594ce7c168, type: 3}
     sourceAssetPath: Assets/Animations/Mixamo/Swimming.fbx
     deliveryKey: animations/Anim_Swimming
@@ -808,16 +967,23 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 50
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Swimming
     - Locomotion
     contentVersion: 1.0.0
-    checksum: dc43f1ec976dd7257269960494e0d0d2
+    checksum: 20c98850504c1715cc36da625a80ebca
   - animationId: Anim_Treading_Water
+    legacyAnimationIds: []
     clip: {fileID: -203655887218126122, guid: f625706e23c137a4782caaf2b2a55155, type: 3}
     sourceAssetPath: Assets/Animations/Mixamo/Treading Water.fbx
     deliveryKey: animations/Anim_Treading_Water
@@ -832,16 +998,23 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 95
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Swimming
     - Idle
     contentVersion: 1.0.0
-    checksum: f638dfee049cb3819a905a563f3bde83
+    checksum: b605ef6bf37703dde7f92494430535d6
   - animationId: Anim_Sword_Equip
+    legacyAnimationIds: []
     clip: {fileID: -203655887218126122, guid: 30b1e45f03f5b274b85f238b93551bd8, type: 3}
     sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/SwordEquip.fbx
     deliveryKey: animations/Anim_Sword_Equip
@@ -858,15 +1031,22 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 80
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     contentVersion: 1.0.0
-    checksum: 81d33d4518fa423985a25fed023db375
+    checksum: 69c0202324dee107655dd711069ebf22
   - animationId: Anim_Sword_Unequip
+    legacyAnimationIds: []
     clip: {fileID: -203655887218126122, guid: 1a367f90f099bd940b28f076691cf2d5, type: 3}
     sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/SwordUnequip.fbx
     deliveryKey: animations/Anim_Sword_Unequip
@@ -883,15 +1063,22 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 80
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     contentVersion: 1.0.0
-    checksum: 9c46952b1c318d3b761b4a39b939ba19
+    checksum: f9189447a4d95a344b16119cc2fc4fa7
   - animationId: Anim_Sword_Idle
+    legacyAnimationIds: []
     clip: {fileID: -203655887218126122, guid: 756dcf0d740eafe4ab358987d3d8b676, type: 3}
     sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/SwordIdle.fbx
     deliveryKey: animations/Anim_Sword_Idle
@@ -908,15 +1095,22 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 0
     priority: 40
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     contentVersion: 1.0.0
-    checksum: a40fe23736c6fdc75f8202c9b5368f98
+    checksum: 4edbb7aa4aef09134d980eb6668fa036
   - animationId: Anim_Sword_Walk
+    legacyAnimationIds: []
     clip: {fileID: -203655887218126122, guid: b686b5a765fe3c34f9aa4dcb362ba857, type: 3}
     sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/WeaponeWalk.fbx
     deliveryKey: animations/Anim_Sword_Walk
@@ -933,15 +1127,22 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 0
     priority: 45
     canBlend: 1
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     contentVersion: 1.0.0
-    checksum: 06798bf2c68a3835675149b07df0ed90
+    checksum: ac4439efa49a6167ca35007479cb1841
   - animationId: Anim_Sword_LightAttack
+    legacyAnimationIds: []
     clip: {fileID: -203655887218126122, guid: 60bff616ce1aba14186ff054c66982d7, type: 3}
     sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/SwordLightAttack.fbx
     deliveryKey: animations/Anim_Sword_LightAttack
@@ -958,6 +1159,7 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 100
     canBlend: 0
@@ -965,11 +1167,15 @@ MonoBehaviour:
     hasContactWindow: 1
     contactWindowStartNormalized: 0.2
     contactWindowEndNormalized: 0.8
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
+    playbackSpeed: 1
     properties:
     - Combat
     contentVersion: 1.0.0
-    checksum: df297cdd5abcb31993ef1d450f9b8452
+    checksum: db1ebe12bdd07c2e373ebf761523a46d
   - animationId: Anim_Sword_HitRecovery
+    legacyAnimationIds: []
     clip: {fileID: -203655887218126122, guid: 2490fde580c60284a806a0792a6f70b9, type: 3}
     sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/SwordHitRecovery.fbx
     deliveryKey: animations/Anim_Sword_HitRecovery
@@ -986,15 +1192,22 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 1
     priority: 90
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     contentVersion: 1.0.0
-    checksum: 6a697f2f544cce8078f37aafecab6103
+    checksum: b76cc7d7d976d920e9614175f3303b78
   - animationId: Anim_Beholder_Idle
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 1125a2cce46b489590671831483c9b9f, type: 3}
     sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/IdleNormal.fbx
     deliveryKey: animations/Anim_Beholder_Idle
@@ -1011,15 +1224,22 @@ MonoBehaviour:
     loop: 1
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 0
     priority: 20
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     contentVersion: 1.0.0
-    checksum: 9f9262760ce4de7a4e01f34e766808bf
+    checksum: dd755e00e444298ead7d6dcb547847d8
   - animationId: Anim_Beholder_Hit
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 13049e370384471a857e55bf2ab6c1aa, type: 3}
     sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/GetHit.fbx
     deliveryKey: animations/Anim_Beholder_Hit
@@ -1036,15 +1256,22 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 0
     priority: 100
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     contentVersion: 1.0.0
-    checksum: 310c195f7a70c27e952b3fdb8f4cb3d1
+    checksum: 9d75bc706d503f90f7118fa55de76f0b
   - animationId: Anim_Beholder_Death
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 97c47bfed40c4af58abfab0182f75594, type: 3}
     sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/Die.fbx
     deliveryKey: animations/Anim_Beholder_Death
@@ -1061,15 +1288,91 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 0
+    presentationOwner: 0
     interruptible: 0
     priority: 120
     canBlend: 0
     transitionDuration: 0.25
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     contentVersion: 1.0.0
-    checksum: 4a50e6885f7de41f50f4adfb12104178
+    checksum: b0e3cd518ec32187e68a81796b2bdec4
+  - animationId: Anim_Player_HitReaction_Front
+    legacyAnimationIds: []
+    clip: {fileID: -203655887218126122, guid: dd5dc42cfc0acbd4bab48b989ff91e8b, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/Standing React
+      Large From Front.fbx
+    deliveryKey: animations/Anim_Player_HitReaction_Front
+    intents:
+    - HitReaction
+    actorTypes:
+    - Player
+    rigTypes:
+    - Humanoid
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 1
+    presentationOwner: 0
+    interruptible: 1
+    priority: 110
+    canBlend: 1
+    transitionDuration: 0.12
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
+    properties:
+    - DamageReaction
+    - HeavySeverity
+    - Front
+    contentVersion: 1.0.0
+    checksum: 180affd7100b9b0cbe4effe89dfdedd0
+  - animationId: Anim_Player_Death_Left
+    legacyAnimationIds: []
+    clip: {fileID: -203655887218126122, guid: 6a27183037d19df4aac870cc12ae0743, type: 3}
+    sourceAssetPath: Assets/Animations/Mixamo/Combat/Sword/Player/Standing Death
+      Left 01.fbx
+    deliveryKey: animations/Anim_Player_Death_Left
+    intents:
+    - Death
+    actorTypes:
+    - Player
+    rigTypes:
+    - Humanoid
+    profiles:
+    - {fileID: 11400000, guid: c911e5d602ff15c42b084a0b3bdeda8c, type: 2}
+    layer: 0
+    avatarMask: {fileID: 0}
+    loop: 0
+    loopPose: 0
+    rootMotionMode: 1
+    presentationOwner: 0
+    interruptible: 0
+    priority: 130
+    canBlend: 1
+    transitionDuration: 0.18
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
+    properties:
+    - DeathReaction
+    - Left
+    contentVersion: 1.0.0
+    checksum: 040c5879fadc99b883409095188a86bc
   - animationId: Anim_Beholder_Attack
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: a5aa3ce397c24155845dba13bc634b36, type: 3}
     sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/Attack01.fbx
     deliveryKey: animations/Anim_Beholder_Attack
@@ -1086,16 +1389,23 @@ MonoBehaviour:
     loop: 0
     loopPose: 0
     rootMotionMode: 1
+    presentationOwner: 0
     interruptible: 0
     priority: 110
     canBlend: 1
     transitionDuration: 0.2
+    hasContactWindow: 1
+    contactWindowStartNormalized: 0.4
+    contactWindowEndNormalized: 0.55
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     - Attack
     contentVersion: 1.0.0
     checksum: 
   - animationId: Anim_Beholder_Walk
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: 38b0b6ad62ca4f8fa72ac537c889c8dc, type: 3}
     sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/WalkFWD.fbx
     deliveryKey: animations/Anim_Beholder_Walk
@@ -1112,16 +1422,23 @@ MonoBehaviour:
     loop: 1
     loopPose: 1
     rootMotionMode: 1
+    presentationOwner: 0
     interruptible: 1
     priority: 30
     canBlend: 1
     transitionDuration: 0.2
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     - Locomotion
     contentVersion: 1.0.0
     checksum: 
   - animationId: Anim_Beholder_Run
+    legacyAnimationIds: []
     clip: {fileID: 7400000, guid: cabb129121944e2dbd3866b6deba6b9d, type: 3}
     sourceAssetPath: Assets/RPGMonsterPartnersPBRPolyart/Animations/Beholder/Run.fbx
     deliveryKey: animations/Anim_Beholder_Run
@@ -1138,10 +1455,16 @@ MonoBehaviour:
     loop: 1
     loopPose: 1
     rootMotionMode: 1
+    presentationOwner: 0
     interruptible: 1
     priority: 40
     canBlend: 1
     transitionDuration: 0.2
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
     properties:
     - Combat
     - Locomotion

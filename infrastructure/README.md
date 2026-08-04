@@ -304,6 +304,60 @@ Add immutable, ordered `.sql` files under `postgres/migrations`.
 - Run the `migrate` job once per deployment, before starting new game-server instances.
 - A migration contains transactional DDL where PostgreSQL supports it.
 
+`scripts/verify-database-migrations.ps1` compares the repository migration set
+with `platform_schema_migrations`; process health alone is not schema readiness.
+For an old persistent local volume whose ledger is completely empty, do not
+blindly replay every migration. First run
+`scripts/adopt-existing-database-migration-ledger.ps1` without `-Apply`. It
+performs a read-only schema, index, constraint, and migration-016 ownership
+backfill fingerprint. Only a fully compatible legacy schema can be explicitly
+baselined through migration 016 with `-Apply`; migration 017 remains pending and
+must run normally because a data repair cannot be inferred from schema shape.
+
+## Isolated remote multiplayer test authority
+
+The shared test deployment uses a dedicated `tormia_test` database and a
+least-privilege `tormia_test_app` login. The Authority container binds only to
+`127.0.0.1:5272`; the independent `tov-api.punkarena.app` Nginx virtual host is
+the only public ingress. Existing PunkArena services and databases are not
+modified.
+
+Deployment helpers under `infrastructure/scripts` bootstrap the isolated
+database, apply and verify the complete migration ledger, create a runtime-only
+environment file, and start the Authority container. The RDS administrator
+credential is used only during bootstrap and must be deleted afterward. It must
+never be copied into the runtime environment or a Unity build.
+
+The Unity settings asset preserves `http://127.0.0.1:5272` as the local
+endpoint and `https://tov-api.punkarena.app` as the remote test endpoint.
+`useRemoteEndpointInEditor` switches Editor play mode and authoring tools
+without rewriting either URL. Android always selects the remote endpoint.
+
+### Prepared UDP rollout (explicit approval required)
+
+The default Compose stack and the existing remote run helper keep UDP
+default-off and do not publish a host UDP port. The isolated Stage 14 rollout
+uses three opt-in helpers:
+
+```text
+configure-remote-test-udp-runtime.sh
+run-remote-test-authority-udp.sh
+rollback-remote-test-authority-udp.sh
+```
+
+The configuration helper creates one stable mode-0600 credential-protection
+file. The run helper requires an immutable image tag, derives the exact Docker
+bridge gateway for `Realtime:TrustedProxyAddresses`, validates an internal
+candidate on loopback TCP 5274, and only then replaces the Authority while
+retaining the prior container for rollback. Final mapping is loopback TCP 5272
+plus public UDP 5273. Never substitute a broad trusted-proxy CIDR.
+
+Before promotion, verify the current security-group rule explicitly. After
+promotion, require public HTTPS health, `/health/realtime` UDP flags and Redis
+backend, an external authenticated UDP client, loss/fallback recovery, and
+confirmation that unrelated containers are unchanged. If any gate fails, run
+the rollback helper before changing Unity's default-off UDP settings.
+
 ## Isolated Authority combat smoke
 
 Run `scripts/run-combat-authority-smoke.ps1` for the full Authority combat

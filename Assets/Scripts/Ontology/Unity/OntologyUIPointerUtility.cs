@@ -7,6 +7,10 @@ using UnityEngine.InputSystem;
 
 namespace Tormia.Ontology.Core
 {
+    public interface IOntologyGameplayInputSurface
+    {
+    }
+
     public static class OntologyUIPointerUtility
     {
         private static readonly List<RaycastResult> RaycastResults = new();
@@ -38,6 +42,31 @@ namespace Tormia.Ontology.Core
 
         public static bool IsPointerOverUi(Vector2 screenPosition)
         {
+            return IsPointerOverUi(screenPosition, false);
+        }
+
+        public static bool IsPointerOverBlockingUi()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current != null &&
+                IsPointerOverUi(Mouse.current.position.ReadValue(), true))
+                return true;
+
+            if (Touchscreen.current != null)
+            {
+                var touch = Touchscreen.current.primaryTouch;
+                if (touch.press.isPressed &&
+                    IsPointerOverUi(touch.position.ReadValue(), true))
+                    return true;
+            }
+#endif
+            return false;
+        }
+
+        private static bool IsPointerOverUi(
+            Vector2 screenPosition,
+            bool ignoreGameplayInputSurfaces)
+        {
             if (EventSystem.current == null)
             {
                 return false;
@@ -49,7 +78,25 @@ namespace Tormia.Ontology.Core
                 position = screenPosition
             };
             EventSystem.current.RaycastAll(eventData, RaycastResults);
-            return RaycastResults.Count > 0;
+            if (!ignoreGameplayInputSurfaces)
+                return RaycastResults.Count > 0;
+
+            foreach (var result in RaycastResults)
+            {
+                var behaviours = result.gameObject == null
+                    ? null
+                    : result.gameObject.GetComponentsInParent<
+                        MonoBehaviour>(true);
+                var gameplaySurface = behaviours != null &&
+                                      System.Array.Exists(
+                                          behaviours,
+                                          value => value is
+                                              IOntologyGameplayInputSurface);
+                if (!gameplaySurface)
+                    return true;
+            }
+
+            return false;
         }
     }
 }

@@ -95,6 +95,12 @@ namespace Tormia.Ontology.Core
         public float detachVerticalOffset = 0.25f;
 
         [Header("World Release Presentation")]
+        [Tooltip(
+            "Places the item at the actor's authored release position whenever " +
+            "the semantic attachment relation is removed. This makes pushed " +
+            "Authority projections and direct interaction commands present the " +
+            "same release result without relying on a transient UI flag.")]
+        public bool placeInWorldOnRelationRemoval;
         [Tooltip("Small clearance kept between the released object's physical bounds and its supporting surface.")]
         [Min(0f)] public float detachSurfaceClearance = 0.05f;
         [Tooltip("Height above the release position from which ground and water surfaces are probed.")]

@@ -196,6 +196,73 @@ namespace Tormia.Ontology.Tests.Unity
         }
 
         [Test]
+        public void EntryLifePreparationUsesEphemeralRuntimeBeforeAdmission()
+        {
+            const string respawnControllerPath =
+                "Assets/Scripts/Ontology/Unity/Networking/" +
+                "OntologyAuthorityRespawnController.cs";
+            var source = File.ReadAllText(respawnControllerPath);
+            var methodStart = source.IndexOf(
+                "public IEnumerator PrepareAliveForWorldEntryRoutine",
+                StringComparison.Ordinal);
+            var nextMethod = source.IndexOf(
+                "private void HandleProjectionReceived",
+                methodStart,
+                StringComparison.Ordinal);
+            Assert.That(methodStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That(nextMethod, Is.GreaterThan(methodStart));
+            var methodSource = source.Substring(
+                methodStart,
+                nextMethod - methodStart);
+
+            Assert.That(
+                methodSource,
+                Does.Contain("IsPlayerRuntimeActiveFor"));
+            Assert.That(
+                methodSource,
+                Does.Not.Contain("IsWorldRuntimeReady"));
+        }
+
+        [Test]
+        public void EntryLocomotionHandshakeUsesEphemeralRuntimeBeforeAdmission()
+        {
+            const string intentSenderPath =
+                "Assets/Scripts/Ontology/Unity/Networking/" +
+                "OntologyWorldAuthorityPlayerIntentSender.cs";
+            var source = File.ReadAllText(intentSenderPath);
+            var methodStart = source.IndexOf(
+                "public IEnumerator PrepareLocomotionPresentationRoutine",
+                StringComparison.Ordinal);
+            var nextMethod = source.IndexOf(
+                "private void Awake()",
+                methodStart,
+                StringComparison.Ordinal);
+            Assert.That(methodStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That(nextMethod, Is.GreaterThan(methodStart));
+            var methodSource = source.Substring(
+                methodStart,
+                nextMethod - methodStart);
+
+            Assert.That(
+                methodSource,
+                Does.Contain("IsPlayerRuntimeActiveFor"));
+            Assert.That(
+                methodSource,
+                Does.Not.Contain("IsWorldRuntimeReady"));
+        }
+
+        [Test]
+        public void EntryCheckpointConfirmationAcceptsExactEphemeralRuntime()
+        {
+            const string checkpointPath =
+                "Assets/Scripts/Ontology/Unity/Networking/" +
+                "OntologyAvatarCheckpointController.cs";
+            var source = File.ReadAllText(checkpointPath);
+            Assert.That(source, Does.Contain("HasCheckpointAuthority"));
+            Assert.That(source, Does.Contain("IsPlayerRuntimeActiveFor"));
+        }
+
+        [Test]
         public void RemovedRuleBlockIsNotReportedAsAvailable()
         {
             var avatarId = Guid.NewGuid();

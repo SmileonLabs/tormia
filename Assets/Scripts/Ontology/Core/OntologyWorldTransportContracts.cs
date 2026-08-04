@@ -26,6 +26,10 @@ namespace Tormia.Ontology.Core
             "migrate_legacy_equipment_relations";
         public const string MigrateUnassignedEntityZones =
             "migrate_unassigned_entity_zones";
+        public const string PrepareSemanticContract =
+            "prepare_semantic_contract";
+        public const string PreparePlayerAvatar =
+            "prepare_player_avatar";
         public const string ExecuteAction = "execute_action";
     }
 

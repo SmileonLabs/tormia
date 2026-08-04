@@ -144,6 +144,7 @@ GameObject:
   - component: {fileID: 657970474}
   - component: {fileID: 657970473}
   - component: {fileID: 657970472}
+  - component: {fileID: 657970476}
   m_Layer: 0
   m_Name: OntologyWorldSample
   m_TagString: Untagged
@@ -480,6 +481,30 @@ MonoBehaviour:
   authorityClient: {fileID: 0}
   state: 0
   lastFailure: 
+--- !u!114 &657970476
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 657970458}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0d6686ae7e084348a857f13bfff10d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tormia.Ontology.UI::Tormia.Ontology.Core.OntologyActorHealthDeltaPresenter
+  authorityClient: {fileID: 657970465}
+  font: {fileID: 0}
+  fontSize: 28
+  damageColor: {r: 0.96, g: 0.22, b: 0.18, a: 1}
+  healingColor: {r: 0.25, g: 0.78, b: 0.28, a: 1}
+  overheadOffset: {x: 0, y: 0.35, z: 0}
+  worldScale: 0.01
+  riseDistance: 0.65
+  lifetime: 1.05
+  fadeStart: 0.5
+  poolCapacity: 12
+  repeatedHitSpread: 0.18
 --- !u!1 &702318460
 GameObject:
   m_ObjectHideFlags: 0

@@ -25,6 +25,14 @@ namespace Tormia.Ontology.Core
         public string bindingVariable = "?object";
         [Tooltip("Optional physical profile selected as part of this semantic action.")]
         public string physicalProfileId;
+        [Tooltip("Stable meaning-package slot. Empty uses the legacy derived slot.")]
+        public string packageSlotId;
+        [Tooltip("Fail atomically if this package cannot own at least one Rule Block.")]
+        public bool requiresOwnedBinding = true;
+        [Tooltip("Canonical adapter/profile contracts that must be available before apply.")]
+        public List<string> requiredAdapterIds = new();
+        [Tooltip("Canonical animation intents that must exist in the manifest/profile.")]
+        public List<string> requiredAnimationIntents = new();
         [Tooltip("Additional rule blocks that must be attached to the same object.")]
         public List<OntologyRuleBlockBinding> additionalRuleBlocks = new();
         [Tooltip("Authored concepts added to the placed object, never to its template.")]

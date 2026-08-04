@@ -72,25 +72,28 @@ namespace Tormia.Ontology.Core
             OntologyActions.MoveAvatar;
         public const string PlayerJumpActionId =
             OntologyActions.JumpAvatar;
-        public const int EquipActionVersion = 8;
-        public const int UnequipActionVersion = 2;
-        public const int AttackActionVersion = 10;
-        public const int SwingActionVersion = 1;
-        public const int AutonomousAttackActionVersion = 1;
-        public const int AutonomousTargetActionVersion = 1;
-        public const int AutonomousChaseActionVersion = 1;
-        public const int CollectLootActionVersion = 1;
-        public const int PlayerRespawnActionVersion = 1;
-        public const int PlayerLocomotionActionVersion = 1;
-        public const int PlayerLocomotionRuleVersion = 2;
-        public const int PlayerJumpActionVersion = 2;
-        public const int PlayerJumpRuleVersion = 3;
+        public const int EquipActionVersion = 9;
+        public const int UnequipActionVersion = 3;
+        public const int AttackActionVersion = 12;
+        public const int SwingActionVersion = 2;
+        public const int AutonomousAttackActionVersion = 3;
+        public const int AutonomousTargetActionVersion = 2;
+        public const int AutonomousChaseActionVersion = 2;
+        public const int CollectLootActionVersion = 2;
+        public const int PlayerRespawnActionVersion = 2;
+        public const int PlayerLocomotionActionVersion = 2;
+        public const int PlayerLocomotionRuleVersion = 3;
+        public const int UnequipRuleVersion = 3;
+        public const int AutonomousChaseRuleVersion = 2;
+        public const int AutonomousCombatRuleVersion = 5;
+        public const int PlayerJumpActionVersion = 3;
+        public const int PlayerJumpRuleVersion = 4;
         public const int PlayerAvatarSemanticContractVersion =
             OntologySemanticContracts.PlayerAvatarVersion;
         public const int AutonomousMonsterSemanticContractVersion =
             OntologySemanticContracts.AutonomousActorVersion;
         public const int AttackSemanticContractVersion = 4;
-        public const int SwingSemanticContractVersion = 5;
+        public const int SwingSemanticContractVersion = 12;
         public const int WeaponSemanticContractVersion =
             OntologySemanticContracts.WeaponVersion;
 
@@ -185,6 +188,9 @@ namespace Tormia.Ontology.Core
             var gripLocalScale = existingGripPoint == null
                 ? Vector3.one
                 : existingGripPoint.transform.localScale;
+            var gripCalibrationVersion = existingGripPoint == null
+                ? 1
+                : Mathf.Max(1, existingGripPoint.CalibrationVersion);
 
             var root = new GameObject("Ontology" + weaponId);
             try
@@ -207,7 +213,8 @@ namespace Tormia.Ontology.Core
                 gripPoint.transform.localPosition = gripLocalPosition;
                 gripPoint.transform.localRotation = gripLocalRotation;
                 gripPoint.transform.localScale = gripLocalScale;
-                gripPoint.AddComponent<OntologyAttachmentGripPoint>();
+                gripPoint.AddComponent<OntologyAttachmentGripPoint>()
+                    .MarkCalibrated(gripCalibrationVersion);
 
                 var slashAnchor = new GameObject("SlashVfxAnchor").transform;
                 slashAnchor.SetParent(root.transform, false);
@@ -667,6 +674,21 @@ namespace Tormia.Ontology.Core
                     },
                     new OntologyFactEntry
                     {
+                        predicate = OntologyPredicates.AttackContactReach,
+                        obj = "1.2"
+                    },
+                    new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.AttackContactOpenSeconds,
+                        obj = "0.4"
+                    },
+                    new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.AttackContactWindowSeconds,
+                        obj = "2"
+                    },
+                    new OntologyFactEntry
+                    {
                         predicate = "can_equip",
                         obj = "True"
                     },
@@ -700,6 +722,16 @@ namespace Tormia.Ontology.Core
                     {
                         predicate = OntologyPredicates.PhysicalProfile,
                         obj = "HandheldWeapon"
+                    },
+                    new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.IdleAnimationIntent,
+                        obj = weapon.idleAnimationIntent
+                    },
+                    new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.MoveAnimationIntent,
+                        obj = weapon.moveAnimationIntent
                     }
                 };
                 EditorUtility.SetDirty(template);
@@ -776,6 +808,7 @@ namespace Tormia.Ontology.Core
                                     new OntologyRuleBlockBinding
                                     {
                                         ruleId = SwingRuleId,
+                                        ruleVersion = 2,
                                         bindingVariable = "?tool"
                                     }
                             }
@@ -788,6 +821,7 @@ namespace Tormia.Ontology.Core
                                     new OntologyRuleBlockBinding
                                     {
                                         ruleId = UnequipRuleId,
+                                        ruleVersion = UnequipRuleVersion,
                                         bindingVariable = "?target"
                                     }
                             }
@@ -815,6 +849,7 @@ namespace Tormia.Ontology.Core
                             new()
                             {
                                 ruleId = UnequipRuleId,
+                                ruleVersion = UnequipRuleVersion,
                                 bindingVariable = "?target"
                             },
                             new()
@@ -824,8 +859,9 @@ namespace Tormia.Ontology.Core
                             },
                             new()
                             {
-                                ruleId = SwingRuleId,
-                                bindingVariable = "?tool"
+                                        ruleId = SwingRuleId,
+                                        ruleVersion = 2,
+                                        bindingVariable = "?tool"
                             }
                         },
                     placementPolicy = new OntologyPlacementPolicy
@@ -997,7 +1033,7 @@ namespace Tormia.Ontology.Core
                         StringComparison.Ordinal)) ??
                 ruleDatabase.CreateDefinition(PlayerJumpRuleId);
             ConfigurePlayerJumpRule(playerJumpRule);
-            settings.developmentPackageVersion = "3.9.0";
+            settings.developmentPackageVersion = "4.0.0";
             var developmentRules =
                 (settings.developmentRules ??
                  Array.Empty<OntologyAuthorityDevelopmentRule>())
@@ -1283,6 +1319,10 @@ namespace Tormia.Ontology.Core
 
             rulePresetDatabase.Upsert(
                 CreateAutonomousMonsterPreset());
+            rulePresetDatabase.Upsert(
+                CreateInteractionEquipPreset());
+            rulePresetDatabase.Upsert(
+                CreateMeleeWeaponPreset());
 
             foreach (var definition in placementCatalog.Definitions)
             {
@@ -1316,7 +1356,8 @@ namespace Tormia.Ontology.Core
                 EnsureBinding(
                     definition.defaultRuleBlocks,
                     AutonomousCombatRuleId,
-                    "?actor");
+                    "?actor",
+                    AutonomousCombatRuleVersion);
                 EnsureBinding(
                     definition.defaultRuleBlocks,
                     AutonomousTargetRuleId,
@@ -1324,7 +1365,8 @@ namespace Tormia.Ontology.Core
                 EnsureBinding(
                     definition.defaultRuleBlocks,
                     AutonomousChaseRuleId,
-                    "?actor");
+                    "?actor",
+                    AutonomousChaseRuleVersion);
                 EnsureBinding(
                     definition.defaultRuleBlocks,
                     DefeatLootRuleId,
@@ -1462,7 +1504,8 @@ namespace Tormia.Ontology.Core
                 EnsureBinding(
                     definition.defaultRuleBlocks,
                     UnequipRuleId,
-                    "?target");
+                    "?target",
+                    UnequipRuleVersion);
                 EnsureBinding(
                     definition.defaultRuleBlocks,
                     AttackRuleId,
@@ -1523,6 +1566,7 @@ namespace Tormia.Ontology.Core
                             binding = new OntologyRuleBlockBinding
                             {
                                 ruleId = UnequipRuleId,
+                                ruleVersion = UnequipRuleVersion,
                                 bindingVariable = "?target"
                             }
                         });
@@ -1543,8 +1587,9 @@ namespace Tormia.Ontology.Core
                                 SwingSemanticContractVersion,
                             binding = new OntologyRuleBlockBinding
                             {
-                                ruleId = SwingRuleId,
-                                bindingVariable = "?tool"
+                                        ruleId = SwingRuleId,
+                                        ruleVersion = 2,
+                                        bindingVariable = "?tool"
                             }
                         });
                 }
@@ -1657,7 +1702,7 @@ namespace Tormia.Ontology.Core
             OntologyRuleDefinition rule)
         {
             rule.id = UnequipRuleId;
-            rule.catalogVersion = PlayerLocomotionRuleVersion;
+            rule.catalogVersion = UnequipRuleVersion;
             rule.description =
                 "An unequip intent removes both sides of an authored " +
                 "equipment relation only while this Rule Block remains " +
@@ -1729,7 +1774,7 @@ namespace Tormia.Ontology.Core
             OntologyRuleDefinition rule)
         {
             rule.id = AutonomousTargetRuleId;
-            rule.catalogVersion = 1;
+            rule.catalogVersion = 2;
             rule.description =
                 "An autonomous actor may acquire the nearest living hostile " +
                 "entity matching its authored target_concept and targeting " +
@@ -1812,7 +1857,7 @@ namespace Tormia.Ontology.Core
             OntologyRuleDefinition rule)
         {
             rule.id = AutonomousChaseRuleId;
-            rule.catalogVersion = 1;
+            rule.catalogVersion = AutonomousChaseRuleVersion;
             rule.description =
                 "AuthorityKinematic moves an autonomous actor toward its " +
                 "acquired target while detection_range, leash_range, and the " +
@@ -2046,7 +2091,7 @@ namespace Tormia.Ontology.Core
             OntologyRuleDefinition rule)
         {
             rule.id = AttackRuleId;
-            rule.catalogVersion = 4;
+            rule.catalogVersion = 5;
             rule.description =
                 "A primary attack intent lets an equipped melee weapon with " +
                 "an authored contact-delivery contract damage one living " +
@@ -2080,8 +2125,12 @@ namespace Tormia.Ontology.Core
                     OntologyConcepts.Damageable),
                 OntologyCondition.Fact(
                     "?target",
-                    "combat_disposition",
-                    "Hostile"),
+                    OntologyPredicates.BelongsToFaction,
+                    "?targetFaction"),
+                OntologyCondition.Fact(
+                    "?actor",
+                    OntologyPredicates.HostileToFaction,
+                    "?targetFaction"),
                 OntologyCondition.Fact(
                     "?target",
                     "is_alive",
@@ -2126,7 +2175,7 @@ namespace Tormia.Ontology.Core
             OntologyRuleDefinition rule)
         {
             rule.id = SwingRuleId;
-            rule.catalogVersion = 1;
+            rule.catalogVersion = 2;
             rule.description =
                 "A primary swing intent authorizes one ephemeral equipped-" +
                 "weapon swing presentation without changing world Facts.";
@@ -2160,7 +2209,13 @@ namespace Tormia.Ontology.Core
                 new OntologyActionPresentationDefinition
                 {
                     actorAnimationIntent =
-                        OntologyAnimationIntentIds.AttackLight
+                        OntologyAnimationIntentIds.AttackLight,
+                    playbackSpeedFrom = new OntologyNumericFactSource
+                    {
+                        subject = "?tool",
+                        predicate = OntologyPredicates.AttackPlaybackSpeed,
+                        multiplier = 1
+                    }
                 };
         }
 
@@ -2187,6 +2242,7 @@ namespace Tormia.Ontology.Core
                 runtimeConstraints =
                     new OntologyActionRuntimeConstraints
                     {
+                        requiresAuthorityAttackOccurrence = true,
                         maxActorTargetDistanceFrom =
                             new OntologyNumericFactSource
                             {
@@ -2246,9 +2302,10 @@ namespace Tormia.Ontology.Core
             OntologyRuleDefinition rule)
         {
             rule.id = AutonomousCombatRuleId;
-            rule.catalogVersion = 3;
+            rule.catalogVersion = AutonomousCombatRuleVersion;
             rule.description =
-                "An autonomous living combat actor may damage one living " +
+                "At an Authority attack occurrence contact tick, an " +
+                "autonomous living combat actor may damage one living " +
                 "hostile target matching its authored target_concept. " +
                 "Removing this Rule Block removes " +
                 "the behavior.";
@@ -2496,7 +2553,7 @@ namespace Tormia.Ontology.Core
             OntologyRuleDefinition rule)
         {
             rule.id = PlayerLocomotionRuleId;
-            rule.catalogVersion = 1;
+            rule.catalogVersion = PlayerLocomotionRuleVersion;
             rule.description =
                 "A living player-controlled actor may submit ephemeral ground " +
                 "locomotion only while this Rule Block and its complete " +
@@ -2709,6 +2766,137 @@ namespace Tormia.Ontology.Core
             };
         }
 
+        private static OntologyRuleBlockPreset CreateInteractionEquipPreset()
+        {
+            return new OntologyRuleBlockPreset
+            {
+                presetId = "interaction_equip",
+                displayNameKey = "rule_preset.interaction_equip",
+                descriptionKey =
+                    "rule_preset.interaction_equip.description",
+                primaryRuleId = EquipRuleId,
+                bindingVariable = "?target",
+                packageSlotId = "interaction_equipment",
+                additionalRuleBlocks = new List<OntologyRuleBlockBinding>
+                {
+                    new()
+                    {
+                        ruleId = UnequipRuleId,
+                        ruleVersion = UnequipRuleVersion,
+                        bindingVariable = "?target"
+                    }
+                },
+                requiredConcepts = new List<string> { "Item" },
+                requiredFacts = new List<OntologyFactEntry>
+                {
+                    new()
+                    {
+                        predicate = OntologyPredicates.CanEquip,
+                        obj = bool.TrueString
+                    },
+                    new()
+                    {
+                        predicate = OntologyPredicates.EquipAction,
+                        obj = "equip_weapon"
+                    },
+                    new()
+                    {
+                        predicate = OntologyPredicates.UnequipAction,
+                        obj = "unequip_equipment"
+                    },
+                    new()
+                    {
+                        predicate = OntologyPredicates.InteractionRange,
+                        obj = "3"
+                    }
+                },
+                requiredExistingConcepts = new List<string>
+                {
+                    OntologyConcepts.Carryable
+                },
+                requiredExistingPredicates = new List<string>
+                {
+                    OntologyPredicates.HasSlot,
+                    OntologyPredicates.PickupBehavior,
+                    OntologyPredicates.AttachmentProfile
+                }
+            };
+        }
+
+        private static OntologyRuleBlockPreset CreateMeleeWeaponPreset()
+        {
+            return new OntologyRuleBlockPreset
+            {
+                presetId = "melee_weapon",
+                displayNameKey = "rule_preset.melee_weapon",
+                descriptionKey =
+                    "rule_preset.melee_weapon.description",
+                primaryRuleId = AttackRuleId,
+                bindingVariable = "?tool",
+                physicalProfileId = "HandheldWeapon",
+                packageSlotId = "interaction_equipment",
+                requiredAnimationIntents = new List<string>
+                {
+                    OntologyAnimationIntentIds.AttackLight
+                },
+                additionalRuleBlocks = new List<OntologyRuleBlockBinding>
+                {
+                    new()
+                    {
+                        ruleId = EquipRuleId,
+                        bindingVariable = "?target"
+                    },
+                    new()
+                    {
+                        ruleId = UnequipRuleId,
+                        ruleVersion = UnequipRuleVersion,
+                        bindingVariable = "?target"
+                    },
+                    new()
+                    {
+                                        ruleId = SwingRuleId,
+                                        ruleVersion = 2,
+                                        bindingVariable = "?tool"
+                    }
+                },
+                requiredConcepts = new List<string>
+                {
+                    "Item",
+                    OntologyConcepts.Weapon,
+                    OntologyConcepts.Carryable
+                },
+                requiredFacts = new List<OntologyFactEntry>
+                {
+                    new() { predicate = OntologyPredicates.GrantsCapability, obj = "MeleeAttack" },
+                    new() { predicate = OntologyPredicates.DamageProfile, obj = "BasicSwordDamage" },
+                    new() { predicate = OntologyPredicates.AttackDamage, obj = "10" },
+                    new() { predicate = OntologyPredicates.CanEquip, obj = bool.TrueString },
+                    new() { predicate = OntologyPredicates.AttackAction, obj = "attack" },
+                    new() { predicate = OntologyPredicates.EquipAction, obj = "equip_weapon" },
+                    new() { predicate = OntologyPredicates.UnequipAction, obj = "unequip_equipment" },
+                    new() { predicate = OntologyPredicates.InteractionRange, obj = "3" },
+                    new() { predicate = OntologyPredicates.SwingAction, obj = "swing_weapon" },
+                    new() { predicate = OntologyPredicates.AttackRange, obj = "3" },
+                    new() { predicate = OntologyPredicates.AttackCooldown, obj = "1" },
+                    new() { predicate = OntologyPredicates.AttackPlaybackSpeed, obj = "2" },
+                    new() { predicate = OntologyPredicates.AttackContactMode, obj = OntologyObjects.WeaponContactWindow },
+                    new() { predicate = OntologyPredicates.AttackContactReach, obj = "1.2" },
+                    new() { predicate = OntologyPredicates.AttackContactOpenSeconds, obj = "0.4" },
+                    new() { predicate = OntologyPredicates.AttackContactWindowSeconds, obj = "2" }
+                },
+                requiredExistingConcepts = new List<string>
+                {
+                    OntologyConcepts.Carryable
+                },
+                requiredExistingPredicates = new List<string>
+                {
+                    OntologyPredicates.HasSlot,
+                    OntologyPredicates.PickupBehavior,
+                    OntologyPredicates.AttachmentProfile
+                }
+            };
+        }
+
         private static OntologyFactEntry[]
             CreateAutonomousMonsterFacts()
         {
@@ -2792,8 +2980,23 @@ namespace Tormia.Ontology.Core
                 },
                 new OntologyFactEntry
                 {
+                    predicate = OntologyPredicates.AttackContactReach,
+                    obj = "0.2"
+                },
+                new OntologyFactEntry
+                {
                     predicate = OntologyPredicates.AttackCooldown,
                     obj = "1"
+                },
+                new OntologyFactEntry
+                {
+                    predicate = OntologyPredicates.AttackWindupSeconds,
+                    obj = "0.45"
+                },
+                new OntologyFactEntry
+                {
+                    predicate = OntologyPredicates.AttackRecoverySeconds,
+                    obj = "0.55"
                 },
                 new OntologyFactEntry
                 {
@@ -2809,6 +3012,26 @@ namespace Tormia.Ontology.Core
                 {
                     predicate = OntologyPredicates.MovementSpeed,
                     obj = "2"
+                },
+                new OntologyFactEntry
+                {
+                    predicate = OntologyPredicates.CollisionRole,
+                    obj = "ActorBody"
+                },
+                new OntologyFactEntry
+                {
+                    predicate = OntologyPredicates.CollisionProxyShape,
+                    obj = "Capsule"
+                },
+                new OntologyFactEntry
+                {
+                    predicate = OntologyPredicates.CollisionRadius,
+                    obj = "0.65"
+                },
+                new OntologyFactEntry
+                {
+                    predicate = OntologyPredicates.CollisionHeight,
+                    obj = "1.3"
                 },
                 new OntologyFactEntry
                 {
@@ -2885,6 +3108,9 @@ namespace Tormia.Ontology.Core
                 obj = OntologyObjects.AuthorityKinematic
             });
             return facts
+                .Where(value =>
+                    value.predicate != OntologyPredicates.CurrentHealth &&
+                    value.predicate != OntologyPredicates.IsAlive)
                 .GroupBy(
                     value => value.predicate + "\n" + value.obj,
                     StringComparer.Ordinal)
@@ -2917,7 +3143,10 @@ namespace Tormia.Ontology.Core
                 OntologyAnimationIntentIds.MonsterAttack,
                 false,
                 110,
-                false);
+                false,
+                true,
+                0.4f,
+                0.55f);
             UpsertMonsterAnimation(
                 entries,
                 profile,
@@ -2950,7 +3179,10 @@ namespace Tormia.Ontology.Core
             string intent,
             bool loop,
             int priority,
-            bool interruptible)
+            bool interruptible,
+            bool hasContactWindow = false,
+            float contactWindowStartNormalized = 0f,
+            float contactWindowEndNormalized = 1f)
         {
             var clip = AssetDatabase.LoadAllAssetsAtPath(path)
                 .OfType<AnimationClip>()
@@ -2991,10 +3223,16 @@ namespace Tormia.Ontology.Core
                     OntologyAnimationRootMotionMode.Disabled,
                 playbackStartNormalized = 0f,
                 playbackEndNormalized = 1f,
+                playbackSpeed = 1f,
                 interruptible = interruptible,
                 priority = priority,
                 canBlend = true,
                 transitionDuration = 0.2f,
+                hasContactWindow = hasContactWindow,
+                contactWindowStartNormalized =
+                    contactWindowStartNormalized,
+                contactWindowEndNormalized =
+                    contactWindowEndNormalized,
                 properties = new[]
                 {
                     "Combat",
@@ -3069,12 +3307,48 @@ namespace Tormia.Ontology.Core
                 },
                 new()
                 {
+                    contractVersion = SwingSemanticContractVersion,
+                    fact = new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.AttackPlaybackSpeed,
+                        obj = "2"
+                    }
+                },
+                new()
+                {
                     contractVersion = WeaponSemanticContractVersion,
                     fact = new OntologyFactEntry
                     {
                         predicate =
                             OntologyPredicates.AttackContactMode,
                         obj = OntologyObjects.WeaponContactWindow
+                    }
+                },
+                new()
+                {
+                    contractVersion = WeaponSemanticContractVersion,
+                    fact = new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.AttackContactReach,
+                        obj = "1.2"
+                    }
+                },
+                new()
+                {
+                    contractVersion = WeaponSemanticContractVersion,
+                    fact = new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.AttackContactOpenSeconds,
+                        obj = "0.4"
+                    }
+                },
+                new()
+                {
+                    contractVersion = WeaponSemanticContractVersion,
+                    fact = new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.AttackContactWindowSeconds,
+                        obj = "2"
                     }
                 },
                 new()
@@ -3104,6 +3378,24 @@ namespace Tormia.Ontology.Core
                             OntologyPredicates.InteractionRange,
                         obj = "3"
                     }
+                },
+                new()
+                {
+                    contractVersion = WeaponSemanticContractVersion,
+                    fact = new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.IdleAnimationIntent,
+                        obj = OntologyAnimationIntentIds.WeaponIdle
+                    }
+                },
+                new()
+                {
+                    contractVersion = WeaponSemanticContractVersion,
+                    fact = new OntologyFactEntry
+                    {
+                        predicate = OntologyPredicates.MoveAnimationIntent,
+                        obj = OntologyAnimationIntentIds.WeaponWalk
+                    }
                 }
             };
         }
@@ -3111,9 +3403,10 @@ namespace Tormia.Ontology.Core
         private static void EnsureBinding(
             ICollection<OntologyRuleBlockBinding> bindings,
             string ruleId,
-            string variable)
+            string variable,
+            int ruleVersion = 0)
         {
-            if (bindings.Any(value =>
+            var existing = bindings.FirstOrDefault(value =>
                     value != null &&
                     string.Equals(
                         value.ruleId,
@@ -3122,13 +3415,16 @@ namespace Tormia.Ontology.Core
                     string.Equals(
                         value.bindingVariable,
                         variable,
-                        StringComparison.Ordinal)))
+                        StringComparison.Ordinal));
+            if (existing != null)
             {
+                if (ruleVersion > 0) existing.ruleVersion = ruleVersion;
                 return;
             }
             bindings.Add(new OntologyRuleBlockBinding
             {
                 ruleId = ruleId,
+                ruleVersion = ruleVersion > 0 ? ruleVersion : 1,
                 bindingVariable = variable
             });
         }

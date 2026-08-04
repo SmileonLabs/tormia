@@ -225,7 +225,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyCombatTargetPresenter
   authorityIdentity: {fileID: 4275280056422971195}
-  animationAdapter: {fileID: 0}
+  animationAdapter: {fileID: 1975772944846961423}
   hitAnchor: {fileID: 1548094739673049549}
   hitAnimationIntent: HitReaction
   deathAnimationIntent: Death
@@ -360,13 +360,13 @@ MonoBehaviour:
   playSelectedClip: 1
   loopBlendableClips: 1
   transitionBlendDuration: 0.25
+  presentationReadinessGracePeriod: 2
   useDefaultIntentWhenNoFact: 1
   defaultIdleIntent: Idle
   defaultMoveIntent: Locomotion
   movementIntentThreshold: 0.01
   driveBaseLocomotionFromManifest: 1
-  landingPresentationDuration: 0.18
-  fallVelocityThreshold: -2
+  fallVelocityThreshold: -0.25
   boolBindings:
   - predicate: movement_state
     obj: Slowed
@@ -377,6 +377,7 @@ MonoBehaviour:
   selectedAnimationId: 
   selectedClipName: 
   selectedIntent: 
+  lastAuthorityPresentationDiagnostic: 
   selectedCanBlend: 0
   selectedFromOntologyIntent: 0
 --- !u!95 &1708775623767688458 stripped

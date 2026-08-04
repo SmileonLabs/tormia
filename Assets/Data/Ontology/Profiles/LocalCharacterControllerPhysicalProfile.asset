@@ -17,6 +17,17 @@ MonoBehaviour:
   motionDriver: 1
   collisionRole: 2
   maximumStepHeight: 0.3
+  characterSlopeLimit: 45
+  characterSkinWidth: 0.03
+  characterMinimumMoveDistance: 0
+  enableFootGrounding: 1
+  footProbeStartHeight: 0.35
+  footProbeDistance: 0.75
+  footSoleOffset: 0.025
+  footIkBlendSpeed: 10
+  footIkStationaryWeight: 1
+  footIkMovingWeight: 0.15
+  footMaximumSlope: 55
   mass: 1
   linearDamping: 0
   angularDamping: 0

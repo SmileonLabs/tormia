@@ -32,6 +32,23 @@ function Invoke-Json(
     Invoke-RestMethod @parameters
 }
 
+function Invoke-RejectedJson(
+    [string]$Path,
+    [object]$Body,
+    [string]$Token
+) {
+    try {
+        Invoke-Json -Method Post -Path $Path -Body $Body -Token $Token
+    }
+    catch {
+        $response = $_.Exception.Response
+        if ($null -eq $response) { throw }
+        $reader = [System.IO.StreamReader]::new($response.GetResponseStream())
+        try { return ($reader.ReadToEnd() | ConvertFrom-Json) }
+        finally { $reader.Dispose() }
+    }
+}
+
 function Send-Command(
     [guid]$WorldId,
     [string]$Token,
@@ -165,12 +182,39 @@ Send-Command -WorldId $worldId -Token $token `
         )
     }
 
+$rejectedBehaviorPackage = Invoke-RejectedJson `
+    -Path "/v1/worlds/$worldId/commands" -Token $token -Body @{
+        contractVersion = 1
+        commandId = [guid]::NewGuid()
+        expectedRevision = $revision
+        commandType = 'apply_meaning_package'
+        payload = @{
+            operation = 'apply'
+            applicationId = [guid]::NewGuid()
+            targetEntityId = $targetId
+            slotId = 'invalid_behavior_without_rule'
+            packageId = 'invalid_behavior_without_rule'
+            replacePredicateIds = @()
+            requiredConceptIds = @('FloatableObject')
+            authoredFacts = @()
+            ruleBlocks = @()
+            requiresOwnedBinding = $true
+        }
+    }
+Assert-True (-not $rejectedBehaviorPackage.accepted) `
+    'Authority accepted a behavior package without an owned Rule Block.'
+Assert-True ($rejectedBehaviorPackage.rejectionCode -eq `
+    'meaning_package_owned_binding_required') `
+    'Authority returned the wrong behavior-package closure rejection.'
+$revision = [long]$rejectedBehaviorPackage.revision
+
 $meaningPayload = @{
     operation = 'apply'
     applicationId = $applicationId
     targetEntityId = $targetId
     slotId = 'primary_physical_meaning'
     packageId = 'rule_preset_water_buoyancy'
+    requiresOwnedBinding = $true
     replacePredicateIds = @('physical_profile', 'physical_state')
     requiredConceptIds = @('FloatableObject')
     authoredFacts = @(
@@ -213,9 +257,22 @@ Assert-True ($targetFacts.objectCanonicalId -contains 'FloatableObject') `
     'Applied projection did not contain FloatableObject.'
 Assert-True (-not ($targetFacts.objectCanonicalId -contains 'HeavySinking')) `
     'Replaced HeavySinking remained active.'
-Assert-True (@($applied.ruleBindings | Where-Object {
+$ownedFacts = @($targetFacts | Where-Object {
+    $_.applicationId -eq $applicationId.ToString() -and
+    $_.packageId -eq $meaningPayload.packageId -and
+    $_.slotId -eq $meaningPayload.slotId
+})
+Assert-True ($ownedFacts.Count -ge 2) `
+    'Projection did not expose meaning-package Fact ownership.'
+$ownedBindings = @($applied.ruleBindings | Where-Object {
     $_.targetEntityId -eq $targetId.ToString() -and $_.ruleId -eq $ruleId
-}).Count -eq 1) 'Applied projection did not contain the Rule Block.'
+})
+Assert-True ($ownedBindings.Count -eq 1) `
+    'Applied projection did not contain the Rule Block.'
+Assert-True ($ownedBindings[0].bindingId -eq $bindingId.ToString()) `
+    'Projection changed the exact Rule Block binding identity.'
+Assert-True ($ownedBindings[0].applicationId -eq $applicationId.ToString()) `
+    'Projection did not expose Rule Block package ownership.'
 
 Send-Command -WorldId $worldId -Token $token `
     -Revision ([ref]$revision) -Kind 'apply_meaning_package' -Payload @{
@@ -293,7 +350,9 @@ Send-Command -WorldId $worldId -Token $token `
         slotId = 'template_semantic_baseline'
         packageId = 'arbitrary_template_semantic_baseline_v2'
         adoptExistingContributions = $true
-        replacePredicateIds = @()
+        # The exact pre-existing maximum_health contribution must be adopted
+        # before predicate replacement, not captured as displaced baseline.
+        replacePredicateIds = @('maximum_health')
         requiredConceptIds = @('Rock')
         authoredFacts = @(
             @{

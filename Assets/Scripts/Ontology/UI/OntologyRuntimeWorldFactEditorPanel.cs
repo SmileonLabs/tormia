@@ -646,6 +646,10 @@ namespace Tormia.Ontology.Core
                 var child = content.GetChild(index);
                 if (IsAuthoredTemplate(child.gameObject))
                     continue;
+                // Destroy is deferred until the end of the frame. Disable first so
+                // a stale row cannot remain visible or submit a second command while
+                // the Authority projection is rebuilding the list.
+                child.gameObject.SetActive(false);
                 Destroy(child.gameObject);
             }
         }
@@ -671,7 +675,7 @@ namespace Tormia.Ontology.Core
         {
             AddQuickSetupRow();
             foreach (var binding in controller.SelectedRuleBlocks.Where(value => value != null))
-                AddRuleRow(binding.ruleId, binding.bindingVariable);
+                AddRuleRow(binding);
 
             if (controller.SelectedRuleBlocks.Count == 0)
                 AddResultRow(L(
@@ -880,7 +884,11 @@ namespace Tormia.Ontology.Core
             var profiles = controller.AvailableAttachmentProfiles
                 .Where(value => value != null &&
                                 !string.IsNullOrWhiteSpace(value.profileId) &&
-                                value.kind == expectedKind)
+                                value.kind == expectedKind &&
+                                controller
+                                    .IsAttachmentProfileCompatibleWithSelection(
+                                        value))
+                .OrderByDescending(value => value.requireItemGripPoint)
                 .ToList();
             if (profiles.Count == 0)
             {
@@ -921,7 +929,8 @@ namespace Tormia.Ontology.Core
                             physicalDetailProfileDropdown.value,
                             0,
                             profiles.Count - 1);
-                    if (!controller.ConfigureSelectedAttachmentBehavior(
+                    if (!controller.ApplySelectedRuleBlockPresetWithAttachment(
+                            preset.presetId,
                             profiles[index].profileId))
                     {
                         footerStatus = L(
@@ -931,16 +940,7 @@ namespace Tormia.Ontology.Core
                         return;
                     }
 
-                    var issue = controller.GetSelectedRuleBlockPresetValidationMessage(
-                        preset.presetId);
-                    if (!string.IsNullOrWhiteSpace(issue))
-                    {
-                        footerStatus = issue;
-                        RefreshFooter();
-                        return;
-                    }
-                    if (controller.ApplySelectedRuleBlockPreset(preset.presetId))
-                        ClosePhysicalDetail();
+                    ClosePhysicalDetail();
                 });
             }
             physicalDetailPopup.SetActive(true);
@@ -1369,9 +1369,12 @@ namespace Tormia.Ontology.Core
                 profile.surfaceOffset);
         }
 
-        private void AddRuleRow(string originalRuleId, string originalVariable)
+        private void AddRuleRow(OntologyRuleBlockBinding binding)
         {
-            if (ruleRowTemplate == null || controller?.Selected == null) return;
+            if (ruleRowTemplate == null || controller?.Selected == null ||
+                binding == null) return;
+            var originalRuleId = binding.ruleId;
+            var originalVariable = binding.bindingVariable;
 
             var row = Instantiate(ruleRowTemplate, tripleContent);
             row.name = "AssignedRuleBlockRow";
@@ -1415,10 +1418,13 @@ namespace Tormia.Ontology.Core
             if (delete != null)
             {
                 delete.onClick.RemoveAllListeners();
+                var pending = controller.IsRuleBlockRemovalPending(
+                    binding.bindingId);
+                delete.interactable = !pending;
+                if (pending)
+                    SetButtonText(delete, "ui.status.removing", "Removing");
                 delete.onClick.AddListener(() =>
-                    controller.RemoveSelectedRuleBlock(
-                        originalRuleId,
-                        originalVariable));
+                    controller.RequestSelectedRuleBlockRemoval(binding));
             }
         }
 
@@ -1460,6 +1466,17 @@ namespace Tormia.Ontology.Core
                         fact,
                         controller.GetDisplayNameForEntity));
 
+            var authorityProjection = controller.Selected != null
+                ? controller.Selected.GetComponent<OntologyAuthoritySemanticProjection>()
+                : null;
+            if (authorityProjection != null)
+            {
+                foreach (var fact in authorityProjection.Facts
+                             .OrderBy(value => value.predicateId)
+                             .ThenBy(value => value.createdRevision))
+                    AddResultRow(FormatAuthorityFactProvenance(fact));
+            }
+
             if (result == null) return;
             foreach (var step in result.Steps)
             foreach (var ontologyEvent in step.Events.Where(value =>
@@ -1471,6 +1488,32 @@ namespace Tormia.Ontology.Core
                         step.Iteration) +
                     "\n" +
                     FormatEvent(ontologyEvent));
+        }
+
+        private string FormatAuthorityFactProvenance(
+            OntologyAuthorityFactProjection fact)
+        {
+            var source = !string.IsNullOrWhiteSpace(fact.applicationId)
+                ? string.Format(
+                    L("result.source.meaning_package", "Meaning package: {0}"),
+                    string.IsNullOrWhiteSpace(fact.packageId)
+                        ? fact.applicationId
+                        : fact.packageId)
+                : string.Equals(fact.ruleResultLifetime, "rule_bound",
+                    System.StringComparison.OrdinalIgnoreCase)
+                    ? L("result.source.rule_bound", "Rule-bound result")
+                    : string.Equals(fact.sourceType, "authored",
+                        System.StringComparison.OrdinalIgnoreCase)
+                        ? L("result.source.authored", "Directly authored data")
+                        : string.Equals(fact.sourceType, "system",
+                            System.StringComparison.OrdinalIgnoreCase)
+                            ? L("result.source.system", "System-owned data")
+                            : L("result.source.runtime", "Runtime result");
+            return string.Format(
+                L("result.source.summary", "{0} · source: {1} · revision: {2}"),
+                OntologyLanguagePackService.Term(fact.predicateId),
+                source,
+                fact.createdRevision);
         }
 
         private static bool EventTouches(OntologyEvent ontologyEvent, string entityId)

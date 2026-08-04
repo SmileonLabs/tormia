@@ -549,6 +549,9 @@ namespace Tormia.Ontology.Tests
                 profile.motionDriver =
                     OntologyMotionDriver.LocalCharacterController;
                 profile.maximumStepHeight = 0.42f;
+                profile.characterSlopeLimit = 52f;
+                profile.characterSkinWidth = 0.04f;
+                profile.characterMinimumMoveDistance = 0f;
                 var coordinator =
                     actor.AddComponent<OntologyCharacterMotionCoordinator>();
 
@@ -556,6 +559,10 @@ namespace Tormia.Ontology.Tests
                 Assert.That(
                     coordinator.MaximumStepHeight,
                     Is.EqualTo(0.42f).Within(0.0001f));
+                var controller = actor.GetComponent<CharacterController>();
+                Assert.That(controller.slopeLimit, Is.EqualTo(52f));
+                Assert.That(controller.skinWidth, Is.EqualTo(0.04f));
+                Assert.That(controller.minMoveDistance, Is.Zero);
 
                 coordinator.Configure(null);
                 Assert.That(

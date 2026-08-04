@@ -19,6 +19,10 @@ MonoBehaviour:
     primaryRuleId: BuoyantWhenInWater
     bindingVariable: ?object
     physicalProfileId: LightBuoyant
+    packageSlotId: 
+    requiresOwnedBinding: 1
+    requiredAdapterIds: []
+    requiredAnimationIntents: []
     additionalRuleBlocks: []
     requiredConcepts:
     - FloatableObject
@@ -31,6 +35,10 @@ MonoBehaviour:
     primaryRuleId: AutoEquipNearbyWearable
     bindingVariable: ?object
     physicalProfileId: 
+    packageSlotId: 
+    requiresOwnedBinding: 1
+    requiredAdapterIds: []
+    requiredAnimationIntents: []
     additionalRuleBlocks: []
     requiredConcepts: []
     requiredFacts: []
@@ -46,6 +54,10 @@ MonoBehaviour:
     primaryRuleId: EquippedItemGrantsTemporarySkill
     bindingVariable: ?item
     physicalProfileId: 
+    packageSlotId: 
+    requiresOwnedBinding: 1
+    requiredAdapterIds: []
+    requiredAnimationIntents: []
     additionalRuleBlocks: []
     requiredConcepts: []
     requiredFacts: []
@@ -59,15 +71,47 @@ MonoBehaviour:
     primaryRuleId: AutonomousMeleeCombat
     bindingVariable: ?actor
     physicalProfileId: AuthorityKinematic
+    packageSlotId: 
+    requiresOwnedBinding: 1
+    requiredAdapterIds: []
+    requiredAnimationIntents: []
     additionalRuleBlocks:
-    - ruleId: AcquireNearestHostileTarget
+    - bindingId: 
+      ruleId: AcquireNearestHostileTarget
+      ruleVersion: 1
       bindingVariable: ?actor
-    - ruleId: ChaseTargetWithinLeash
+      parameterValuesJson: '{}'
+      applicationId: 
+      packageId: 
+      slotId: 
+      createdRevision: 0
+    - bindingId: 
+      ruleId: ChaseTargetWithinLeash
+      ruleVersion: 1
       bindingVariable: ?actor
-    - ruleId: LootBecomesAvailableOnDefeat
+      parameterValuesJson: '{}'
+      applicationId: 
+      packageId: 
+      slotId: 
+      createdRevision: 0
+    - bindingId: 
+      ruleId: LootBecomesAvailableOnDefeat
+      ruleVersion: 1
       bindingVariable: ?target
-    - ruleId: CollectAvailableLoot
+      parameterValuesJson: '{}'
+      applicationId: 
+      packageId: 
+      slotId: 
+      createdRevision: 0
+    - bindingId: 
+      ruleId: CollectAvailableLoot
+      ruleVersion: 1
       bindingVariable: ?target
+      parameterValuesJson: '{}'
+      applicationId: 
+      packageId: 
+      slotId: 
+      createdRevision: 0
     requiredConcepts:
     - Actor
     - AutonomousAgent
@@ -105,14 +149,28 @@ MonoBehaviour:
       obj: 5
     - predicate: attack_range
       obj: 2
+    - predicate: attack_contact_reach
+      obj: 0.2
     - predicate: attack_cooldown
       obj: 1
+    - predicate: attack_windup_seconds
+      obj: 0.45
+    - predicate: attack_recovery_seconds
+      obj: 0.55
     - predicate: detection_range
       obj: 12
     - predicate: leash_range
       obj: 18
     - predicate: movement_speed
       obj: 2
+    - predicate: collision_role
+      obj: ActorBody
+    - predicate: collision_proxy_shape
+      obj: Capsule
+    - predicate: collision_radius
+      obj: 0.65
+    - predicate: collision_height
+      obj: 1.3
     - predicate: idle_animation_intent
       obj: MonsterIdle
     - predicate: move_animation_intent
@@ -133,3 +191,122 @@ MonoBehaviour:
       obj: 2.5
     requiredExistingConcepts: []
     requiredExistingPredicates: []
+  - presetId: interaction_equip
+    displayNameKey: rule_preset.interaction_equip
+    descriptionKey: rule_preset.interaction_equip.description
+    primaryRuleId: EquipItemOnInteractionIntent
+    bindingVariable: ?target
+    physicalProfileId: 
+    packageSlotId: interaction_equipment
+    requiresOwnedBinding: 1
+    requiredAdapterIds: []
+    requiredAnimationIntents: []
+    additionalRuleBlocks:
+    - bindingId: 
+      ruleId: UnequipItemOnInteractionIntent
+      ruleVersion: 3
+      bindingVariable: ?target
+      parameterValuesJson: '{}'
+      applicationId: 
+      packageId: 
+      slotId: 
+      createdRevision: 0
+    requiredConcepts:
+    - Item
+    requiredFacts:
+    - predicate: can_equip
+      obj: True
+    - predicate: equip_action
+      obj: equip_weapon
+    - predicate: unequip_action
+      obj: unequip_equipment
+    - predicate: interaction_range
+      obj: 3
+    requiredExistingConcepts:
+    - Carryable
+    requiredExistingPredicates:
+    - has_slot
+    - pickup_behavior
+    - attachment_profile
+  - presetId: melee_weapon
+    displayNameKey: rule_preset.melee_weapon
+    descriptionKey: rule_preset.melee_weapon.description
+    primaryRuleId: MeleeAttackOnPrimaryIntent
+    bindingVariable: ?tool
+    physicalProfileId: HandheldWeapon
+    packageSlotId: interaction_equipment
+    requiresOwnedBinding: 1
+    requiredAdapterIds: []
+    requiredAnimationIntents:
+    - AttackLight
+    additionalRuleBlocks:
+    - bindingId: 
+      ruleId: EquipItemOnInteractionIntent
+      ruleVersion: 1
+      bindingVariable: ?target
+      parameterValuesJson: '{}'
+      applicationId: 
+      packageId: 
+      slotId: 
+      createdRevision: 0
+    - bindingId: 
+      ruleId: UnequipItemOnInteractionIntent
+      ruleVersion: 3
+      bindingVariable: ?target
+      parameterValuesJson: '{}'
+      applicationId: 
+      packageId: 
+      slotId: 
+      createdRevision: 0
+    - bindingId: 
+      ruleId: SwingWeaponOnPrimaryIntent
+      ruleVersion: 2
+      bindingVariable: ?tool
+      parameterValuesJson: '{}'
+      applicationId: 
+      packageId: 
+      slotId: 
+      createdRevision: 0
+    requiredConcepts:
+    - Item
+    - Weapon
+    - Carryable
+    requiredFacts:
+    - predicate: grants_capability
+      obj: MeleeAttack
+    - predicate: damage_profile
+      obj: BasicSwordDamage
+    - predicate: attack_damage
+      obj: 10
+    - predicate: can_equip
+      obj: True
+    - predicate: attack_action
+      obj: attack
+    - predicate: equip_action
+      obj: equip_weapon
+    - predicate: unequip_action
+      obj: unequip_equipment
+    - predicate: interaction_range
+      obj: 3
+    - predicate: swing_action
+      obj: swing_weapon
+    - predicate: attack_range
+      obj: 3
+    - predicate: attack_cooldown
+      obj: 1
+    - predicate: attack_playback_speed
+      obj: 2
+    - predicate: attack_contact_mode
+      obj: WeaponContactWindow
+    - predicate: attack_contact_reach
+      obj: 1.2
+    - predicate: attack_contact_open_seconds
+      obj: 0.4
+    - predicate: attack_contact_window_seconds
+      obj: 2
+    requiredExistingConcepts:
+    - Carryable
+    requiredExistingPredicates:
+    - has_slot
+    - pickup_behavior
+    - attachment_profile

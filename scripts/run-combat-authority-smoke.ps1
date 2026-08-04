@@ -494,6 +494,74 @@ $publishedRule = Invoke-Json -Method Post `
 Assert-True $publishedRule.accepted `
     'Primary attack Rule Block was not published.'
 
+# One content release owns one transaction across Rule and Action definitions.
+# An Action conflict must retract the Rule inserted earlier in that transaction.
+$atomicRuleAfterActionConflictId = 'AtomicRuleAfterActionConflict'
+$atomicRuleAfterActionConflict = $moveRuleDefinition.Clone()
+$atomicRuleAfterActionConflict.id = $atomicRuleAfterActionConflictId
+$atomicRuleAfterActionConflict.description =
+    'Must not survive an Action conflict in the same release.'
+$conflictingEquipDefinition = $equipDefinition.Clone()
+$conflictingEquipDefinition.requiresTool = $true
+$actionConflictRelease = Invoke-RejectedCommand `
+    -Path "/v1/content/packages/$packageId/releases" `
+    -AccessToken $token -Body @{
+        packageVersion = $packageVersion
+        rules = @(@{
+            ruleId = $atomicRuleAfterActionConflictId
+            definitionVersion = 1
+            payloadJson = $atomicRuleAfterActionConflict |
+                ConvertTo-Json -Depth 20 -Compress
+        })
+        actions = @(@{
+            actionId = $equipActionId
+            definitionVersion = 1
+            payloadJson = $conflictingEquipDefinition |
+                ConvertTo-Json -Depth 20 -Compress
+        })
+    }
+Assert-True ($actionConflictRelease.rejectionCode -like `
+        'action_definition_version_conflict:*') `
+    "Atomic release did not report its Action conflict: $($actionConflictRelease.rejectionCode)"
+$rulesAfterActionConflict = Invoke-Json -Method Get `
+    -Path "/v1/content/packages/$packageId/rules" -AccessToken $token
+Assert-True (-not ($rulesAfterActionConflict.rules | Where-Object {
+        $_.ruleId -eq $atomicRuleAfterActionConflictId
+    })) 'Action conflict left a partially published Rule.'
+
+# Conversely, a Rule conflict must leave no Action from the rejected release.
+$atomicActionAfterRuleConflictId = 'atomic_action_after_rule_conflict'
+$atomicActionAfterRuleConflict = $equipDefinition.Clone()
+$atomicActionAfterRuleConflict.actionVerb = $atomicActionAfterRuleConflictId
+$conflictingEquipRule = $equipRuleDefinition.Clone()
+$conflictingEquipRule.description =
+    'Changed immutable payload that must reject the complete release.'
+$ruleConflictRelease = Invoke-RejectedCommand `
+    -Path "/v1/content/packages/$packageId/releases" `
+    -AccessToken $token -Body @{
+        packageVersion = $packageVersion
+        rules = @(@{
+            ruleId = $equipRuleId
+            definitionVersion = 1
+            payloadJson = $conflictingEquipRule |
+                ConvertTo-Json -Depth 20 -Compress
+        })
+        actions = @(@{
+            actionId = $atomicActionAfterRuleConflictId
+            definitionVersion = 1
+            payloadJson = $atomicActionAfterRuleConflict |
+                ConvertTo-Json -Depth 20 -Compress
+        })
+    }
+Assert-True ($ruleConflictRelease.rejectionCode -like `
+        'rule_definition_version_conflict:*') `
+    'Atomic release did not report its Rule conflict.'
+$actionsAfterRuleConflict = Invoke-Json -Method Get `
+    -Path "/v1/content/packages/$packageId/actions" -AccessToken $token
+Assert-True (-not ($actionsAfterRuleConflict.actions | Where-Object {
+        $_.actionId -eq $atomicActionAfterRuleConflictId
+    })) 'Rule conflict left a partially published Action.'
+
 $reusedDefinition = Invoke-Json -Method Post `
     -Path "/v1/content/packages/$reusePackageId/actions" `
     -AccessToken $token -Body @{
@@ -568,6 +636,104 @@ Send-Command -WorldId $worldId -Token $token -Revision ([ref]$revision) `
     -Kind 'set_content_package' -Payload @{
         packageId = $packageId; packageVersion = $packageVersion; enabled = $true
     } | Out-Null
+
+$semanticContractApplicationId = [guid]::NewGuid()
+$semanticContractBindingId = [guid]::NewGuid()
+$semanticContract = @{
+    applicationId = $semanticContractApplicationId
+    targetEntityId = $avatarId
+    slotId = 'smoke_semantic_contract'
+    contractId = 'smoke_avatar_contract'
+    contractVersion = 1
+    packageId = $packageId
+    packageVersion = $packageVersion
+    versionPredicateId = 'smoke_contract_version'
+    checksumPredicateId = 'smoke_contract_checksum'
+    adoptExistingContributions = $false
+    replacePredicateIds = @('smoke_contract_capability')
+    requiredConceptIds = @()
+    authoredFacts = @(@{
+        predicateId = 'smoke_contract_capability'
+        objectKind = 'canonical'
+        objectEntityId = $null
+        objectCanonicalId = 'Enabled'
+        objectValueJson = $null
+    })
+    ruleBlocks = @(@{
+        bindingId = $semanticContractBindingId
+        ruleId = $moveRuleId
+        ruleVersion = 1
+        parameterValuesJson = '{"bindingVariable":"?actor"}'
+    })
+    requiresOwnedBinding = $true
+}
+$semanticBefore = Invoke-Json -Method Post `
+    -Path "/v1/worlds/$worldId/semantic-contracts/preflight" `
+    -AccessToken $token -Body $semanticContract
+Assert-True (-not $semanticBefore.ready) `
+    'An unapplied semantic contract was reported ready.'
+Send-Command -WorldId $worldId -Token $token -Revision ([ref]$revision) `
+    -Kind 'prepare_semantic_contract' -Payload $semanticContract | Out-Null
+$semanticAfter = Invoke-Json -Method Post `
+    -Path "/v1/worlds/$worldId/semantic-contracts/preflight" `
+    -AccessToken $token -Body $semanticContract
+Assert-True $semanticAfter.ready `
+    'Atomic semantic contract preparation did not converge.'
+
+$revisionBeforeSemanticNoOp = $revision
+Send-Command -WorldId $worldId -Token $token -Revision ([ref]$revision) `
+    -Kind 'prepare_semantic_contract' -Payload $semanticContract | Out-Null
+Assert-True ($revision -eq $revisionBeforeSemanticNoOp) `
+    'Already-ready semantic contract advanced the world revision.'
+
+$semanticUpgrade = $semanticContract.Clone()
+$semanticUpgrade.applicationId = [guid]::NewGuid()
+$semanticUpgrade.contractVersion = 2
+$semanticUpgrade.authoredFacts = @(
+    $semanticContract.authoredFacts[0]
+    @{
+        predicateId = 'smoke_contract_upgrade'
+        objectKind = 'canonical'
+        objectEntityId = $null
+        objectCanonicalId = 'Complete'
+        objectValueJson = $null
+    }
+)
+$semanticUpgrade.replacePredicateIds = @(
+    'smoke_contract_capability', 'smoke_contract_upgrade')
+Send-Command -WorldId $worldId -Token $token -Revision ([ref]$revision) `
+    -Kind 'prepare_semantic_contract' -Payload $semanticUpgrade | Out-Null
+$semanticUpgradeReady = Invoke-Json -Method Post `
+    -Path "/v1/worlds/$worldId/semantic-contracts/preflight" `
+    -AccessToken $token -Body $semanticUpgrade
+Assert-True $semanticUpgradeReady.ready `
+    'Partial old semantic contract did not upgrade atomically.'
+
+$invalidSemanticContract = $semanticUpgrade.Clone()
+$invalidSemanticContract.applicationId = [guid]::NewGuid()
+$invalidSemanticContract.contractVersion = 3
+$invalidSemanticContract.ruleBlocks = @(@{
+    bindingId = [guid]::NewGuid()
+    ruleId = 'UnpublishedSemanticContractRule'
+    ruleVersion = 1
+    parameterValuesJson = '{"bindingVariable":"?actor"}'
+})
+$invalidSemanticResult = Invoke-RejectedCommand `
+    -Path "/v1/worlds/$worldId/commands" -AccessToken $token -Body @{
+        contractVersion = 1
+        commandId = [guid]::NewGuid()
+        expectedRevision = $revision
+        commandType = 'prepare_semantic_contract'
+        payload = $invalidSemanticContract
+    }
+Assert-True ($invalidSemanticResult.rejectionCode -eq `
+        'rule_definition_not_published') `
+    'Unpublished semantic Rule did not fail closed.'
+$stillVersionTwo = Invoke-Json -Method Post `
+    -Path "/v1/worlds/$worldId/semantic-contracts/preflight" `
+    -AccessToken $token -Body $semanticUpgrade
+Assert-True $stillVersionTwo.ready `
+    'Rejected semantic upgrade damaged the previously active contract.'
 
 $attackRuleMeaning = @{
     operation = 'apply'

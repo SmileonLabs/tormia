@@ -17,7 +17,8 @@ internal sealed record WorldPlayerPoseObservation(
     double PositionY,
     double PositionZ,
     string MotionStatus,
-    long ObservedAtUnixMilliseconds);
+    long ObservedAtUnixMilliseconds,
+    Guid RuntimeSessionId = default);
 
 internal interface IWorldPlayerPoseObservationRegistry
 {
@@ -33,6 +34,8 @@ internal interface IWorldPlayerPoseObservationRegistry
         Guid worldId,
         Guid avatarEntityId,
         CancellationToken cancellationToken);
+    Task ClearIfSessionMatches(Guid worldId, Guid avatarEntityId,
+        Guid runtimeSessionId, CancellationToken cancellationToken);
 }
 
 internal sealed class RedisWorldPlayerPoseObservationRegistry(
@@ -43,12 +46,13 @@ internal sealed class RedisWorldPlayerPoseObservationRegistry(
         local current = redis.call('GET', KEYS[1])
         if current then
             local decoded = cjson.decode(current)
-            if decoded.poseSequence and
-               tonumber(decoded.poseSequence) >= tonumber(ARGV[1]) then
+            if decoded.runtimeSessionId == ARGV[1] and
+               decoded.poseSequence and
+               tonumber(decoded.poseSequence) >= tonumber(ARGV[2]) then
                 return 0
             end
         end
-        redis.call('SET', KEYS[1], ARGV[2], 'PX', ARGV[3])
+        redis.call('SET', KEYS[1], ARGV[3], 'PX', ARGV[4])
         return 1
         """;
     private static readonly TimeSpan ObservationTtl =
@@ -71,6 +75,7 @@ internal sealed class RedisWorldPlayerPoseObservationRegistry(
             },
             new RedisValue[]
             {
+                observation.RuntimeSessionId.ToString("D"),
                 observation.PoseSequence,
                 JsonSerializer.Serialize(observation, JsonOptions),
                 (long)ObservationTtl.TotalMilliseconds
@@ -100,6 +105,21 @@ internal sealed class RedisWorldPlayerPoseObservationRegistry(
         await database.KeyDeleteAsync(Key(worldId, avatarEntityId));
     }
 
+    public async Task ClearIfSessionMatches(Guid worldId, Guid avatarEntityId,
+        Guid runtimeSessionId, CancellationToken cancellationToken)
+    {
+        const string script = """
+            local current = redis.call('GET', KEYS[1])
+            if not current then return 0 end
+            local decoded = cjson.decode(current)
+            if decoded.runtimeSessionId ~= ARGV[1] then return 0 end
+            return redis.call('DEL', KEYS[1])
+            """;
+        await database.ScriptEvaluateAsync(script,
+            new RedisKey[] { Key(worldId, avatarEntityId) },
+            new RedisValue[] { runtimeSessionId.ToString("D") });
+    }
+
     private static string Key(Guid worldId, Guid avatarEntityId) =>
         "tormia:world:" + worldId.ToString("N") +
         ":avatar:" + avatarEntityId.ToString("N") +
@@ -127,7 +147,8 @@ internal sealed class InMemoryWorldPlayerPoseObservationRegistry
                 return Task.FromResult(
                     observations.TryAdd(key, observation));
             }
-            if (current.PoseSequence >= observation.PoseSequence)
+            if (current.RuntimeSessionId == observation.RuntimeSessionId &&
+                current.PoseSequence >= observation.PoseSequence)
             {
                 return Task.FromResult(false);
             }
@@ -155,6 +176,17 @@ internal sealed class InMemoryWorldPlayerPoseObservationRegistry
         CancellationToken cancellationToken)
     {
         observations.TryRemove(Key(worldId, avatarEntityId), out _);
+        return Task.CompletedTask;
+    }
+
+    public Task ClearIfSessionMatches(Guid worldId, Guid avatarEntityId,
+        Guid runtimeSessionId, CancellationToken cancellationToken)
+    {
+        var key = Key(worldId, avatarEntityId);
+        if (observations.TryGetValue(key, out var current) &&
+            current.RuntimeSessionId == runtimeSessionId)
+            observations.TryRemove(new KeyValuePair<string,
+                WorldPlayerPoseObservation>(key, current));
         return Task.CompletedTask;
     }
 

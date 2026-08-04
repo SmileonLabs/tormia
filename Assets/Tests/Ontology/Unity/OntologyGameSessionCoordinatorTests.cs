@@ -72,26 +72,36 @@ namespace Tormia.Ontology.Tests
         }
 
         [Test]
-        public void WorldOwnedAvatarIdentityIsStableAndDifferentPerWorld()
+        public void WorldOwnedAvatarIdentityIsStableAndDifferentPerWorldAndUser()
         {
             var baseAvatarId = Guid.NewGuid();
             var worldA = Guid.NewGuid();
             var worldB = Guid.NewGuid();
+            var userA = Guid.NewGuid();
+            var userB = Guid.NewGuid();
 
             var first = OntologyWorldAuthorityAccountEntryFlow.CreateWorldScopedAvatarId(
                 baseAvatarId,
-                worldA);
+                worldA,
+                userA);
             var replay = OntologyWorldAuthorityAccountEntryFlow.CreateWorldScopedAvatarId(
                 baseAvatarId,
-                worldA);
+                worldA,
+                userA);
             var otherWorld = OntologyWorldAuthorityAccountEntryFlow.CreateWorldScopedAvatarId(
                 baseAvatarId,
-                worldB);
+                worldB,
+                userA);
+            var otherUser = OntologyWorldAuthorityAccountEntryFlow.CreateWorldScopedAvatarId(
+                baseAvatarId,
+                worldA,
+                userB);
 
             Assert.That(first, Is.Not.EqualTo(Guid.Empty));
             Assert.That(first, Is.Not.EqualTo(baseAvatarId));
             Assert.That(replay, Is.EqualTo(first));
             Assert.That(otherWorld, Is.Not.EqualTo(first));
+            Assert.That(otherUser, Is.Not.EqualTo(first));
         }
 
         [Test]

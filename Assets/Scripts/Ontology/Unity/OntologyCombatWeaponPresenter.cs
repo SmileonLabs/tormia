@@ -33,7 +33,7 @@ namespace Tormia.Ontology.Core
             "Presentation-only movement threshold for establishing a stable " +
             "sweep direction. It never affects contact or damage.")]
         private float minimumSweepSpeed = 0.05f;
-        private readonly Collider[] contactBuffer = new Collider[32];
+        private Collider[] contactBuffer = new Collider[32];
         private Transform dynamicSweepVfxAnchor;
         private Vector3 previousSweepPosition;
         private float sweepTrackingUntil;
@@ -437,6 +437,19 @@ namespace Tormia.Ontology.Core
                 orientation,
                 contactCandidateLayers,
                 QueryTriggerInteraction.Collide);
+            if (count == contactBuffer.Length)
+            {
+                // A full NonAlloc buffer is ambiguous: Unity may have omitted
+                // the approved target. Allocate only on this exceptional path
+                // so crowded scenes never produce a false no-contact result.
+                contactBuffer = Physics.OverlapBox(
+                    center,
+                    halfExtents,
+                    orientation,
+                    contactCandidateLayers,
+                    QueryTriggerInteraction.Collide);
+                count = contactBuffer.Length;
+            }
             for (var index = 0; index < count; index++)
             {
                 var candidate = contactBuffer[index];

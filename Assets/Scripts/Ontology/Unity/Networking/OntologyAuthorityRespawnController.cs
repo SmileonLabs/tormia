@@ -80,9 +80,9 @@ namespace Tormia.Ontology.Core
             ResolveDependencies();
             if (requestPending ||
                 authorityClient == null ||
-                !authorityClient.IsWorldRuntimeReady ||
                 avatarIdentity == null ||
                 !avatarIdentity.TryGetGuid(out var avatarId) ||
+                !authorityClient.IsPlayerRuntimeActiveFor(avatarId) ||
                 !TryResolveEntryRespawnRequirement(
                     authorityClient.CurrentProjection,
                     avatarId,

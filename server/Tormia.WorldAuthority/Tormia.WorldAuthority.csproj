@@ -10,5 +10,12 @@
     <PackageReference Include="Npgsql" Version="8.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="8.0.6" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
+    <PackageReference Include="LiteNetLib" Version="2.1.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Unity and Authority compile one engine/transport-independent wire
+         contract. Socket and ticket implementations remain outside it. -->
+    <Compile Include="..\..\Assets\Scripts\Ontology\Realtime\Protocol\*.cs"
+             Link="Realtime\Protocol\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

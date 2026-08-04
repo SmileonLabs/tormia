@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 using StackExchange.Redis;
 
@@ -24,7 +25,8 @@ internal sealed record WorldPlayerMotionState(
     bool Grounded = true,
     long ServerTick = 0,
     Guid? LastProcessedRuntimeActionOccurrenceId = null,
-    Guid? GroundSupportEntityId = null);
+    Guid? GroundSupportEntityId = null,
+    Guid RuntimeSessionId = default);
 
 internal interface IWorldPlayerMotionRuntimeRegistry
 {
@@ -34,11 +36,43 @@ internal interface IWorldPlayerMotionRuntimeRegistry
         Guid worldId,
         IReadOnlyList<Guid> avatarEntityIds,
         CancellationToken cancellationToken);
-    Task Set(WorldPlayerMotionState state, CancellationToken cancellationToken);
+    Task<bool> Set(WorldPlayerMotionState state, CancellationToken cancellationToken);
+    Task Activate(WorldPlayerMotionState state, CancellationToken cancellationToken);
+    Task<RuntimeSessionDeactivationResult> Deactivate(
+        Guid worldId, Guid avatarEntityId, Guid runtimeSessionId,
+        CancellationToken cancellationToken);
+}
+
+internal enum RuntimeSessionDeactivationResult
+{
+    SessionMismatch = 0,
+    Deactivated = 1,
+    AlreadyInactive = 2
 }
 
 internal sealed class RedisWorldPlayerMotionRuntimeRegistry(IConnectionMultiplexer redis) : IWorldPlayerMotionRuntimeRegistry
 {
+    private const string SetCurrentSessionScript = """
+        local current = redis.call('GET', KEYS[1])
+        if not current then return 0 end
+        local decoded = cjson.decode(current)
+        if decoded.runtimeSessionId ~= ARGV[1] then return 0 end
+        redis.call('SET', KEYS[1], ARGV[2], 'PX', ARGV[3])
+        return 1
+        """;
+    private const string DeactivateCurrentSessionScript = """
+        local current = redis.call('GET', KEYS[1])
+        if current then
+            local decoded = cjson.decode(current)
+            if decoded.runtimeSessionId ~= ARGV[1] then return 0 end
+            redis.call('DEL', KEYS[1])
+            redis.call('SET', KEYS[2], ARGV[1], 'PX', ARGV[2])
+            return 1
+        end
+        local inactive = redis.call('GET', KEYS[2])
+        if inactive == ARGV[1] then return 2 end
+        return 0
+        """;
     private static readonly TimeSpan StateTtl = TimeSpan.FromSeconds(30);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IDatabase database = redis.GetDatabase();
@@ -68,7 +102,21 @@ internal sealed class RedisWorldPlayerMotionRuntimeRegistry(IConnectionMultiplex
         return states;
     }
 
-    public async Task Set(WorldPlayerMotionState state, CancellationToken cancellationToken)
+    public async Task<bool> Set(WorldPlayerMotionState state, CancellationToken cancellationToken)
+    {
+        var result = await database.ScriptEvaluateAsync(
+            SetCurrentSessionScript,
+            new RedisKey[] { Key(state.WorldId, state.AvatarEntityId) },
+            new RedisValue[] {
+                state.RuntimeSessionId.ToString("D"),
+                JsonSerializer.Serialize(state, JsonOptions),
+                (long)StateTtl.TotalMilliseconds });
+        return (int)result == 1;
+    }
+
+    public async Task Activate(
+        WorldPlayerMotionState state,
+        CancellationToken cancellationToken)
     {
         await database.StringSetAsync(
             Key(state.WorldId, state.AvatarEntityId),
@@ -76,13 +124,35 @@ internal sealed class RedisWorldPlayerMotionRuntimeRegistry(IConnectionMultiplex
             StateTtl);
     }
 
+    public async Task<RuntimeSessionDeactivationResult> Deactivate(
+        Guid worldId, Guid avatarEntityId, Guid runtimeSessionId,
+        CancellationToken cancellationToken)
+    {
+        var result = await database.ScriptEvaluateAsync(
+            DeactivateCurrentSessionScript,
+            new RedisKey[]
+            {
+                Key(worldId, avatarEntityId),
+                InactiveKey(worldId, avatarEntityId)
+            },
+            new RedisValue[]
+            {
+                runtimeSessionId.ToString("D"),
+                (long)StateTtl.TotalMilliseconds
+            });
+        return (RuntimeSessionDeactivationResult)(int)result;
+    }
+
     private static string Key(Guid worldId, Guid avatarEntityId) =>
         "tormia:world:" + worldId.ToString("N") + ":avatar:" + avatarEntityId.ToString("N") + ":motion";
+    private static string InactiveKey(Guid worldId, Guid avatarEntityId) =>
+        Key(worldId, avatarEntityId) + ":inactive-session";
 }
 
 internal sealed class InMemoryWorldPlayerMotionRuntimeRegistry : IWorldPlayerMotionRuntimeRegistry
 {
     private readonly ConcurrentDictionary<string, WorldPlayerMotionState> states = new();
+    private readonly ConcurrentDictionary<string, Guid> inactiveSessions = new();
     public string BackendName => "in_memory_development";
 
     public Task<WorldPlayerMotionState?> Get(Guid worldId, Guid avatarEntityId, CancellationToken cancellationToken)
@@ -107,10 +177,53 @@ internal sealed class InMemoryWorldPlayerMotionRuntimeRegistry : IWorldPlayerMot
         return Task.FromResult<IReadOnlyList<WorldPlayerMotionState>>(results);
     }
 
-    public Task Set(WorldPlayerMotionState state, CancellationToken cancellationToken)
+    public Task<bool> Set(WorldPlayerMotionState state, CancellationToken cancellationToken)
+    {
+        var key = Key(state.WorldId, state.AvatarEntityId);
+        if (!states.TryGetValue(key, out var current))
+        {
+            return state.RuntimeSessionId == Guid.Empty
+                ? Task.FromResult(states.TryAdd(key, state))
+                : Task.FromResult(false);
+        }
+        if (current.RuntimeSessionId != state.RuntimeSessionId)
+        {
+            return Task.FromResult(false);
+        }
+        var updated = states.TryUpdate(key, state, current);
+        return Task.FromResult(updated);
+    }
+
+    public Task Activate(
+        WorldPlayerMotionState state,
+        CancellationToken cancellationToken)
     {
         states[Key(state.WorldId, state.AvatarEntityId)] = state;
         return Task.CompletedTask;
+    }
+
+    public Task<RuntimeSessionDeactivationResult> Deactivate(
+        Guid worldId, Guid avatarEntityId, Guid runtimeSessionId,
+        CancellationToken cancellationToken)
+    {
+        var key = Key(worldId, avatarEntityId);
+        while (states.TryGetValue(key, out var current))
+        {
+            if (current.RuntimeSessionId != runtimeSessionId)
+                return Task.FromResult(
+                    RuntimeSessionDeactivationResult.SessionMismatch);
+            if (!states.TryRemove(new KeyValuePair<string,
+                    WorldPlayerMotionState>(key, current)))
+                continue;
+            inactiveSessions[key] = runtimeSessionId;
+            return Task.FromResult(
+                RuntimeSessionDeactivationResult.Deactivated);
+        }
+        return Task.FromResult(
+            inactiveSessions.TryGetValue(key, out var inactive) &&
+            inactive == runtimeSessionId
+                ? RuntimeSessionDeactivationResult.AlreadyInactive
+                : RuntimeSessionDeactivationResult.SessionMismatch);
     }
 
     private static string Key(Guid worldId, Guid avatarEntityId) => worldId.ToString("N") + ":" + avatarEntityId.ToString("N");
@@ -130,6 +243,7 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
     IWorldZoneSessionRegistry sessions,
     IWorldZoneExecutionLeaseRegistry executionLeases,
     IWorldZoneRuntimeNotificationPublisher runtimeNotifications,
+    RealtimeTransportMetrics realtimeMetrics,
     ILogger<WorldPlayerMotionSimulationScheduler> logger) : BackgroundService
 {
     private static readonly TimeSpan LoopInterval =
@@ -149,6 +263,9 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            var iterationStartedAt = Stopwatch.GetTimestamp();
+            var activeAvatarCount = 0;
+            var frameItemCount = 0;
             try
             {
                 var now = DateTimeOffset.UtcNow;
@@ -164,7 +281,6 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
                     var leaseHeld = await executionLeases.TryAcquire(
                         zone.WorldId, zone.ZoneKey, "player-motion", ownerId, LeaseDuration, stoppingToken);
                     if (!leaseHeld) continue;
-
                     var configurations = await GetAvatarConfigurations(zone, now, stoppingToken);
                     var proxyConfigurations =
                         await GetCollisionProxyConfigurations(
@@ -191,31 +307,54 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
                         zone.WorldId,
                         zone.ZoneKey,
                         stoppingToken);
-                    var zoneRuntimeChanged = false;
+                    var changedStates =
+                        new List<WorldPlayerMotionState>();
                     foreach (var configuration in configurations)
                     {
                         // Registered ownership is durable, but simulation presence
                         // is not. Offline avatars must stop refreshing their Redis
                         // motion TTL so a later entry can seed from the checkpoint.
                         if (!activeUserIds.Contains(configuration.UserId)) continue;
+                        activeAvatarCount++;
                         proxyConfigurationsByEntity.TryGetValue(
                             configuration.AvatarEntityId,
                             out var actorProxyConfiguration);
-                        zoneRuntimeChanged |= await AdvanceAvatar(
+                        var changedState = await AdvanceAvatar(
                             configuration,
                             actorProxyConfiguration,
                             collisionProxies,
                             zone,
                             now,
                             stoppingToken);
+                        if (changedState is not null)
+                        {
+                            changedStates.Add(changedState);
+                            frameItemCount++;
+                        }
                     }
 
-                    if (zoneRuntimeChanged)
+                    if (changedStates.Count > 0)
                     {
+                        var observedAt = now.ToUnixTimeMilliseconds();
+                        // This actor-derived maximum is a source diagnostic,
+                        // not a Zone ordering key. SignalR and UDP share the
+                        // frame occurrence; each actor state is ordered by its
+                        // runtime session plus actor server tick.
+                        var sourceFrameTick = changedStates.Max(
+                            state => state.ServerTick);
+                        await runtimeNotifications.PublishMotionFrame(
+                            zone.WorldId,
+                            zone.ZoneKey,
+                            changedStates,
+                            sourceFrameTick,
+                            observedAt,
+                            stoppingToken);
+                        // Retain the old hint as a compatibility and HTTP
+                        // recovery signal for clients without direct frames.
                         await runtimeNotifications.PublishChanged(
                             zone.WorldId,
                             zone.ZoneKey,
-                            now.ToUnixTimeMilliseconds(),
+                            observedAt,
                             stoppingToken);
                     }
                 }
@@ -229,9 +368,22 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
                 logger.LogError(exception, "Player motion scheduler iteration failed.");
             }
 
+            var processingDuration = Stopwatch.GetElapsedTime(
+                iterationStartedAt,
+                Stopwatch.GetTimestamp());
+            var remainingDelay = LoopInterval - processingDuration;
+            realtimeMetrics.RecordPlayerMotionTick(
+                processingDuration,
+                activeAvatarCount,
+                frameItemCount,
+                remainingDelay <= TimeSpan.Zero);
+            if (remainingDelay <= TimeSpan.Zero)
+            {
+                continue;
+            }
             try
             {
-                await Task.Delay(LoopInterval, stoppingToken);
+                await Task.Delay(remainingDelay, stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -324,7 +476,7 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
         return proxies;
     }
 
-    private async Task<bool> AdvanceAvatar(
+    private async Task<WorldPlayerMotionState?> AdvanceAvatar(
         WorldPlayerAvatarMotionConfiguration configuration,
         WorldCollisionProxyConfiguration? actorProxyConfiguration,
         IReadOnlyList<WorldCollisionProxy> collisionProxies,
@@ -368,8 +520,13 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
                     now.ToUnixTimeMilliseconds(),
                 ServerTick = fallback.ServerTick + 1
             };
-            await motion.Set(disabled, cancellationToken);
-            return HasPresentationChange(fallback, disabled);
+            var disabledPublished =
+                await motion.Set(disabled, cancellationToken);
+            return disabledPublished &&
+                   (existing is null ||
+                    HasPresentationChange(fallback, disabled))
+                ? disabled
+                : null;
         }
 
         if (actorProxyConfiguration is null ||
@@ -388,15 +545,21 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
                     now.ToUnixTimeMilliseconds(),
                 ServerTick = fallback.ServerTick + 1
             };
-            await motion.Set(disabled, cancellationToken);
-            return HasPresentationChange(fallback, disabled);
+            var proxyFailurePublished =
+                await motion.Set(disabled, cancellationToken);
+            return proxyFailurePublished &&
+                   (existing is null ||
+                    HasPresentationChange(fallback, disabled))
+                ? disabled
+                : null;
         }
 
         if (intent is not null &&
-            !string.Equals(
-                intent.ZoneKey,
-                configuration.ZoneKey,
-                StringComparison.Ordinal))
+            (!string.Equals(
+                 intent.ZoneKey,
+                 configuration.ZoneKey,
+                 StringComparison.Ordinal) ||
+             intent.RuntimeSessionId != fallback.RuntimeSessionId))
         {
             intent = null;
         }
@@ -406,6 +569,7 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
             cancellationToken);
         var jumpRequested =
             runtimeAction is not null &&
+            runtimeAction.RuntimeSessionId == fallback.RuntimeSessionId &&
             runtimeAction.OccurrenceId !=
             fallback.LastProcessedRuntimeActionOccurrenceId &&
             !string.IsNullOrWhiteSpace(
@@ -428,9 +592,12 @@ internal sealed class WorldPlayerMotionSimulationScheduler(
                 : null,
             LoopInterval.TotalSeconds,
             now.ToUnixTimeMilliseconds());
-        await motion.Set(next, cancellationToken);
-        return existing is null ||
-               HasPresentationChange(fallback, next);
+        var published = await motion.Set(next, cancellationToken);
+        return published &&
+               (existing is null ||
+                HasPresentationChange(fallback, next))
+            ? next
+            : null;
     }
 
     private static bool HasPresentationChange(
@@ -571,6 +738,18 @@ internal static class WorldPlayerMotionPolicy
 
         var directionX = intent?.MoveX ?? 0d;
         var directionZ = intent?.MoveZ ?? 0d;
+        var destinationRemaining = double.PositiveInfinity;
+        if (intent?.HasDestination == true)
+        {
+            directionX = intent.DestinationX - current.PositionX;
+            directionZ = intent.DestinationZ - current.PositionZ;
+            destinationRemaining = Math.Max(
+                0d,
+                Math.Sqrt(
+                    directionX * directionX +
+                    directionZ * directionZ) -
+                intent.DestinationStopDistance);
+        }
         var directionLength = Math.Sqrt(
             directionX * directionX +
             directionZ * directionZ);
@@ -600,12 +779,19 @@ internal static class WorldPlayerMotionPolicy
 
         var positionX = current.PositionX;
         var positionZ = current.PositionZ;
+        var requestedDistance = acceptedSpeed * delta;
+        if (double.IsFinite(destinationRemaining))
+        {
+            requestedDistance = Math.Min(
+                requestedDistance,
+                destinationRemaining);
+        }
         ResolvePlanarMovement(
             ref positionX,
             positionY,
             ref positionZ,
-            directionX * acceptedSpeed * delta,
-            directionZ * acceptedSpeed * delta,
+            directionX * requestedDistance,
+            directionZ * requestedDistance,
             actorProxyConfiguration,
             actorProxyTemplate,
             collisionProxies,

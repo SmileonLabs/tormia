@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: AttachmentProfileDatabase
   m_EditorClassIdentifier: Tormia.Ontology.Unity::Tormia.Ontology.Core.OntologyAttachmentProfileDatabase
   profiles:
+  - {fileID: 11400000, guid: 5fc813bc2f8b47c2a48f8425b08c8461, type: 2}
   - {fileID: 11400000, guid: f640c493d0840a045827f30d94615524, type: 2}
   - {fileID: 11400000, guid: 39d47da811494fb9ae4d0debb8c821a1, type: 2}
   - {fileID: 11400000, guid: a8de882a115c46e7aa56ee0cf1ef2ed8, type: 2}

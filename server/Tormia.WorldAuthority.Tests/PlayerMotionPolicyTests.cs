@@ -40,6 +40,7 @@ public sealed class PlayerMotionPolicyTests
         var worldId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         var avatarId = Guid.NewGuid();
+        var oldRuntimeSessionId = Guid.NewGuid();
         var oldSession = new WorldPlayerIntent(
             worldId,
             userId,
@@ -49,12 +50,31 @@ public sealed class PlayerMotionPolicyTests
             1f,
             0f,
             4f,
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            RuntimeSessionId: oldRuntimeSessionId,
+            WorldRevision: 1,
+            WriterEpoch: 1);
+
+        Assert.True((await registry.InitializeHttpWriter(
+            new PlayerMotionTransportWriterState(
+                worldId, userId, avatarId, "world_main",
+                oldRuntimeSessionId, "http", 1, 1),
+            CancellationToken.None)).Accepted);
 
         Assert.True(await registry.Submit(oldSession, CancellationToken.None));
         await registry.Clear(worldId, avatarId, CancellationToken.None);
 
-        var newSession = oldSession with { Sequence = 1 };
+        var newRuntimeSessionId = Guid.NewGuid();
+        Assert.True((await registry.InitializeHttpWriter(
+            new PlayerMotionTransportWriterState(
+                worldId, userId, avatarId, "world_main",
+                newRuntimeSessionId, "http", 1, 1),
+            CancellationToken.None)).Accepted);
+        var newSession = oldSession with
+        {
+            Sequence = 1,
+            RuntimeSessionId = newRuntimeSessionId
+        };
         Assert.True(await registry.Submit(newSession, CancellationToken.None));
         Assert.Equal(
             1,
@@ -686,7 +706,11 @@ public sealed class PlayerMotionPolicyTests
             6d,
             -1d,
             0.3d,
-            0d);
+            0d,
+            "development_core",
+            "1.0.0",
+            "move_avatar",
+            1);
     }
 
     private static WorldCollisionProxy CreateGroundSupport(

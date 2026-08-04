@@ -416,6 +416,61 @@ namespace Tormia.Ontology.Tests
         }
 
         [UnityTest]
+        public IEnumerator AuthorityRuleRemovalKeepsProjectionUntilConfirmed()
+        {
+            var host = new GameObject("AuthorityRuleRemovalHost");
+            var controller =
+                host.AddComponent<OntologyRuntimeWorldEditorController>();
+            var target = CreatePlaceable("AuthorityRuleTarget", Vector3.zero);
+            var assignment =
+                target.gameObject.AddComponent<OntologyRuleBlockAssignment>();
+            var binding = new OntologyRuleBlockBinding
+            {
+                bindingId = System.Guid.NewGuid().ToString("D"),
+                ruleId = "EquipItemOnInteractionIntent",
+                bindingVariable = "?target",
+                applicationId = System.Guid.NewGuid().ToString("D"),
+                packageId = "weapon_equipment"
+            };
+            assignment.Replace(new[] { binding });
+            SetPrivateField(controller, "selected", target);
+            OntologyRuleBlockBinding requested = null;
+            controller.RuleBlockRemovalRequested += (_, value) => requested = value;
+            yield return null;
+
+            Assert.That(controller.RequestSelectedRuleBlockRemoval(binding), Is.True);
+            Assert.That(requested, Is.SameAs(binding));
+            Assert.That(assignment.Bindings, Has.Count.EqualTo(1),
+                "The local projection must remain unchanged until Authority confirms.");
+            Assert.That(controller.IsRuleBlockRemovalPending(binding.bindingId), Is.True);
+
+            controller.CompleteRuleBlockRemoval(binding.bindingId);
+            Assert.That(controller.IsRuleBlockRemovalPending(binding.bindingId), Is.False);
+            Object.Destroy(target.gameObject);
+            Object.Destroy(host);
+            yield return null;
+        }
+
+        [Test]
+        public void RemoveByBindingIdRemovesOnlyExactDuplicateSemanticBinding()
+        {
+            var host = new GameObject("ExactBindingRemoval");
+            var assignment = host.AddComponent<OntologyRuleBlockAssignment>();
+            var first = System.Guid.NewGuid().ToString("D");
+            var second = System.Guid.NewGuid().ToString("D");
+            assignment.Replace(new[]
+            {
+                new OntologyRuleBlockBinding { bindingId = first, ruleId = "Rule", bindingVariable = "?target" },
+                new OntologyRuleBlockBinding { bindingId = second, ruleId = "Rule", bindingVariable = "?target" }
+            });
+
+            Assert.That(assignment.RemoveByBindingId(first), Is.True);
+            Assert.That(assignment.Bindings, Has.Count.EqualTo(1));
+            Assert.That(assignment.Bindings[0].bindingId, Is.EqualTo(second));
+            Object.DestroyImmediate(host);
+        }
+
+        [UnityTest]
         public IEnumerator AuthorityBridgeSubscribesWhenWorldEditorAppearsAfterBridgeEnable()
         {
             var bridgeHost = new GameObject("LateBindingAuthorityBridge");
@@ -441,6 +496,9 @@ namespace Tormia.Ontology.Tests
                 GetSubscriberCount(editor, "MeaningPackageChangeRequested"),
                 Is.EqualTo(1),
                 "A late World editor must publish complete meaning-package changes.");
+            Assert.That(
+                GetSubscriberCount(editor, "RuleBlockRemovalRequested"),
+                Is.EqualTo(1));
 
             InvokePrivate(bridge, "ResolveDependencies");
             Assert.That(
@@ -455,6 +513,9 @@ namespace Tormia.Ontology.Tests
             Assert.That(GetSubscriberCount(editor, "RuleBlockChanged"), Is.Zero);
             Assert.That(
                 GetSubscriberCount(editor, "MeaningPackageChangeRequested"),
+                Is.Zero);
+            Assert.That(
+                GetSubscriberCount(editor, "RuleBlockRemovalRequested"),
                 Is.Zero);
 
             Object.Destroy(editorHost);

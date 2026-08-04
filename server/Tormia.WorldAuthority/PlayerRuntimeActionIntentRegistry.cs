@@ -13,7 +13,8 @@ internal sealed record WorldPlayerRuntimeActionIntent(
     Guid AvatarEntityId,
     Guid OccurrenceId,
     string ActionId,
-    long AcceptedAtUnixMilliseconds);
+    long AcceptedAtUnixMilliseconds,
+    Guid RuntimeSessionId = default);
 
 internal interface IWorldPlayerRuntimeActionIntentRegistry
 {
@@ -29,6 +30,8 @@ internal interface IWorldPlayerRuntimeActionIntentRegistry
         Guid worldId,
         Guid avatarEntityId,
         CancellationToken cancellationToken);
+    Task ClearIfSessionMatches(Guid worldId, Guid avatarEntityId,
+        Guid runtimeSessionId, CancellationToken cancellationToken);
 }
 
 internal sealed class RedisWorldPlayerRuntimeActionIntentRegistry(
@@ -74,6 +77,21 @@ internal sealed class RedisWorldPlayerRuntimeActionIntentRegistry(
         await database.KeyDeleteAsync(Key(worldId, avatarEntityId));
     }
 
+    public async Task ClearIfSessionMatches(Guid worldId, Guid avatarEntityId,
+        Guid runtimeSessionId, CancellationToken cancellationToken)
+    {
+        const string script = """
+            local current = redis.call('GET', KEYS[1])
+            if not current then return 0 end
+            local decoded = cjson.decode(current)
+            if decoded.runtimeSessionId ~= ARGV[1] then return 0 end
+            return redis.call('DEL', KEYS[1])
+            """;
+        await database.ScriptEvaluateAsync(script,
+            new RedisKey[] { Key(worldId, avatarEntityId) },
+            new RedisValue[] { runtimeSessionId.ToString("D") });
+    }
+
     private static string Key(Guid worldId, Guid avatarEntityId) =>
         "tormia:world:" + worldId.ToString("N") +
         ":avatar:" + avatarEntityId.ToString("N") +
@@ -114,6 +132,17 @@ internal sealed class InMemoryWorldPlayerRuntimeActionIntentRegistry
         CancellationToken cancellationToken)
     {
         intents.TryRemove(Key(worldId, avatarEntityId), out _);
+        return Task.CompletedTask;
+    }
+
+    public Task ClearIfSessionMatches(Guid worldId, Guid avatarEntityId,
+        Guid runtimeSessionId, CancellationToken cancellationToken)
+    {
+        var key = Key(worldId, avatarEntityId);
+        if (intents.TryGetValue(key, out var current) &&
+            current.RuntimeSessionId == runtimeSessionId)
+            intents.TryRemove(new KeyValuePair<string,
+                WorldPlayerRuntimeActionIntent>(key, current));
         return Task.CompletedTask;
     }
 

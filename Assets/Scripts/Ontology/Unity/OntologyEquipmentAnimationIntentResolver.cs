@@ -1,12 +1,12 @@
 using System;
+using System.Linq;
 
 namespace Tormia.Ontology.Core
 {
     /// <summary>
     /// Resolves persistent equipment presentation from Authority-owned state.
     /// The resolver does not infer meaning from a prefab, mesh, or object name:
-    /// the equipped entity's canonical template id must have an explicit
-    /// presentation definition in the combat catalog.
+    /// the equipped entity must project exactly one authored animation intent.
     /// </summary>
     public static class OntologyEquipmentAnimationIntentResolver
     {
@@ -20,7 +20,7 @@ namespace Tormia.Ontology.Core
                 projection,
                 actorEntityId,
                 catalog,
-                definition => definition.idleAnimationIntent,
+                OntologyPredicates.IdleAnimationIntent,
                 out intent);
         }
 
@@ -34,7 +34,7 @@ namespace Tormia.Ontology.Core
                 projection,
                 actorEntityId,
                 catalog,
-                definition => definition.moveAnimationIntent,
+                OntologyPredicates.MoveAnimationIntent,
                 out intent);
         }
 
@@ -42,20 +42,19 @@ namespace Tormia.Ontology.Core
             OntologyAuthorityWorldProjection projection,
             string actorEntityId,
             OntologyCombatCatalog catalog,
-            Func<OntologyWeaponPresentationDefinition, string> selectIntent,
+            string intentPredicate,
             out string intent)
         {
             intent = string.Empty;
             if (projection?.facts == null ||
-                projection.entities == null ||
                 string.IsNullOrWhiteSpace(actorEntityId) ||
-                catalog == null ||
-                selectIntent == null)
+                string.IsNullOrWhiteSpace(intentPredicate))
             {
                 return false;
             }
 
             string equippedEntityId = null;
+            string resolvedIntent = null;
             foreach (var fact in projection.facts)
             {
                 if (fact == null ||
@@ -72,19 +71,14 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
-                var candidateEntity = Array.Find(
-                    projection.entities,
-                    value =>
-                        value != null &&
-                        string.Equals(
-                            value.entityId,
-                            fact.subjectEntityId,
-                            StringComparison.OrdinalIgnoreCase));
-                if (candidateEntity == null ||
-                    catalog.FindWeapon(candidateEntity.templateId) == null)
+                if (!TryResolveProjectedIntent(
+                        projection,
+                        fact.subjectEntityId,
+                        intentPredicate,
+                        out var candidateIntent))
                 {
-                    // Non-weapon slots (for example Floatation) coexist with
-                    // MainHand and do not select a combat locomotion pose.
+                    // Equipment without this authored presentation meaning
+                    // can coexist without selecting a locomotion pose.
                     continue;
                 }
 
@@ -100,6 +94,7 @@ namespace Tormia.Ontology.Core
                 }
 
                 equippedEntityId = fact.subjectEntityId;
+                resolvedIntent = candidateIntent;
             }
 
             if (equippedEntityId == null)
@@ -107,36 +102,6 @@ namespace Tormia.Ontology.Core
                 return false;
             }
 
-            OntologyAuthorityEntityProjection equippedEntity = null;
-            foreach (var entity in projection.entities)
-            {
-                if (entity == null ||
-                    !string.Equals(
-                        entity.entityId,
-                        equippedEntityId,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (equippedEntity != null)
-                {
-                    return false;
-                }
-
-                equippedEntity = entity;
-            }
-
-            if (equippedEntity == null ||
-                string.IsNullOrWhiteSpace(equippedEntity.templateId))
-            {
-                return false;
-            }
-
-            var definition = catalog.FindWeapon(equippedEntity.templateId);
-            var resolvedIntent = definition == null
-                ? string.Empty
-                : selectIntent(definition);
             if (string.IsNullOrWhiteSpace(resolvedIntent))
             {
                 return false;
@@ -144,6 +109,42 @@ namespace Tormia.Ontology.Core
 
             intent = resolvedIntent.Trim();
             return true;
+        }
+
+        private static bool TryResolveProjectedIntent(
+            OntologyAuthorityWorldProjection projection,
+            string entityId,
+            string predicate,
+            out string intent)
+        {
+            intent = string.Empty;
+            var matches = Array.FindAll(
+                    projection.facts,
+                    fact => fact != null &&
+                            string.Equals(fact.subjectEntityId, entityId,
+                                StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(fact.predicateId, predicate,
+                                StringComparison.Ordinal))
+                .Select(ResolveFactObject)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (matches.Length != 1) return false;
+            intent = matches[0];
+            return true;
+        }
+
+        private static string ResolveFactObject(
+            OntologyAuthorityFactProjection fact)
+        {
+            if (!string.IsNullOrWhiteSpace(fact.objectCanonicalId))
+                return fact.objectCanonicalId.Trim();
+            var value = fact.objectValueJson?.Trim();
+            return !string.IsNullOrWhiteSpace(value) &&
+                   value.Length >= 2 && value[0] == '"' &&
+                   value[value.Length - 1] == '"'
+                ? value.Substring(1, value.Length - 2)
+                : value ?? string.Empty;
         }
     }
 }

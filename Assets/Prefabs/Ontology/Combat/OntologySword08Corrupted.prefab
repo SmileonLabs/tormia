@@ -67,8 +67,8 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8685079873234136530}
-  - {fileID: 1306345308479121388}
   - {fileID: 3456446994773660394}
+  - {fileID: 1306345308479121388}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8174968762586106875
@@ -167,7 +167,12 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   contactModeId: WeaponContactWindow
+  contactSweepLinearStep: 0.08
+  contactSweepAngularStep: 10
+  maximumContactSweepSubsteps: 12
   swingVfxIntent: WeaponSwingSwordBasic
+  sweepBladeAxis: {x: 0, y: 1, z: 0}
+  minimumSweepSpeed: 0.05
 --- !u!1 &4354209627528307631
 GameObject:
   m_ObjectHideFlags: 0

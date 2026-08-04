@@ -36,6 +36,8 @@ namespace Tormia.Ontology.Core
         private bool movingNewCopy;
         private Vector3 moveStartPosition;
         private OntologyPhysicsPresentationCoordinator movingPhysicsCoordinator;
+        private readonly HashSet<string> pendingRuleBindingRemovals =
+            new(StringComparer.OrdinalIgnoreCase);
 
         public static bool IsEditInputCaptured { get; private set; }
         public bool IsEditing { get; private set; }
@@ -73,6 +75,25 @@ namespace Tormia.Ontology.Core
             bootstrap != null && bootstrap.AttachmentProfileDatabase != null
                 ? bootstrap.AttachmentProfileDatabase.Profiles
                 : Array.Empty<OntologyAttachmentProfile>();
+
+        /// <summary>
+        /// A profile that requires calibrated presentation metadata must not be
+        /// offered for an arbitrary object that does not own that metadata.
+        /// Generic root-anchored profiles remain valid because that choice is
+        /// explicit in the authored profile rather than a runtime fallback.
+        /// </summary>
+        public bool IsAttachmentProfileCompatibleWithSelection(
+            OntologyAttachmentProfile profile)
+        {
+            if (selected == null || profile == null)
+                return false;
+            if (!profile.requireItemGripPoint)
+                return true;
+
+            var gripPoint = selected.GetComponentInChildren<
+                OntologyAttachmentGripPoint>(true);
+            return gripPoint != null && gripPoint.IsCalibrated;
+        }
         public event Action StateChanged;
         /// <summary>Raised only after a move, rotation, or scale is committed by the editor.</summary>
         public event Action<OntologyPlaceableInstance> TransformCommitted;
@@ -88,6 +109,12 @@ namespace Tormia.Ontology.Core
         public event Action<OntologyPlaceableInstance, string, string, bool> AuthoredFactChanged;
         /// <summary>Raised after an instance rule-block binding is added or removed.</summary>
         public event Action<OntologyPlaceableInstance, string, string, bool> RuleBlockChanged;
+        /// <summary>
+        /// Requests removal of one exact Authority binding. Online durable state is
+        /// never changed optimistically; the accepted projection owns the update.
+        /// </summary>
+        public event Action<OntologyPlaceableInstance, OntologyRuleBlockBinding>
+            RuleBlockRemovalRequested;
         /// <summary>
         /// Raised for a complete Triple + Rule Block + Physical Meaning change.
         /// The Authority bridge commits it atomically before Unity projects it.
@@ -1174,6 +1201,62 @@ namespace Tormia.Ontology.Core
             return true;
         }
 
+        public bool RequestSelectedRuleBlockRemoval(
+            OntologyRuleBlockBinding binding)
+        {
+            if (selected == null || binding == null) return false;
+            if (!Guid.TryParse(binding.bindingId, out _))
+            {
+                // Offline/local preview content has no Authority identity and keeps
+                // the legacy local contribution ledger path.
+                return RemoveSelectedRuleBlock(
+                    binding.ruleId, binding.bindingVariable);
+            }
+            if (RuleBlockRemovalRequested == null ||
+                !pendingRuleBindingRemovals.Add(binding.bindingId))
+            {
+                return false;
+            }
+
+            RuleBlockRemovalRequested.Invoke(selected, binding);
+            StateChanged?.Invoke();
+            return true;
+        }
+
+        public bool RequestSelectedMeaningPackageRemoval(
+            string applicationId,
+            string slotId,
+            string packageId)
+        {
+            if (selected == null || MeaningPackageChangeRequested == null ||
+                !Guid.TryParse(applicationId, out _) ||
+                string.IsNullOrWhiteSpace(slotId))
+                return false;
+
+            MeaningPackageChangeRequested.Invoke(
+                selected,
+                new OntologyMeaningPackageChange
+                {
+                    operation = "remove",
+                    applicationId = applicationId,
+                    slotId = slotId,
+                    packageId = packageId ?? string.Empty
+                });
+            return true;
+        }
+
+        public bool IsRuleBlockRemovalPending(string bindingId) =>
+            !string.IsNullOrWhiteSpace(bindingId) &&
+            pendingRuleBindingRemovals.Contains(bindingId);
+
+        public void CompleteRuleBlockRemoval(string bindingId)
+        {
+            if (string.IsNullOrWhiteSpace(bindingId) ||
+                !pendingRuleBindingRemovals.Remove(bindingId))
+                return;
+            StateChanged?.Invoke();
+        }
+
         private void RecordPresetContribution(
             OntologyRuleBlockPreset preset,
             OntologyObject ontology,
@@ -1487,6 +1570,72 @@ namespace Tormia.Ontology.Core
             RefreshWorld(runSimulation: true);
             StateChanged?.Invoke();
             return true;
+        }
+
+        /// <summary>
+        /// Applies an attachment-backed rule preset as one Authority meaning
+        /// package so its prerequisite triples and Rule Blocks cannot race.
+        /// </summary>
+        public bool ApplySelectedRuleBlockPresetWithAttachment(
+            string presetId,
+            string profileId)
+        {
+            if (selected == null || string.IsNullOrWhiteSpace(presetId) ||
+                string.IsNullOrWhiteSpace(profileId))
+                return false;
+            if (bootstrap == null)
+                bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
+            var preset = bootstrap?.RuleBlockPresetDatabase?.Find(presetId);
+            var profile = bootstrap?.AttachmentProfileDatabase?.Find(profileId);
+            if (preset == null || profile == null ||
+                !IsAttachmentProfileCompatibleWithSelection(profile) ||
+                string.IsNullOrWhiteSpace(profile.slotId) ||
+                string.IsNullOrWhiteSpace(preset.primaryRuleId))
+                return false;
+
+            var concept = profile.kind switch
+            {
+                OntologyAttachmentKind.Carryable => OntologyConcepts.Carryable,
+                OntologyAttachmentKind.Mountable => OntologyConcepts.Mountable,
+                _ => OntologyConcepts.Wearable
+            };
+            var pickupBehavior = profile.kind switch
+            {
+                OntologyAttachmentKind.Carryable => OntologyObjects.SelectThenCarry,
+                OntologyAttachmentKind.Mountable => OntologyObjects.SelectThenMount,
+                _ => OntologyObjects.SelectThenEquip
+            };
+
+            if (MeaningPackageChangeRequested != null)
+            {
+                var change = BuildMeaningPackageChange(preset);
+                change.requiredConceptIds.Add(concept);
+                change.requiredConceptIds = change.requiredConceptIds
+                    .Distinct()
+                    .ToList();
+                change.replacePredicateIds.Add(
+                    OntologyPredicates.AttachmentProfile);
+                change.replacePredicateIds.Add(OntologyPredicates.HasSlot);
+                change.replacePredicateIds.Add(
+                    OntologyPredicates.PickupBehavior);
+                AddAuthorityFact(
+                    change,
+                    OntologyPredicates.AttachmentProfile,
+                    profile.profileId);
+                AddAuthorityFact(
+                    change,
+                    OntologyPredicates.HasSlot,
+                    profile.slotId);
+                AddAuthorityFact(
+                    change,
+                    OntologyPredicates.PickupBehavior,
+                    pickupBehavior);
+                MeaningPackageChangeRequested.Invoke(selected, change);
+                return true;
+            }
+
+            return ConfigureSelectedAttachmentBehavior(profileId) &&
+                   ApplySelectedRuleBlockPreset(presetId);
         }
 
         public bool AddSelectedPhysicalEffect(string effectId)
@@ -1806,25 +1955,26 @@ namespace Tormia.Ontology.Core
             {
                 operation = "apply",
                 applicationId = Guid.NewGuid().ToString("D"),
-                slotId = string.IsNullOrWhiteSpace(preset.physicalProfileId)
-                    ? "rule_preset_" + preset.presetId
-                    : "primary_physical_meaning",
+                slotId = !string.IsNullOrWhiteSpace(preset.packageSlotId)
+                    ? preset.packageSlotId
+                    : string.IsNullOrWhiteSpace(preset.physicalProfileId)
+                        ? "rule_preset_" + preset.presetId
+                        : "primary_physical_meaning",
                 packageId = "rule_preset_" + preset.presetId,
+                requiresOwnedBinding = preset.requiresOwnedBinding,
                 requiredConceptIds = preset.requiredConcepts
                     .Where(value => !string.IsNullOrWhiteSpace(value))
                     .Distinct()
                     .ToList(),
-                authoredFacts = preset.requiredFacts
-                    .Where(value => value != null &&
-                                    !string.IsNullOrWhiteSpace(value.predicate) &&
-                                    !string.IsNullOrWhiteSpace(value.obj))
-                    .Select(value => new OntologyFactEntry
-                    {
-                        predicate = value.predicate,
-                        obj = value.obj
-                    })
-                    .ToList()
+                authoredFacts = new List<OntologyFactEntry>()
             };
+            foreach (var fact in preset.requiredFacts.Where(value =>
+                         value != null &&
+                         !string.IsNullOrWhiteSpace(value.predicate) &&
+                         !string.IsNullOrWhiteSpace(value.obj)))
+            {
+                AddAuthorityFact(change, fact.predicate, fact.obj);
+            }
             if (!string.IsNullOrWhiteSpace(preset.physicalProfileId))
             {
                 change.replacePredicateIds.Add(
@@ -1846,6 +1996,20 @@ namespace Tormia.Ontology.Core
                     change, binding.ruleId, binding.bindingVariable);
             }
             return change;
+        }
+
+        private static void AddAuthorityFact(
+            OntologyMeaningPackageChange change,
+            string predicate,
+            string obj)
+        {
+            if (change == null || string.IsNullOrWhiteSpace(predicate) ||
+                string.IsNullOrWhiteSpace(obj))
+                return;
+            change.authorityFacts.Add(
+                OntologyWorldAuthorityClient.CreateInitialFact(
+                    predicate,
+                    obj));
         }
 
         private OntologyMeaningPackageChange BuildPhysicalMeaningPackageChange(

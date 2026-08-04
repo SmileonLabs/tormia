@@ -243,6 +243,9 @@ MonsterWalk,Value,value.MonsterWalk,Unknown,false,
 MonsterRun,Value,value.MonsterRun,Unknown,false,
 MonsterAttack,Value,value.MonsterAttack,Unknown,false,
 attack_contact_mode,Relation,relation.attack_contact_mode,Value,false,
+attack_contact_reach,Relation,relation.attack_contact_reach,Number,false,,Single
+attack_contact_open_seconds,Relation,relation.attack_contact_open_seconds,Number,false,,Single
+attack_contact_window_seconds,Relation,relation.attack_contact_window_seconds,Number,false,,Single
 WeaponContactWindow,Value,value.WeaponContactWindow,Unknown,false,
 attack_action,Relation,relation.attack_action,ActionRef,false,,Single
 attack_cooldown,Relation,relation.attack_cooldown,Number,false,,Single
@@ -296,6 +299,7 @@ Capsule,Value,collision_proxy_shape.Capsule,Unknown,false,
 Box,Value,collision_proxy_shape.Box,Unknown,false,
 respawn_action,Relation,relation.respawn_action,ActionRef,false,,Single
 semantic_contract_version,Relation,relation.semantic_contract_version,Number,false,,Single
+semantic_contract_checksum,Relation,relation.semantic_contract_checksum,Text,false,,Single
 swing_action,Relation,relation.swing_action,ActionRef,false,,Single
 target_action,Relation,relation.target_action,ActionRef,false,,Single
 target_concept,Relation,relation.target_concept,ConceptRef,false,,Single

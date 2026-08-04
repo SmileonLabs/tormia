@@ -15,6 +15,14 @@ namespace Tormia.Ontology.Core
         MonoBehaviour
     {
         [SerializeField] private OntologyWorldAuthorityClient authorityClient;
+        [SerializeField, Tooltip(
+            "Optional collision-resolved pose observation transport. Leave empty " +
+            "to use the project HTTP adapter.")]
+        private MonoBehaviour resolvedPoseObservationTransportSource;
+        [SerializeField, Tooltip(
+            "Optional Authority motion snapshot feed. Leave empty to use the " +
+            "project SignalR plus HTTP recovery feed.")]
+        private MonoBehaviour motionSnapshotFeedSource;
         [SerializeField] private OntologyWorldZoneStreamer zoneStreamer;
         [SerializeField]
         private OntologyWorldAuthorityPlayerIntentSender intentSender;
@@ -48,6 +56,7 @@ namespace Tormia.Ontology.Core
         [SerializeField, TextArea] private string lastStatus;
         [SerializeField] private long lastPoseSequence;
         [SerializeField] private long lastObservedServerTick;
+        [SerializeField] private long lastAcceptedIntentSequence;
 
         private bool isPublishing;
         private bool isLoadingSnapshot;
@@ -56,6 +65,9 @@ namespace Tormia.Ontology.Core
         private float nextPublishAt;
         private float nextSnapshotAt;
         private OntologyCharacterMotionCoordinator motionCoordinator;
+        private OntologyWorldAuthorityPlayerIntentSender subscribedIntentSender;
+        private IResolvedPoseObservationTransport resolvedPoseObservationTransport;
+        private IAuthorityMotionSnapshotFeed motionSnapshotFeed;
 
         public bool CheckpointReseedPending => checkpointReseedPending;
         public long LastPoseSequence => lastPoseSequence;
@@ -63,6 +75,16 @@ namespace Tormia.Ontology.Core
         private void Awake()
         {
             ResolveDependencies();
+        }
+
+        private void OnEnable()
+        {
+            ResolveDependencies();
+        }
+
+        private void OnDisable()
+        {
+            SetIntentSenderSubscription(null);
         }
 
         private void Update()
@@ -82,9 +104,16 @@ namespace Tormia.Ontology.Core
                 nextPublishAt = 0f;
                 nextSnapshotAt = 0f;
                 lastObservedServerTick = 0;
+                lastAcceptedIntentSequence = 0;
             }
 
-            if (publishCollisionResolvedPose &&
+
+            AdvanceAcceptedIntentFence();
+
+            if (ShouldPublishResolvedPose(
+                    publishCollisionResolvedPose,
+                    intentSender != null &&
+                    intentSender.HasAcceptedLocomotionLease) &&
                 !isPublishing &&
                 !checkpointReseedPending &&
                 Time.unscaledTime >= nextPublishAt)
@@ -100,6 +129,11 @@ namespace Tormia.Ontology.Core
                 StartCoroutine(LoadAuthoritySnapshotRoutine());
             }
         }
+
+        public static bool ShouldPublishResolvedPose(
+            bool publicationEnabled,
+            bool hasAcceptedLocomotionLease) =>
+            publicationEnabled && hasAcceptedLocomotionLease;
 
         /// <summary>
         /// Stops runtime pose publication while a recovery adapter commits a
@@ -121,6 +155,7 @@ namespace Tormia.Ontology.Core
             nextPublishAt = 0f;
             nextSnapshotAt = 0f;
             lastObservedServerTick = 0;
+            lastAcceptedIntentSequence = 0;
             motionCoordinator?.ClearAuthorityCorrection();
             lastStatus = accepted
                 ? "Collision-resolved pose publisher reseeded."
@@ -140,9 +175,17 @@ namespace Tormia.Ontology.Core
                 yield break;
             }
 
+            var transport = ResolveResolvedPoseObservationTransport();
+            if (transport == null)
+            {
+                lastStatus = "Collision-resolved pose transport is unavailable.";
+                isPublishing = false;
+                yield break;
+            }
+
             var poseSequence = ++lastPoseSequence;
             OntologyAuthorityRuntimeIntentResult result = null;
-            yield return authorityClient.SendResolvedPlayerPoseRoutine(
+            yield return transport.SendResolvedPlayerPoseRoutine(
                 avatarId,
                 zoneStreamer.ActiveZoneKey,
                 intentSender.LastAcceptedSequence,
@@ -171,12 +214,31 @@ namespace Tormia.Ontology.Core
                 yield break;
             }
 
+            var feed = ResolveMotionSnapshotFeed();
+            if (feed == null)
+            {
+                lastStatus = "Authority motion snapshot feed is unavailable.";
+                isLoadingSnapshot = false;
+                yield break;
+            }
+
             OntologyAuthorityPlayerMotionState state = null;
-            yield return authorityClient.LoadPlayerMotionRoutine(
+            yield return feed.LoadPlayerMotionRoutine(
                 avatarId,
                 value => state = value);
+            var acceptedIntentSequence =
+                intentSender == null
+                    ? 0
+                    : intentSender.LastPredictionAffectingSequence;
             if (state != null &&
                 state.serverTick > lastObservedServerTick &&
+                string.Equals(
+                    state.runtimeSessionId,
+                    authorityClient.ActiveRuntimeSessionId,
+                    StringComparison.OrdinalIgnoreCase) &&
+                IsSnapshotCaughtUp(
+                    state.lastProcessedIntentSequence,
+                    acceptedIntentSequence) &&
                 string.Equals(
                     state.avatarEntityId,
                     avatarId.ToString("D"),
@@ -194,10 +256,19 @@ namespace Tormia.Ontology.Core
                     out var correction))
             {
                 lastObservedServerTick = state.serverTick;
+                if (!ShouldQueueAuthorityCorrection(
+                        state,
+                        correction,
+                        planarDeadZone))
+                {
+                    isLoadingSnapshot = false;
+                    yield break;
+                }
                 if (motionCoordinator != null &&
                     motionCoordinator.QueueAuthorityPlanarCorrection(
                         correction,
                         state.serverTick,
+                        state.lastProcessedIntentSequence,
                         maximumCorrectionSpeed,
                         planarDeadZone))
                 {
@@ -208,6 +279,38 @@ namespace Tormia.Ontology.Core
             }
             isLoadingSnapshot = false;
         }
+
+        public static bool ShouldQueueAuthorityCorrection(
+            OntologyAuthorityPlayerMotionState state,
+            Vector3 correction,
+            float deadZone)
+        {
+            if (state == null || !IsFinite(correction) ||
+                !float.IsFinite(deadZone) || deadZone < 0f)
+            {
+                return false;
+            }
+
+            // A repeated stationary snapshot is not evidence that presentation
+            // has reached it. Continue consuming newer snapshots until the
+            // actual local residual enters the dead zone; otherwise one bounded
+            // correction can leave Authority and Unity permanently separated.
+            return !IsStationarySnapshot(state) ||
+                   Vector3.ProjectOnPlane(correction, Vector3.up).magnitude >
+                   deadZone;
+        }
+
+        private static bool IsStationarySnapshot(
+            OntologyAuthorityPlayerMotionState state) =>
+            state != null &&
+            Math.Abs(state.velocityX) <= 0.0001d &&
+            Math.Abs(state.velocityZ) <= 0.0001d;
+
+        public static bool IsSnapshotCaughtUp(
+            long processedIntentSequence,
+            long acceptedIntentSequence) =>
+            acceptedIntentSequence > 0 &&
+            processedIntentSequence >= acceptedIntentSequence;
 
         public static bool TryResolvePlanarCorrection(
             OntologyAuthorityPlayerMotionState state,
@@ -285,6 +388,38 @@ namespace Tormia.Ontology.Core
                 : "idle";
         }
 
+        private void AdvanceAcceptedIntentFence()
+        {
+            if (intentSender == null)
+            {
+                return;
+            }
+
+            var predictionAffectingSequence =
+                intentSender.LastPredictionAffectingSequence;
+            if (predictionAffectingSequence <=
+                lastAcceptedIntentSequence)
+            {
+                return;
+            }
+
+            lastAcceptedIntentSequence =
+                predictionAffectingSequence;
+            motionCoordinator?.AdvanceAuthorityIntentFence(
+                predictionAffectingSequence);
+        }
+
+        private void HandleAcceptedSequenceAdvanced(long sequence)
+        {
+            if (sequence <= lastAcceptedIntentSequence)
+            {
+                return;
+            }
+
+            lastAcceptedIntentSequence = sequence;
+            motionCoordinator?.AdvanceAuthorityIntentFence(sequence);
+        }
+
         private bool CanUseRuntime()
         {
             return authorityClient != null &&
@@ -323,6 +458,7 @@ namespace Tormia.Ontology.Core
             intentSender ??=
                 FindAnyObjectByType<
                     OntologyWorldAuthorityPlayerIntentSender>();
+            SetIntentSenderSubscription(intentSender);
             playerInput ??=
                 GetComponent<OntologyInputSystemPlayerInput>();
             swimmingMovement ??=
@@ -331,6 +467,91 @@ namespace Tormia.Ontology.Core
                 GetComponent<OntologyAuthorityEntityIdentity>();
             motionCoordinator ??=
                 GetComponent<OntologyCharacterMotionCoordinator>();
+        }
+
+        private IResolvedPoseObservationTransport
+            ResolveResolvedPoseObservationTransport()
+        {
+            if (resolvedPoseObservationTransportSource != null)
+            {
+                var assignedTransport =
+                    resolvedPoseObservationTransportSource as
+                    IResolvedPoseObservationTransport;
+                if (assignedTransport == null)
+                {
+                    return null;
+                }
+                resolvedPoseObservationTransport = assignedTransport;
+                return resolvedPoseObservationTransport;
+            }
+
+            var adapter = GetComponent<OntologyWorldAuthorityHttpMotionTransport>();
+            if (adapter == null)
+            {
+                adapter = gameObject.AddComponent<
+                    OntologyWorldAuthorityHttpMotionTransport>();
+            }
+            adapter.Configure(authorityClient);
+            resolvedPoseObservationTransportSource = adapter;
+            resolvedPoseObservationTransport = adapter;
+            return resolvedPoseObservationTransport;
+        }
+
+        private IAuthorityMotionSnapshotFeed ResolveMotionSnapshotFeed()
+        {
+            if (motionSnapshotFeedSource != null)
+            {
+                var assignedFeed = motionSnapshotFeedSource as
+                    IAuthorityMotionSnapshotFeed;
+                if (assignedFeed == null)
+                {
+                    motionSnapshotFeed = null;
+                    return null;
+                }
+                motionSnapshotFeed = assignedFeed;
+                return motionSnapshotFeed;
+            }
+
+            if (authorityClient == null)
+            {
+                return null;
+            }
+
+            var feed = authorityClient.GetComponent<
+                OntologyWorldAuthorityMotionSnapshotFeed>();
+            if (feed == null)
+            {
+                feed = authorityClient.gameObject.AddComponent<
+                    OntologyWorldAuthorityMotionSnapshotFeed>();
+            }
+            feed.Configure(
+                authorityClient,
+                authorityClient.GetComponent<
+                    OntologyWorldAuthorityRealtimeClient>());
+            motionSnapshotFeedSource = feed;
+            motionSnapshotFeed = feed;
+            return motionSnapshotFeed;
+        }
+
+        private void SetIntentSenderSubscription(
+            OntologyWorldAuthorityPlayerIntentSender value)
+        {
+            if (ReferenceEquals(subscribedIntentSender, value))
+            {
+                return;
+            }
+
+            if (subscribedIntentSender != null)
+            {
+                subscribedIntentSender.AcceptedSequenceAdvanced -=
+                    HandleAcceptedSequenceAdvanced;
+            }
+            subscribedIntentSender = value;
+            if (subscribedIntentSender != null && isActiveAndEnabled)
+            {
+                subscribedIntentSender.AcceptedSequenceAdvanced +=
+                    HandleAcceptedSequenceAdvanced;
+            }
         }
     }
 }

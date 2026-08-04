@@ -345,18 +345,18 @@ MonoBehaviour:
     canBlend: 1
   - animationId: Anim_Jump_Fall
     legacyAnimationIds: []
-    clip: {fileID: 7400000, guid: 7cc61edbc91e4638a961fc0228920a80, type: 2}
+    clip: {fileID: -203655887218126122, guid: 7957c1d0990e4f3429339972f3fe5d1d, type: 3}
     actorTypes: []
     rigTypes: []
     layer: 0
     avatarMask: {fileID: 0}
     interruptible: 1
     loop: 1
-    transitionDuration: 0.12
+    transitionDuration: 0.2
     hasContactWindow: 0
     contactWindowStartNormalized: 0
     contactWindowEndNormalized: 1
-    playbackStartNormalized: 0.5
+    playbackStartNormalized: 0
     playbackEndNormalized: 1
     rootMotionMode: 1
     presentationOwner: 1
@@ -366,31 +366,6 @@ MonoBehaviour:
     - Fall
     intents:
     - Fall
-    priority: 35
-    canBlend: 1
-  - animationId: Anim_Jump_End
-    legacyAnimationIds: []
-    clip: {fileID: 7400000, guid: e234e2a5d3e04f9a8fa6d6295555c345, type: 2}
-    actorTypes: []
-    rigTypes: []
-    layer: 0
-    avatarMask: {fileID: 0}
-    interruptible: 1
-    loop: 0
-    transitionDuration: 0.15
-    hasContactWindow: 0
-    contactWindowStartNormalized: 0
-    contactWindowEndNormalized: 1
-    playbackStartNormalized: 0.85
-    playbackEndNormalized: 1
-    rootMotionMode: 1
-    presentationOwner: 1
-    properties:
-    - Jump
-    - Landing
-    - End
-    intents:
-    - Landing
     priority: 35
     canBlend: 1
   - animationId: Anim_Crouch_Walk_Forward
@@ -935,6 +910,7 @@ MonoBehaviour:
     contactWindowEndNormalized: 0.8
     playbackStartNormalized: 0
     playbackEndNormalized: 1
+    playbackSpeed: 1
     rootMotionMode: 0
     presentationOwner: 0
     properties:
@@ -1043,6 +1019,59 @@ MonoBehaviour:
     - Death
     priority: 120
     canBlend: 0
+  - animationId: Anim_Player_HitReaction_Front
+    legacyAnimationIds: []
+    clip: {fileID: -203655887218126122, guid: dd5dc42cfc0acbd4bab48b989ff91e8b, type: 3}
+    actorTypes:
+    - Player
+    rigTypes:
+    - Humanoid
+    layer: 0
+    avatarMask: {fileID: 0}
+    interruptible: 1
+    loop: 0
+    transitionDuration: 0.12
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
+    rootMotionMode: 1
+    presentationOwner: 0
+    properties:
+    - DamageReaction
+    - HeavySeverity
+    - Front
+    intents:
+    - HitReaction
+    priority: 110
+    canBlend: 1
+  - animationId: Anim_Player_Death_Left
+    legacyAnimationIds: []
+    clip: {fileID: -203655887218126122, guid: 6a27183037d19df4aac870cc12ae0743, type: 3}
+    actorTypes:
+    - Player
+    rigTypes:
+    - Humanoid
+    layer: 0
+    avatarMask: {fileID: 0}
+    interruptible: 0
+    loop: 0
+    transitionDuration: 0.18
+    hasContactWindow: 0
+    contactWindowStartNormalized: 0
+    contactWindowEndNormalized: 1
+    playbackStartNormalized: 0
+    playbackEndNormalized: 1
+    rootMotionMode: 1
+    presentationOwner: 0
+    properties:
+    - DeathReaction
+    - Left
+    intents:
+    - Death
+    priority: 130
+    canBlend: 1
   - animationId: Anim_Beholder_Attack
     legacyAnimationIds: []
     clip: {fileID: 7400000, guid: a5aa3ce397c24155845dba13bc634b36, type: 3}
@@ -1055,9 +1084,9 @@ MonoBehaviour:
     interruptible: 0
     loop: 0
     transitionDuration: 0.2
-    hasContactWindow: 0
-    contactWindowStartNormalized: 0
-    contactWindowEndNormalized: 1
+    hasContactWindow: 1
+    contactWindowStartNormalized: 0.4
+    contactWindowEndNormalized: 0.55
     playbackStartNormalized: 0
     playbackEndNormalized: 1
     rootMotionMode: 1

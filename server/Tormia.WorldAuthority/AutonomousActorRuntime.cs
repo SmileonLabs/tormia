@@ -21,7 +21,12 @@ internal sealed record WorldAutonomousActorMotionState(
     Guid? TargetEntityId,
     string ActorAnimationIntent,
     long PresentationSequence,
-    long UpdatedAtUnixMilliseconds);
+    long UpdatedAtUnixMilliseconds,
+    Guid? AttackOccurrenceId = null,
+    string AttackPhase = "idle",
+    long AttackContactAtUnixMilliseconds = 0,
+    long AttackRecoveryEndsAtUnixMilliseconds = 0,
+    bool AttackContactResolved = false);
 
 internal interface IWorldAutonomousActorRuntimeRegistry
 {
@@ -218,10 +223,12 @@ internal static class WorldAutonomousActorPolicy
 internal sealed partial class WorldAutonomousActorSimulationScheduler(
     WorldAuthorityRepository repository,
     IWorldPlayerMotionRuntimeRegistry playerMotion,
+    IWorldPlayerPoseObservationRegistry playerPoseObservations,
     IWorldAutonomousActorRuntimeRegistry actorMotion,
     IWorldZoneSessionRegistry sessions,
     IWorldZoneExecutionLeaseRegistry executionLeases,
     IWorldZoneRuntimeNotificationPublisher runtimeNotifications,
+    IWorldRevisionNotificationPublisher revisionNotifications,
     ILogger<WorldAutonomousActorSimulationScheduler> logger) :
     BackgroundService
 {
@@ -316,10 +323,27 @@ internal sealed partial class WorldAutonomousActorSimulationScheduler(
                         .ToDictionary(
                             value => value.ActorEntityId,
                             value => value);
+                    var activeEntityIds = targets
+                        .Select(value => value.EntityId)
+                        .ToHashSet();
 
                     var changed = false;
                     foreach (var configuration in configurations)
                     {
+                        // The target projection is queried every simulation
+                        // tick and is the current lifecycle authority. A
+                        // cached actor configuration must never resurrect an
+                        // actor that has already lost is_alive eligibility.
+                        if (!activeEntityIds.Contains(
+                                configuration.ActorEntityId))
+                        {
+                            await actorMotion.Remove(
+                                zone.WorldId,
+                                configuration.ActorEntityId,
+                                stoppingToken);
+                            changed = true;
+                            continue;
+                        }
                         changed |= await AdvanceActor(
                             configuration,
                             targets,
@@ -519,7 +543,18 @@ internal sealed partial class WorldAutonomousActorSimulationScheduler(
         }
 
         var next = state;
-        if (selected is null || selectedMotion is null)
+        if (state.AttackOccurrenceId.HasValue)
+        {
+            next = await AdvanceAttackOccurrence(
+                configuration,
+                state,
+                targets,
+                playerTargetStates,
+                autonomousTargetStates,
+                now,
+                cancellationToken);
+        }
+        else if (selected is null || selectedMotion is null)
         {
             next = MoveOrIdle(
                 configuration,
@@ -531,8 +566,18 @@ internal sealed partial class WorldAutonomousActorSimulationScheduler(
                 null,
                 now);
         }
-        else if (nearestDistance >
-                 configuration.AttackRange * configuration.AttackRange)
+        else if (!WorldAutonomousMeleeContactPolicy.HasContact(
+                     state.PositionX,
+                     state.PositionY,
+                     state.PositionZ,
+                     configuration.CollisionRadius,
+                     configuration.CollisionHeight,
+                     selectedMotion.PositionX,
+                     selectedMotion.PositionY,
+                     selectedMotion.PositionZ,
+                     selected.CollisionRadius,
+                     selected.CollisionHeight,
+                     configuration.AttackContactReach))
         {
             var chasePreview =
                 await repository.PreviewAutonomousAction(
@@ -570,24 +615,39 @@ internal sealed partial class WorldAutonomousActorSimulationScheduler(
                 configuration.PackageVersion,
                 configuration.AttackActionId,
                 configuration.ActionDefinitionVersion);
-            var action = await repository.ExecuteAutonomousAction(
+            var preview = await repository.PreviewAutonomousAction(
                 configuration.WorldId,
                 request,
                 cancellationToken);
-            var intent = action.Accepted &&
+            var intent = preview.Accepted &&
                          !string.IsNullOrWhiteSpace(
-                             action.ActorAnimationIntent)
-                ? action.ActorAnimationIntent!
+                             preview.ActorAnimationIntent)
+                ? preview.ActorAnimationIntent!
                 : configuration.IdleAnimationIntent;
-            var presentationSequence = action.Accepted
+            var presentationSequence = preview.Accepted
                 ? state.PresentationSequence + 1
                 : state.PresentationSequence;
             next = state with
             {
-                MotionStatus = action.Accepted ? "attacking" : "idle",
+                MotionStatus = preview.Accepted ? "attacking" : "idle",
                 TargetEntityId = selected.EntityId,
                 ActorAnimationIntent = intent,
                 PresentationSequence = presentationSequence,
+                AttackOccurrenceId = preview.Accepted
+                    ? Guid.NewGuid()
+                    : null,
+                AttackPhase = preview.Accepted ? "windup" : "idle",
+                AttackContactAtUnixMilliseconds = preview.Accepted
+                    ? now.AddSeconds(configuration.AttackWindupSeconds)
+                        .ToUnixTimeMilliseconds()
+                    : 0,
+                AttackRecoveryEndsAtUnixMilliseconds = preview.Accepted
+                    ? now.AddSeconds(
+                            configuration.AttackWindupSeconds +
+                            configuration.AttackRecoverySeconds)
+                        .ToUnixTimeMilliseconds()
+                    : 0,
+                AttackContactResolved = false,
                 UpdatedAtUnixMilliseconds =
                     now.ToUnixTimeMilliseconds()
             };
@@ -605,6 +665,291 @@ internal sealed partial class WorldAutonomousActorSimulationScheduler(
         return materiallyChanged;
     }
 
+    private async Task<WorldAutonomousActorMotionState>
+        AdvanceAttackOccurrence(
+            WorldAutonomousActorConfiguration configuration,
+            WorldAutonomousActorMotionState state,
+            IReadOnlyList<WorldAutonomousTargetConfiguration> targets,
+            IReadOnlyDictionary<Guid, WorldPlayerMotionState>
+                playerTargetStates,
+            IReadOnlyDictionary<Guid, WorldAutonomousActorMotionState>
+                autonomousTargetStates,
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+    {
+        var nowMilliseconds = now.ToUnixTimeMilliseconds();
+        if (WorldAutonomousAttackOccurrencePolicy.ShouldResolveContact(
+                state,
+                nowMilliseconds))
+        {
+            var target = state.TargetEntityId.HasValue
+                ? targets.FirstOrDefault(value =>
+                    value.EntityId == state.TargetEntityId.Value)
+                : null;
+            var hasCurrentContact =
+                target is not null &&
+                WorldAutonomousTargetPositionPolicy.TryResolve(
+                    target,
+                    playerTargetStates,
+                    autonomousTargetStates,
+                    out var targetPosition) &&
+                WorldAutonomousMeleeContactPolicy.HasContact(
+                    state.PositionX,
+                    state.PositionY,
+                    state.PositionZ,
+                    configuration.CollisionRadius,
+                    configuration.CollisionHeight,
+                    targetPosition.PositionX,
+                    targetPosition.PositionY,
+                    targetPosition.PositionZ,
+                    target.CollisionRadius,
+                    target.CollisionHeight,
+                    configuration.AttackContactReach);
+            if (hasCurrentContact && target!.UserId.HasValue)
+            {
+                var observation = await playerPoseObservations.Get(
+                    configuration.WorldId,
+                    target.EntityId,
+                    cancellationToken);
+                hasCurrentContact =
+                    WorldAutonomousPlayerContactObservationPolicy
+                        .HasFreshContact(
+                            observation,
+                            configuration.WorldId,
+                            target.EntityId,
+                            configuration.ZoneKey,
+                            state.PositionX,
+                            state.PositionY,
+                            state.PositionZ,
+                            configuration.CollisionRadius,
+                            configuration.CollisionHeight,
+                            target.CollisionRadius,
+                            target.CollisionHeight,
+                            configuration.AttackContactReach,
+                            nowMilliseconds);
+            }
+            if (!hasCurrentContact)
+            {
+                return CancelAttackOccurrence(configuration, state, nowMilliseconds);
+            }
+
+            var preview = await repository.PreviewAutonomousAction(
+                configuration.WorldId,
+                new ExecuteActionPayload(
+                    configuration.ActorEntityId,
+                    state.TargetEntityId!.Value,
+                    null,
+                    configuration.PackageId,
+                    configuration.PackageVersion,
+                    configuration.AttackActionId,
+                    configuration.ActionDefinitionVersion),
+                cancellationToken);
+            if (!preview.Accepted)
+            {
+                return CancelAttackOccurrence(configuration, state, nowMilliseconds);
+            }
+
+            var action = await repository.ExecuteAutonomousAction(
+                    configuration.WorldId,
+                    new ExecuteActionPayload(
+                        configuration.ActorEntityId,
+                        state.TargetEntityId.Value,
+                        null,
+                        configuration.PackageId,
+                        configuration.PackageVersion,
+                        configuration.AttackActionId,
+                        configuration.ActionDefinitionVersion),
+                    cancellationToken);
+            if (action.Accepted && action.Revision.HasValue)
+            {
+                await revisionNotifications.PublishCommitted(
+                    configuration.WorldId,
+                    configuration.ZoneKey,
+                    action.Revision.Value,
+                    action.EventId,
+                    "autonomous_attack_contact",
+                    state.TargetEntityId,
+                    action.DamageResult,
+                    cancellationToken);
+                if (action.TargetDefeated && state.TargetEntityId.HasValue)
+                {
+                    await actorMotion.Remove(
+                        configuration.WorldId,
+                        state.TargetEntityId.Value,
+                        cancellationToken);
+                }
+            }
+            return state with
+            {
+                MotionStatus = "attacking",
+                AttackPhase = "recovery",
+                AttackContactResolved = true,
+                UpdatedAtUnixMilliseconds = nowMilliseconds
+            };
+        }
+
+        if (WorldAutonomousAttackOccurrencePolicy.ShouldCompleteRecovery(
+                state,
+                nowMilliseconds))
+        {
+            return state with
+            {
+                MotionStatus = "idle",
+                TargetEntityId = null,
+                ActorAnimationIntent = configuration.IdleAnimationIntent,
+                AttackOccurrenceId = null,
+                AttackPhase = "idle",
+                AttackContactAtUnixMilliseconds = 0,
+                AttackRecoveryEndsAtUnixMilliseconds = 0,
+                AttackContactResolved = false,
+                UpdatedAtUnixMilliseconds = nowMilliseconds
+            };
+        }
+
+        return state;
+    }
+
+    private static WorldAutonomousActorMotionState CancelAttackOccurrence(
+        WorldAutonomousActorConfiguration configuration,
+        WorldAutonomousActorMotionState state,
+        long nowMilliseconds) => state with
+    {
+        MotionStatus = "idle",
+        TargetEntityId = null,
+        ActorAnimationIntent = configuration.IdleAnimationIntent,
+        AttackOccurrenceId = null,
+        AttackPhase = "idle",
+        AttackContactAtUnixMilliseconds = 0,
+        AttackRecoveryEndsAtUnixMilliseconds = 0,
+        AttackContactResolved = false,
+        UpdatedAtUnixMilliseconds = nowMilliseconds
+    };
+
+}
+
+/// <summary>
+/// Defines the Authority-owned temporal boundaries of one autonomous attack.
+/// The Rule Block still owns eligibility and damage; this policy only decides
+/// when the already evaluated occurrence reaches contact and recovery.
+/// </summary>
+internal static class WorldAutonomousAttackOccurrencePolicy
+{
+    public static bool ShouldResolveContact(
+        WorldAutonomousActorMotionState state,
+        long nowUnixMilliseconds) =>
+        state.AttackOccurrenceId.HasValue &&
+        !state.AttackContactResolved &&
+        nowUnixMilliseconds >= state.AttackContactAtUnixMilliseconds;
+
+    public static bool ShouldCompleteRecovery(
+        WorldAutonomousActorMotionState state,
+        long nowUnixMilliseconds) =>
+        state.AttackOccurrenceId.HasValue &&
+        state.AttackContactResolved &&
+        nowUnixMilliseconds >= state.AttackRecoveryEndsAtUnixMilliseconds;
+}
+
+/// <summary>
+/// Resolves melee contact from authored collision capsules. Attack range
+/// remains an action constraint; it is not a substitute for physical contact.
+/// Invalid or missing geometry fails closed in the repository projection.
+/// </summary>
+internal static class WorldAutonomousMeleeContactPolicy
+{
+    public static bool HasContact(
+        double actorX,
+        double actorY,
+        double actorZ,
+        double actorRadius,
+        double actorHeight,
+        double targetX,
+        double targetY,
+        double targetZ,
+        double targetRadius,
+        double targetHeight,
+        double contactReach)
+    {
+        if (!double.IsFinite(actorX) || !double.IsFinite(actorY) ||
+            !double.IsFinite(actorZ) || !double.IsFinite(targetX) ||
+            !double.IsFinite(targetY) || !double.IsFinite(targetZ) ||
+            !double.IsFinite(actorRadius) || actorRadius <= 0d ||
+            !double.IsFinite(actorHeight) || actorHeight <= 0d ||
+            !double.IsFinite(targetRadius) || targetRadius <= 0d ||
+            !double.IsFinite(targetHeight) || targetHeight <= 0d ||
+            !double.IsFinite(contactReach) || contactReach < 0d)
+        {
+            return false;
+        }
+
+        var verticalOverlap =
+            actorY <= targetY + targetHeight &&
+            targetY <= actorY + actorHeight;
+        if (!verticalOverlap) return false;
+
+        var allowed = actorRadius + targetRadius + contactReach;
+        return WorldAutonomousActorPolicy.DistanceSquared(
+                   actorX,
+                   actorZ,
+                   targetX,
+                   targetZ) <= allowed * allowed;
+    }
+}
+
+/// <summary>
+/// A player target must corroborate Authority contact with a recent
+/// collision-resolved presentation observation. The observation never moves
+/// Authority state; it can only fail a damage occurrence closed when the
+/// client presentation has already escaped contact or stopped reporting.
+/// </summary>
+internal static class WorldAutonomousPlayerContactObservationPolicy
+{
+    private const long MaximumObservationAgeMilliseconds = 1500;
+
+    public static bool HasFreshContact(
+        WorldPlayerPoseObservation? observation,
+        Guid worldId,
+        Guid avatarEntityId,
+        string zoneKey,
+        double actorX,
+        double actorY,
+        double actorZ,
+        double actorRadius,
+        double actorHeight,
+        double targetRadius,
+        double targetHeight,
+        double contactReach,
+        long nowUnixMilliseconds)
+    {
+        if (observation is null ||
+            observation.WorldId != worldId ||
+            observation.AvatarEntityId != avatarEntityId ||
+            !string.Equals(
+                observation.ZoneKey,
+                zoneKey,
+                StringComparison.Ordinal) ||
+            observation.IntentSequence <= 0 ||
+            observation.PoseSequence <= 0 ||
+            observation.ObservedAtUnixMilliseconds >
+                nowUnixMilliseconds + 250 ||
+            nowUnixMilliseconds - observation.ObservedAtUnixMilliseconds >
+                MaximumObservationAgeMilliseconds)
+        {
+            return false;
+        }
+
+        return WorldAutonomousMeleeContactPolicy.HasContact(
+            actorX,
+            actorY,
+            actorZ,
+            actorRadius,
+            actorHeight,
+            observation.PositionX,
+            observation.PositionY,
+            observation.PositionZ,
+            targetRadius,
+            targetHeight,
+            contactReach);
+    }
 }
 
 /// <summary>
@@ -751,7 +1096,17 @@ internal sealed partial class WorldAutonomousActorSimulationScheduler
                    right.MotionStatus,
                    StringComparison.Ordinal) &&
                left.TargetEntityId == right.TargetEntityId &&
-               left.PresentationSequence == right.PresentationSequence;
+               left.PresentationSequence == right.PresentationSequence &&
+               left.AttackOccurrenceId == right.AttackOccurrenceId &&
+               string.Equals(
+                   left.AttackPhase,
+                   right.AttackPhase,
+                   StringComparison.Ordinal) &&
+               left.AttackContactAtUnixMilliseconds ==
+                   right.AttackContactAtUnixMilliseconds &&
+               left.AttackRecoveryEndsAtUnixMilliseconds ==
+                   right.AttackRecoveryEndsAtUnixMilliseconds &&
+               left.AttackContactResolved == right.AttackContactResolved;
     }
 
     private sealed record ActorCacheEntry(

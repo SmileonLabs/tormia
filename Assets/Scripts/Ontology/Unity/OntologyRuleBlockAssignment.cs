@@ -8,8 +8,17 @@ namespace Tormia.Ontology.Core
     [Serializable]
     public sealed class OntologyRuleBlockBinding
     {
+        public string bindingId;
         public string ruleId;
+        public int ruleVersion = 1;
         public string bindingVariable = "?target";
+        public string parameterValuesJson = "{}";
+        public string applicationId;
+        public string packageId;
+        public string slotId;
+        public long createdRevision;
+
+        public bool IsAuthorityBinding => Guid.TryParse(bindingId, out _);
     }
 
     /// <summary>
@@ -50,6 +59,17 @@ namespace Tormia.Ontology.Core
                 value.bindingVariable == bindingVariable) > 0;
         }
 
+        public bool RemoveByBindingId(string bindingId)
+        {
+            if (!Guid.TryParse(bindingId, out _)) return false;
+            var index = bindings.FindIndex(value => value != null &&
+                string.Equals(value.bindingId, bindingId,
+                    StringComparison.OrdinalIgnoreCase));
+            if (index < 0) return false;
+            bindings.RemoveAt(index);
+            return true;
+        }
+
         public void Replace(IEnumerable<OntologyRuleBlockBinding> values)
         {
             bindings = values == null
@@ -61,8 +81,15 @@ namespace Tormia.Ontology.Core
                         !string.IsNullOrWhiteSpace(value.bindingVariable))
                     .Select(value => new OntologyRuleBlockBinding
                     {
+                        bindingId = value.bindingId,
                         ruleId = value.ruleId.Trim(),
-                        bindingVariable = value.bindingVariable.Trim()
+                        ruleVersion = value.ruleVersion,
+                        bindingVariable = value.bindingVariable.Trim(),
+                        parameterValuesJson = value.parameterValuesJson,
+                        applicationId = value.applicationId,
+                        packageId = value.packageId,
+                        slotId = value.slotId,
+                        createdRevision = value.createdRevision
                     })
                     .ToList();
         }

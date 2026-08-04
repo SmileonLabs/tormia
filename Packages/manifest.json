@@ -1,5 +1,15 @@
 {
+  "scopedRegistries": [
+    {
+      "name": "OpenUPM",
+      "url": "https://package.openupm.com",
+      "scopes": [
+        "com.revenantx"
+      ]
+    }
+  ],
   "dependencies": {
+    "com.revenantx.litenetlib": "2.1.4",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#v10.1.0",
     "com.unity.ai.assistant": "2.16.0-pre.1",
     "com.unity.ai.inference": "2.6.1",

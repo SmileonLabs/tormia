@@ -9,6 +9,41 @@ namespace Tormia.Ontology.Tests
     public sealed class OntologyRuntimeDataAssetTests
     {
         [Test]
+        public void WorldAuthorityEndpointCanSwitchEditorBetweenRemoteAndLocal()
+        {
+            var settings = Load<OntologyWorldAuthoritySettings>(
+                "Assets/Data/Ontology/Networking/WorldAuthoritySettings.asset");
+
+            Assert.That(
+                settings.ResolveBaseUrl(RuntimePlatform.WindowsEditor),
+                Is.EqualTo("https://tov-api.punkarena.app"));
+            Assert.That(
+                settings.ResolveBaseUrl(RuntimePlatform.Android),
+                Is.EqualTo("https://tov-api.punkarena.app"));
+
+            var localSettings = ScriptableObject.CreateInstance<
+                OntologyWorldAuthoritySettings>();
+            try
+            {
+                localSettings.baseUrl = "http://127.0.0.1:5272/";
+                localSettings.androidBaseUrl =
+                    "https://tov-api.punkarena.app/";
+                localSettings.useRemoteEndpointInEditor = false;
+
+                Assert.That(
+                    localSettings.ResolveBaseUrl(RuntimePlatform.WindowsEditor),
+                    Is.EqualTo("http://127.0.0.1:5272"));
+                Assert.That(
+                    localSettings.ResolveBaseUrl(RuntimePlatform.Android),
+                    Is.EqualTo("https://tov-api.punkarena.app"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(localSettings);
+            }
+        }
+
+        [Test]
         public void RuntimeDatabasesExistAndPassValidation()
         {
             var rules = Load<OntologyRuleDatabase>("Assets/Data/Ontology/RuleDatabase.asset");
@@ -689,6 +724,97 @@ namespace Tormia.Ontology.Tests
                         markerPresent: true),
                 Is.False,
                 "After migration, a later authored profile choice must remain authoritative.");
+        }
+
+        [Test]
+        public void InteractionEquipPresetPublishesReusableEquipAndUnequipPackage()
+        {
+            var presets = Load<OntologyRuleBlockPresetDatabase>(
+                "Assets/Data/Ontology/RuleBlockPresetDatabase.asset");
+            var preset = presets.Find("interaction_equip");
+
+            Assert.That(preset, Is.Not.Null);
+            Assert.That(
+                preset.primaryRuleId,
+                Is.EqualTo(OntologyRuleBlocks.EquipItemOnInteractionIntent));
+            Assert.That(
+                preset.additionalRuleBlocks.Any(value =>
+                    value != null &&
+                    value.ruleId ==
+                    OntologyRuleBlocks.UnequipItemOnInteractionIntent),
+                Is.True);
+            Assert.That(preset.requiredConcepts, Does.Contain("Item"));
+            Assert.That(
+                preset.requiredExistingConcepts,
+                Does.Contain(OntologyConcepts.Carryable));
+            Assert.That(
+                preset.requiredFacts.Any(value =>
+                    value != null &&
+                    value.predicate == OntologyPredicates.CanEquip &&
+                    value.obj == bool.TrueString),
+                Is.True);
+            Assert.That(
+                preset.requiredFacts.Any(value =>
+                    value != null &&
+                    value.predicate == OntologyPredicates.EquipAction &&
+                    value.obj == "equip_weapon"),
+                Is.True);
+            Assert.That(
+                preset.requiredFacts.Any(value =>
+                    value != null &&
+                    value.predicate == OntologyPredicates.UnequipAction &&
+                    value.obj == "unequip_equipment"),
+                Is.True);
+            Assert.That(
+                preset.requiredFacts.Any(value =>
+                    value != null &&
+                    value.predicate == OntologyPredicates.InteractionRange &&
+                    value.obj == "3"),
+                Is.True);
+        }
+
+        [Test]
+        public void MeleeWeaponPresetPublishesCompletePortableWeaponContract()
+        {
+            var presets = Load<OntologyRuleBlockPresetDatabase>(
+                "Assets/Data/Ontology/RuleBlockPresetDatabase.asset");
+            var preset = presets.Find("melee_weapon");
+
+            Assert.That(preset, Is.Not.Null);
+            Assert.That(
+                preset.primaryRuleId,
+                Is.EqualTo(OntologyRuleBlocks.MeleeAttackOnPrimaryIntent));
+            Assert.That(
+                preset.additionalRuleBlocks.Select(value => value.ruleId),
+                Is.SupersetOf(new[]
+                {
+                    OntologyRuleBlocks.EquipItemOnInteractionIntent,
+                    OntologyRuleBlocks.UnequipItemOnInteractionIntent,
+                    OntologyRuleBlocks.SwingWeaponOnPrimaryIntent
+                }));
+            Assert.That(preset.requiredConcepts, Does.Contain("Weapon"));
+            Assert.That(preset.physicalProfileId, Is.EqualTo("HandheldWeapon"));
+            Assert.That(
+                preset.requiredFacts,
+                Has.Some.Matches<OntologyFactEntry>(value =>
+                    value != null &&
+                    value.predicate == OntologyPredicates.AttackContactMode &&
+                    value.obj == OntologyObjects.WeaponContactWindow));
+            Assert.That(
+                preset.requiredFacts,
+                Has.Some.Matches<OntologyFactEntry>(value =>
+                    value != null &&
+                    value.predicate == OntologyPredicates.AttackAction &&
+                    value.obj == "attack"));
+            Assert.That(
+                preset.requiredFacts,
+                Has.Some.Matches<OntologyFactEntry>(value =>
+                    value != null &&
+                    value.predicate == OntologyPredicates.SwingAction &&
+                    value.obj == "swing_weapon"));
+            Assert.That(
+                preset.requiredExistingPredicates,
+                Does.Contain(OntologyPredicates.AttachmentProfile));
         }
 
         private static T Load<T>(string path) where T : UnityEngine.Object

@@ -24,6 +24,8 @@ MonoBehaviour:
   defaultFacts:
   - predicate: belongs_to_faction
     obj: PlayerFaction
+  - predicate: hostile_to_faction
+    obj: WildMonster
   - predicate: current_health
     obj: 100
   - predicate: maximum_health
@@ -54,6 +56,10 @@ MonoBehaviour:
     obj: 0
   - predicate: idle_animation_intent
     obj: Idle
+  - predicate: hit_animation_intent
+    obj: HitReaction
+  - predicate: death_animation_intent
+    obj: Death
   - predicate: move_animation_intent
     obj: Locomotion
   - predicate: sprint_speed
@@ -101,10 +107,11 @@ MonoBehaviour:
   - Anim_Idle_Breathing
   - Anim_Idle_Look_Around
   - Anim_Idle_Relaxed
-  - Anim_Jump_End
   - Anim_Jump_Fall
   - Anim_Jump_Loop
   - Anim_Jump_Start
+  - Anim_Player_Death_Left
+  - Anim_Player_HitReaction_Front
   - Anim_Run_Backward
   - Anim_Run_Forward
   - Anim_Run_Left

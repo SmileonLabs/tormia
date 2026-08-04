@@ -186,8 +186,28 @@ Write-Check "Core regression manifest" {
     }
 }
 
+Write-Check "Immutable development content release manifest" {
+    $verifier = Require-Path 'scripts/verify-content-release-manifest.ps1'
+    & $verifier
+}
+
+Write-Check "World entry content boundary" {
+    $verifier = Require-Path 'scripts/verify-world-entry-boundary.ps1'
+    & $verifier
+}
+
+Write-Check "Legacy migration ledger adoption safety" {
+    $verifier = Require-Path 'scripts/verify-migration-adoption-safety.ps1'
+    & $verifier
+}
+
+Write-Check "Realtime transport dependency pins" {
+    $verifier = Require-Path 'scripts/verify-realtime-transport-dependencies.ps1'
+    & $verifier
+}
+
 if ($RequireUnityMcp) {
-    Write-Check "Unity MCP persistent HTTP connection" {
+    Write-Check "Unity official MCP relay and Editor bridge" {
         $mcpVerifier = Require-Path 'scripts/verify-unity-mcp.ps1'
         & $mcpVerifier
     }
@@ -229,6 +249,13 @@ if ($null -eq $docker) {
     $warnings.Add('Docker was not found; service checks were skipped.')
 }
 elseif ($RequireServices) {
+    Write-Check "World Authority deployment sync" {
+        $compose = Require-Path 'infrastructure/docker-compose.yml'
+        $envFile = Require-Path 'infrastructure/.env'
+        & docker compose --env-file $envFile -f $compose up -d --build world-authority
+        if ($LASTEXITCODE -ne 0) { throw "docker compose up exited with $LASTEXITCODE" }
+    }
+
     Write-Check "Local Docker service status" {
         $compose = Require-Path 'infrastructure/docker-compose.yml'
         $envFile = Require-Path 'infrastructure/.env'
@@ -237,8 +264,53 @@ elseif ($RequireServices) {
     }
 
     Write-Check "World Authority health" {
-        $health = Invoke-RestMethod -Uri 'http://127.0.0.1:5272/health' -TimeoutSec 5
-        if ($health.status -ne 'healthy') { throw 'World Authority did not report healthy.' }
+        $health = $null
+        for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            try {
+                $health = Invoke-RestMethod -Uri 'http://127.0.0.1:5272/health' -TimeoutSec 2
+                if ($health.status -eq 'healthy') { break }
+            }
+            catch {
+                Start-Sleep -Seconds 1
+            }
+        }
+        if ($null -eq $health -or $health.status -ne 'healthy') {
+            throw 'World Authority did not report healthy after deployment.'
+        }
+    }
+
+    Write-Check "World Authority entry API contract" {
+        $statusCode = $null
+        try {
+            Invoke-WebRequest `
+                -UseBasicParsing `
+                -Method Post `
+                -Uri 'http://127.0.0.1:5272/v1/worlds/00000000-0000-0000-0000-000000000000/content/preflight' `
+                -ContentType 'application/json' `
+                -Body '{"packageId":"harness-probe","packageVersion":1,"rules":[],"actions":[]}' `
+                -TimeoutSec 5 | Out-Null
+            $statusCode = 200
+        }
+        catch {
+            if ($null -ne $_.Exception.Response) {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+            }
+            else {
+                throw
+            }
+        }
+
+        # The probe is intentionally invalid and unauthenticated. Depending on
+        # minimal-API binding order, a current server rejects it with 400 or 401;
+        # a stale deployment that does not contain the route returns 404.
+        if ($statusCode -ne 400 -and $statusCode -ne 401) {
+            throw "World Authority content preflight route contract mismatch (HTTP $statusCode)."
+        }
+    }
+
+    Write-Check "PostgreSQL migration readiness" {
+        $migrationVerifier = Require-Path 'scripts/verify-database-migrations.ps1'
+        & $migrationVerifier
     }
 
     if ($RunAccountWorldLoopSmoke) {

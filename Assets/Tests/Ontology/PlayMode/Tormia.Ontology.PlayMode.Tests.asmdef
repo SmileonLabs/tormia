@@ -3,6 +3,7 @@
     "rootNamespace": "Tormia.Ontology.Tests",
     "references": [
         "Tormia.Ontology.Core",
+        "GUID:978ebfd467084090ac22a57ff746df15",
         "Tormia.Ontology.Unity",
         "Tormia.Ontology.UI",
         "Unity.TextMeshPro"

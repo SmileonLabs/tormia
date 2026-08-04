@@ -35,6 +35,14 @@ MonoBehaviour:
     obj: SelectThenCarry
   - predicate: physical_profile
     obj: HandheldWeapon
+  - predicate: attack_playback_speed
+    obj: 2
+  - predicate: attack_contact_reach
+    obj: 1.2
+  - predicate: attack_contact_open_seconds
+    obj: 0.4
+  - predicate: attack_contact_window_seconds
+    obj: 2
   - predicate: attack_action
     obj: attack
   - predicate: equip_action
@@ -51,5 +59,9 @@ MonoBehaviour:
     obj: 1
   - predicate: attack_contact_mode
     obj: WeaponContactWindow
+  - predicate: idle_animation_intent
+    obj: WeaponIdle
+  - predicate: move_animation_intent
+    obj: WeaponWalk
   retiredConcepts: []
   retiredFacts: []

@@ -70,8 +70,18 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Platform: Host=postgres;Port=5432;Database=${POSTGRES_DB:-tormia};Username=${POSTGRES_USER:-tormia_app};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infrastructure/.env};Pooling=true;Maximum Pool Size=100
       ConnectionStrings__RealtimeRedis: redis:6379,password=${REDIS_PASSWORD:?Set REDIS_PASSWORD in infrastructure/.env},abortConnect=false
+      Realtime__UdpEnabled: ${REALTIME_UDP_ENABLED:-false}
+      Realtime__UdpListenerEnabled: ${REALTIME_UDP_LISTENER_ENABLED:-false}
+      Realtime__UdpListenerPort: ${REALTIME_UDP_LISTENER_PORT:-5273}
+      Realtime__UdpRequireHttps: ${REALTIME_UDP_REQUIRE_HTTPS:-true}
+      Realtime__UdpAllowSingleInstanceDevelopment: ${REALTIME_UDP_ALLOW_SINGLE_INSTANCE_DEVELOPMENT:-false}
+      Realtime__UdpCredentialProtectionKeyBase64: ${REALTIME_UDP_CREDENTIAL_PROTECTION_KEY_BASE64:-}
+      Realtime__UdpCredentialProtectionKeyId: ${REALTIME_UDP_CREDENTIAL_PROTECTION_KEY_ID:-}
+      Realtime__TrustedProxyAddresses: ${REALTIME_TRUSTED_PROXY_ADDRESSES:-}
     ports:
       - "127.0.0.1:${WORLD_AUTHORITY_PORT:-5272}:8080"
+      # UDP is intentionally not mapped by the default local stack. Use the
+      # isolated remote rollout helper only after its health and rollback gates.
     depends_on:
       postgres:
         condition: service_healthy

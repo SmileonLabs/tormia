@@ -74,6 +74,48 @@ namespace Tormia.Ontology.Core
             SetVisible(true);
             RefreshLabels();
             ApplyProgress();
+            StartCoroutine(PrepareThenEnterRoutine());
+        }
+
+        private IEnumerator PrepareThenEnterRoutine()
+        {
+            // Existing owner worlds may predate the current immutable content
+            // release and avatar semantic contract. Preparation is an explicit,
+            // idempotent phase owned by this launch orchestrator; the admission
+            // routine itself remains read-only and never repairs world data.
+            if (entryFlow.CanEditSelectedWorld)
+            {
+                if (stageLabel != null)
+                {
+                    stageLabel.text = L(
+                        "ui.account.world_entry_loading.preparing_contract",
+                        "Preparing world contract");
+                }
+
+                var preparationCompleted = false;
+                var prepared = false;
+                entryFlow.PrepareSelectedDevelopmentWorld(
+                    value =>
+                    {
+                        prepared = value;
+                        preparationCompleted = true;
+                    });
+                while (!preparationCompleted)
+                    yield return null;
+
+                if (!prepared)
+                {
+                    OnEntryCompleted(false);
+                    yield break;
+                }
+            }
+
+            if (stageLabel != null)
+            {
+                stageLabel.text = L(
+                    "ui.account.world_entry_loading.stage",
+                    "Loading world data");
+            }
             entryFlow.EnterSelectedCharacterInCurrentWorld(OnEntryCompleted);
         }
 

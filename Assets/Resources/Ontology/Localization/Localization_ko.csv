@@ -99,6 +99,7 @@ ui.account.profile_final_review.enter,월드 입장,계정 진입
 ui.account.world_entry_loading.title,월드 입장 중,계정 진입
 ui.account.world_entry_loading.preparing,모험을 준비하고 있습니다...,계정 진입
 ui.account.world_entry_loading.stage,월드 데이터 불러오는 중,계정 진입
+ui.account.world_entry_loading.preparing_contract,월드 계약 준비 중,계정 진입
 ui.account.world_entry_loading.ready,월드 준비 완료,계정 진입
 ui.account.world_entry_loading.failed,월드 입장 실패,계정 진입
 ui.account.world_entry_loading.tip_heading,팁,계정 진입
@@ -657,6 +658,7 @@ physical_detail.format,"예상 결과
 attachment_profile.BackCarry,등에 메기,장착 프로필
 attachment_profile.DriverSeatMount,운전석 탑승,장착 프로필
 attachment_profile.RightHandCarry,오른손 들기,장착 프로필
+attachment_profile.RightHandObjectCarry,오른손 오브젝트 들기,장착 프로필
 attachment_profile.WaistInflatableRing,허리 튜브 착용,장착 프로필
 character_part.Part_Body_Base,기본 몸 010,캐릭터 파츠
 character_part.Part_Face_Base,기본 표정,캐릭터 파츠
@@ -929,6 +931,12 @@ value.MonsterRun,몬스터 달리기,애니메이션 의도
 value.MonsterAttack,몬스터 공격,애니메이션 의도
 relation.attack_contact_mode,공격 접촉 방식,관계
 fact.attack_contact_mode,{0}의 공격 접촉 방식은 {1}입니다.,사용자용 팩트
+relation.attack_contact_reach,공격 접촉 여유 거리,관계
+fact.attack_contact_reach,{0}의 공격 접촉 여유 거리는 {1}입니다.,읽기 쉬운 팩트
+relation.attack_contact_open_seconds,공격 접촉 시작 시간,관계
+fact.attack_contact_open_seconds,{0}의 공격 접촉은 {1}초 후 시작됩니다.,읽기 쉬운 팩트
+relation.attack_contact_window_seconds,공격 접촉 구간 길이,관계
+fact.attack_contact_window_seconds,{0}의 공격 접촉 구간은 {1}초 동안 유지됩니다.,읽기 쉬운 팩트
 value.WeaponContactWindow,무기 애니메이션 접촉 구간,값
 category.Combat,전투,배치 카테고리
 physical_profile.AuthorityKinematic,Authority 주도 키네마틱,물리 프로필
@@ -1098,6 +1106,8 @@ physical_choice.HandheldWeapon,손에 드는 무기로 사용,물리 행동
 physical_result.HandheldWeapon,이 오브젝트는 손에 드는 무기의 장착 및 접촉 방식을 사용합니다.,물리 행동
 relation.attack_action,공격 행동,관계
 relation.attack_cooldown,공격 재사용 대기시간,관계
+relation.attack_windup_seconds,공격 준비 시간,관계
+relation.attack_recovery_seconds,공격 회복 시간,관계
 relation.attack_damage,공격 피해량,관계
 relation.attack_range,공격 범위,관계
 relation.belongs_to_faction,소속 진영,관계
@@ -1148,6 +1158,7 @@ collision_proxy_shape.Capsule,캡슐,충돌 프록시 모양
 collision_proxy_shape.Box,박스,충돌 프록시 모양
 relation.respawn_action,부활 행동,관계
 relation.semantic_contract_version,의미 계약 버전,관계
+relation.semantic_contract_checksum,의미 계약 체크섬,관계
 relation.swing_action,휘두르기 행동,관계
 relation.target_action,대상 선택 행동,관계
 relation.target_concept,대상 개념,관계
@@ -1155,6 +1166,8 @@ relation.targeting_profile,대상 선택 프로필,관계
 relation.unequip_action,장착 해제 행동,관계
 fact.attack_action,{0}의 공격 행동은 {1}입니다.,읽기 쉬운 팩트
 fact.attack_cooldown,{0}의 공격 재사용 대기시간은 {1}입니다.,읽기 쉬운 팩트
+fact.attack_windup_seconds,{0}의 공격 준비 시간은 {1}초입니다.,읽기 쉬운 팩트
+fact.attack_recovery_seconds,{0}의 공격 회복 시간은 {1}초입니다.,읽기 쉬운 팩트
 fact.attack_damage,{0}의 공격 피해량은 {1}입니다.,읽기 쉬운 팩트
 fact.attack_range,{0}의 공격 범위는 {1}입니다.,읽기 쉬운 팩트
 fact.belongs_to_faction,{0}의 소속 진영은 {1}입니다.,읽기 쉬운 팩트
@@ -1198,6 +1211,7 @@ fact.collision_center_offset_y,{0}의 충돌 중심 Y 오프셋은 {1}입니다.
 fact.collision_center_offset_z,{0}의 충돌 중심 Z 오프셋은 {1}입니다.,읽기 쉬운 팩트
 fact.respawn_action,{0}의 부활 행동은 {1}입니다.,읽기 쉬운 팩트
 fact.semantic_contract_version,{0}의 의미 계약 버전은 {1}입니다.,읽기 쉬운 팩트
+fact.semantic_contract_checksum,{0}의 의미 계약 체크섬은 {1}입니다.,읽기 쉬운 팩트
 fact.swing_action,{0}의 휘두르기 행동은 {1}입니다.,읽기 쉬운 팩트
 fact.target_action,{0}의 대상 선택 행동은 {1}입니다.,읽기 쉬운 팩트
 fact.target_concept,{0}의 대상 개념은 {1}입니다.,읽기 쉬운 팩트
@@ -1264,3 +1278,7 @@ variable.targetfaction,대상 진영,규칙 변수
 variable.tick,틱,규칙 변수
 variable.tile,타일,규칙 변수
 variable.vitality,생명력,규칙 변수
+rule_preset.interaction_equip,상호작용 장착,규칙 블록 빠른 설정
+rule_preset.interaction_equip.description,행위자가 상호작용 의도를 보내면 이 운반 가능 아이템을 장착하거나 해제합니다.,규칙 블록 빠른 설정
+rule_preset.melee_weapon,근접 무기로 만들기,규칙 블록 빠른 설정
+rule_preset.melee_weapon.description,선택한 오브젝트에 장착·해제·휘두르기·근접 공격 규칙과 손에 드는 물리 의미를 하나의 패키지로 추가합니다.,규칙 블록 빠른 설정

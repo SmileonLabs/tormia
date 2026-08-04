@@ -269,6 +269,20 @@ namespace Tormia.Ontology.Tests
                 Is.False);
         }
 
+        [Test]
+        public void SwimmingMeaningOwnsPresentationOverAirborneResolver()
+        {
+            Assert.That(
+                OntologyAnimationAdapter.ShouldPrioritizeResolvedMotionState(
+                    true,
+                    true,
+                    OntologyAnimationStateKind.Airborne,
+                    semanticMovementPresentationActive: true),
+                Is.False,
+                "An evaluated swimming result must not be replaced by a " +
+                "local airborne presentation state.");
+        }
+
         private static AnimationClip LoadClip(string path)
         {
             var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);

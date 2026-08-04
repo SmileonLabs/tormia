@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace Tormia.Ontology.Core
 {
+    [DefaultExecutionOrder(-100)]
     [RequireComponent(typeof(CharacterController))]
     public sealed class OntologyInputSystemPlayerInput : MonoBehaviour
     {
@@ -100,6 +101,7 @@ namespace Tormia.Ontology.Core
         private InputAction jumpAction;
         private InputAction clickAction;
         private InputAction pointerPositionAction;
+        private bool ownsInputActions;
         private float verticalVelocity;
         private uint jumpOccurrence;
         private float externalImpulseDamping;
@@ -143,9 +145,36 @@ namespace Tormia.Ontology.Core
             out Vector2 worldDirection,
             out float requestedSpeed)
         {
+            return TryGetWorldMoveIntent(
+                out worldDirection,
+                out requestedSpeed,
+                out _,
+                out _,
+                out _);
+        }
+
+        public bool TryGetWorldMoveIntent(
+            out Vector2 worldDirection,
+            out float requestedSpeed,
+            out bool hasDestination,
+            out Vector2 destination,
+            out float destinationStopDistance)
+        {
             worldDirection = Vector2.zero;
             requestedSpeed = 0f;
-            if (!lastHadInput)
+            hasDestination = false;
+            destination = Vector2.zero;
+            destinationStopDistance = 0f;
+            var retainGroundDestinationForAuthority =
+                hasClickTarget &&
+                selectedCombatTarget == null &&
+                selectedInteractionObject == null &&
+                HasReachedClickDestination(
+                    GetActiveClickTargetPlanarDistance(),
+                    GetActiveClickStopDistance(),
+                    GetCanonicalArrivalTolerance());
+            if (!lastHadInput &&
+                !retainGroundDestinationForAuthority)
             {
                 return false;
             }
@@ -153,26 +182,72 @@ namespace Tormia.Ontology.Core
             var move = hasClickTarget
                 ? GetClickMoveDirection()
                 : GetCameraRelativeMove(lastMoveAxis);
-            if (move.sqrMagnitude <= 0.0001f)
+            if (move.sqrMagnitude <= 0.0001f &&
+                !retainGroundDestinationForAuthority)
             {
                 return false;
             }
 
-            move.Normalize();
+            if (move.sqrMagnitude > 0.0001f)
+            {
+                move.Normalize();
+            }
             worldDirection = new Vector2(move.x, move.z);
-            return authorityIntentSender != null &&
-                   authorityIntentSender.TryResolveLocomotionSpeed(
-                       lastRunIntent,
-                       out requestedSpeed) &&
-                   (requestedSpeed *= GetOntologySpeedMultiplier()) > 0f;
+            if (authorityIntentSender == null ||
+                !authorityIntentSender.TryResolveLocomotionSpeed(
+                    lastRunIntent,
+                    out requestedSpeed))
+            {
+                return false;
+            }
+
+            requestedSpeed *= GetOntologySpeedMultiplier();
+            if (hasClickTarget)
+            {
+                var activeDestination = GetActiveClickTarget();
+                hasDestination = true;
+                destination = new Vector2(
+                    activeDestination.x,
+                    activeDestination.z);
+                destinationStopDistance =
+                    GetActiveClickStopDistance();
+            }
+            return requestedSpeed > 0f;
         }
 
         public bool IsMovingIntent => lastPresentationHadInput;
         public bool IsRunIntent =>
             lastRunIntent && lastPresentationHadInput;
+
+        public bool TryCompleteAuthorityGroundDestination(
+            Vector2 authorityPosition)
+        {
+            if (!hasClickTarget ||
+                selectedCombatTarget != null ||
+                selectedInteractionObject != null)
+            {
+                return false;
+            }
+
+            var target = GetActiveClickTarget();
+            var remaining = Vector2.Distance(
+                authorityPosition,
+                new Vector2(target.x, target.z));
+            if (!HasReachedClickDestination(
+                    remaining,
+                    GetActiveClickStopDistance(),
+                    GetCanonicalArrivalTolerance()))
+            {
+                return false;
+            }
+
+            hasClickTarget = false;
+            return true;
+        }
         public bool IsGrounded =>
             characterController != null &&
             characterController.enabled &&
+            !IsSwimmingPresentationActive &&
             verticalVelocity <= 0f &&
             (motionCoordinator != null
                 ? motionCoordinator.HasGroundContact
@@ -193,6 +268,16 @@ namespace Tormia.Ontology.Core
                 : selectedInteractionObject.EntityId;
         public OntologyObject SelectedInteractionTarget =>
             selectedInteractionObject;
+        public bool IsSwimmingPresentationActive
+        {
+            get
+            {
+                swimmingMovement ??=
+                    GetComponent<OntologySwimmingMovementAdapter>();
+                return swimmingMovement != null &&
+                       swimmingMovement.IsSwimmingPresentationActive;
+            }
+        }
 
         /// <summary>
         /// Called after the entry grounding adapter has resolved the restored
@@ -358,6 +443,19 @@ namespace Tormia.Ontology.Core
             DisableInputActions();
         }
 
+        private void OnDestroy()
+        {
+            if (!ownsInputActions) return;
+            moveAction?.Dispose();
+            lookAction?.Dispose();
+            lookHoldAction?.Dispose();
+            scrollAction?.Dispose();
+            runAction?.Dispose();
+            jumpAction?.Dispose();
+            clickAction?.Dispose();
+            pointerPositionAction?.Dispose();
+        }
+
         private void Update()
         {
             EnsureCameraReferences();
@@ -375,7 +473,7 @@ namespace Tormia.Ontology.Core
             }
             if (OntologyRuntimeObjectPlacementController.IsPlacementInputCaptured ||
                 OntologyRuntimeWorldEditorController.IsEditInputCaptured ||
-                OntologyUIPointerUtility.IsPointerOverUi())
+                OntologyUIPointerUtility.IsPointerOverBlockingUi())
             {
                 StopPlayerForUi();
                 return;
@@ -527,29 +625,38 @@ namespace Tormia.Ontology.Core
 
         private void CreateInputActions()
         {
-            moveAction = new InputAction("OntologyMove", InputActionType.Value, expectedControlType: "Vector2");
-            moveAction.AddCompositeBinding("2DVector")
-                .With("Up", moveUpBinding)
-                .With("Up", moveUpAltBinding)
-                .With("Down", moveDownBinding)
-                .With("Down", moveDownAltBinding)
-                .With("Left", moveLeftBinding)
-                .With("Left", moveLeftAltBinding)
-                .With("Right", moveRightBinding)
-                .With("Right", moveRightAltBinding);
-
-            lookAction = new InputAction("OntologyLook", InputActionType.Value, lookBinding);
-            lookHoldAction = new InputAction("OntologyLookHold", InputActionType.Button, lookHoldBinding);
-            scrollAction = new InputAction("OntologyScroll", InputActionType.Value, scrollBinding);
-            runAction = new InputAction("OntologyRun", InputActionType.Button);
-            runAction.AddBinding(runBinding);
-            runAction.AddBinding(runAltBinding);
-            jumpAction = new InputAction(
-                "OntologyJump",
+            var projectActions = InputSystem.actions;
+            moveAction = CloneProjectAction(projectActions, "Player/Move");
+            lookAction = CloneProjectAction(projectActions, "Player/Look");
+            scrollAction = CloneProjectAction(projectActions, "UI/ScrollWheel");
+            runAction = CloneProjectAction(projectActions, "Player/Sprint");
+            jumpAction = CloneProjectAction(projectActions, "Player/Jump");
+            clickAction = CloneProjectAction(projectActions, "UI/Click");
+            pointerPositionAction = CloneProjectAction(projectActions, "UI/Point");
+            lookHoldAction = new InputAction(
+                "OntologyMouseLookHold",
                 InputActionType.Button,
-                jumpBinding);
-            clickAction = new InputAction("OntologyClick", InputActionType.Button, clickBinding);
-            pointerPositionAction = new InputAction("OntologyPointerPosition", InputActionType.Value, pointerPositionBinding);
+                lookHoldBinding);
+            ownsInputActions = true;
+
+            if (moveAction == null || lookAction == null ||
+                runAction == null || jumpAction == null ||
+                clickAction == null || pointerPositionAction == null)
+            {
+                Debug.LogError(
+                    "[OntologyInput] Project-wide gameplay actions are " +
+                    "incomplete. Input fails closed.",
+                    this);
+            }
+        }
+
+        private static InputAction CloneProjectAction(
+            InputActionAsset asset,
+            string path)
+        {
+            return asset == null
+                ? null
+                : asset.FindAction(path, false)?.Clone();
         }
 
         private void EnableInputActions()
@@ -559,14 +666,14 @@ namespace Tormia.Ontology.Core
                 CreateInputActions();
             }
 
-            moveAction.Enable();
-            lookAction.Enable();
-            lookHoldAction.Enable();
-            scrollAction.Enable();
-            runAction.Enable();
-            jumpAction.Enable();
-            clickAction.Enable();
-            pointerPositionAction.Enable();
+            moveAction?.Enable();
+            lookAction?.Enable();
+            lookHoldAction?.Enable();
+            scrollAction?.Enable();
+            runAction?.Enable();
+            jumpAction?.Enable();
+            clickAction?.Enable();
+            pointerPositionAction?.Enable();
         }
 
         private void DisableInputActions()
@@ -577,13 +684,13 @@ namespace Tormia.Ontology.Core
             }
 
             moveAction.Disable();
-            lookAction.Disable();
-            lookHoldAction.Disable();
-            scrollAction.Disable();
-            runAction.Disable();
-            jumpAction.Disable();
-            clickAction.Disable();
-            pointerPositionAction.Disable();
+            lookAction?.Disable();
+            lookHoldAction?.Disable();
+            scrollAction?.Disable();
+            runAction?.Disable();
+            jumpAction?.Disable();
+            clickAction?.Disable();
+            pointerPositionAction?.Disable();
         }
 
         private void EnsureCameraReferences()
@@ -1381,9 +1488,18 @@ namespace Tormia.Ontology.Core
             if (HasReachedClickDestination(
                     toTarget.magnitude,
                     stopDistance,
-                    GetClickArrivalTolerance()))
+                    GetCanonicalArrivalTolerance()))
             {
-                hasClickTarget = false;
+                // A plain ground destination remains an active ephemeral
+                // Authority navigation intent until another input replaces it.
+                // Local presentation stops here, while the server continues
+                // toward the exact same destination instead of freezing at an
+                // earlier sampled position and pulling the avatar backwards.
+                if (selectedCombatTarget != null ||
+                    selectedInteractionObject != null)
+                {
+                    hasClickTarget = false;
+                }
                 return Vector2.zero;
             }
 
@@ -1413,6 +1529,18 @@ namespace Tormia.Ontology.Core
             return Mathf.Max(
                 Mathf.Max(0f, clickArrivalTolerance),
                 controllerResolution);
+        }
+
+        private float GetCanonicalArrivalTolerance()
+        {
+            // Plain ground navigation shares the exact authored stop radius
+            // with Authority. Interaction/combat may retain controller-sized
+            // presentation tolerance because their canonical completion is a
+            // separate Authority action rather than the navigation endpoint.
+            return selectedCombatTarget == null &&
+                   selectedInteractionObject == null
+                ? 0f
+                : GetClickArrivalTolerance();
         }
 
         private Vector3 GetActiveClickTarget()
@@ -1597,12 +1725,20 @@ namespace Tormia.Ontology.Core
 
         private Vector2 ReadMouseDelta()
         {
-            if (lookAction == null || lookHoldAction == null || !lookHoldAction.IsPressed())
+            if (lookAction == null)
             {
                 return Vector2.zero;
             }
 
-            return lookAction.ReadValue<Vector2>() * mouseLookScale;
+            var value = lookAction.ReadValue<Vector2>();
+            var isPointerDelta = lookAction.activeControl?.device is Mouse;
+            if (isPointerDelta &&
+                (lookHoldAction == null || !lookHoldAction.IsPressed()))
+            {
+                return Vector2.zero;
+            }
+
+            return value * mouseLookScale;
         }
 
         private bool ReadJumpPressed()

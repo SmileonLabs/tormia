@@ -234,12 +234,27 @@ internal static class AuthoritativeActionEvaluator
         Guid? toolEntityId,
         IReadOnlyList<AuthorityFactSnapshot> facts)
     {
+        return Evaluate(
+            definition,
+            actorEntityId,
+            targetEntityId,
+            toolEntityId,
+            AuthorityEvaluationSnapshot.Create(facts));
+    }
+
+    public static AuthoritativeActionEvaluation Evaluate(
+        OntologyActionEffectDefinition definition,
+        Guid actorEntityId,
+        Guid targetEntityId,
+        Guid? toolEntityId,
+        AuthorityEvaluationSnapshot snapshot)
+    {
         return EvaluateCore(
             definition,
             actorEntityId,
             targetEntityId,
             toolEntityId,
-            facts,
+            snapshot,
             null);
     }
 
@@ -255,6 +270,23 @@ internal static class AuthoritativeActionEvaluator
         Guid targetEntityId,
         Guid? toolEntityId,
         IReadOnlyList<AuthorityFactSnapshot> facts)
+    {
+        return EvaluateInvokedRule(
+            actionDefinition,
+            ruleDefinition,
+            actorEntityId,
+            targetEntityId,
+            toolEntityId,
+            AuthorityEvaluationSnapshot.Create(facts));
+    }
+
+    public static AuthoritativeActionEvaluation EvaluateInvokedRule(
+        OntologyActionEffectDefinition actionDefinition,
+        OntologyRuleDefinition ruleDefinition,
+        Guid actorEntityId,
+        Guid targetEntityId,
+        Guid? toolEntityId,
+        AuthorityEvaluationSnapshot snapshot)
     {
         if (!HasRuleInvocation(actionDefinition) ||
             ruleDefinition is null ||
@@ -272,7 +304,7 @@ internal static class AuthoritativeActionEvaluator
             actorEntityId,
             targetEntityId,
             toolEntityId,
-            facts);
+            snapshot);
         if (!actionEvaluation.Accepted)
             return actionEvaluation;
         if (actionEvaluation.Mutations.Count != 0)
@@ -329,13 +361,11 @@ internal static class AuthoritativeActionEvaluator
                 "action_rule_intent_entity_unavailable");
         }
 
-        var scopedFacts = facts
-            .Append(new AuthorityFactSnapshot(
-                intentSubject,
-                invocation.intentPredicate,
-                "entity",
-                intentObject.ToString()))
-            .ToArray();
+        var intentFact = new AuthorityFactSnapshot(
+            intentSubject,
+            invocation.intentPredicate,
+            "entity",
+            intentObject.ToString());
         var ruleAsAction = new OntologyActionEffectDefinition
         {
             actionVerb = actionDefinition.actionVerb,
@@ -351,12 +381,13 @@ internal static class AuthoritativeActionEvaluator
             actorEntityId,
             targetEntityId,
             toolEntityId,
-            scopedFacts,
+            snapshot,
             additionalBindings,
             allowNoEffects:
                 actionDefinition.evaluationOnly ||
                 !string.IsNullOrWhiteSpace(
-                    ruleDefinition.runtimePresentation?.actorAnimationIntent));
+                    ruleDefinition.runtimePresentation?.actorAnimationIntent),
+            ephemeralFact: intentFact);
     }
 
     private static AuthoritativeActionEvaluation EvaluateCore(
@@ -364,9 +395,10 @@ internal static class AuthoritativeActionEvaluator
         Guid actorEntityId,
         Guid targetEntityId,
         Guid? toolEntityId,
-        IReadOnlyList<AuthorityFactSnapshot> facts,
+        AuthorityEvaluationSnapshot snapshot,
         IReadOnlyDictionary<string, OntologyId>? additionalBindings,
-        bool allowNoEffects = false)
+        bool allowNoEffects = false,
+        AuthorityFactSnapshot? ephemeralFact = null)
     {
         if (!IsSupportedDefinition(definition, out var invalidCode) &&
             !(allowNoEffects &&
@@ -377,17 +409,6 @@ internal static class AuthoritativeActionEvaluator
             return AuthoritativeActionEvaluation.Rejected(invalidCode);
         if (definition.requiresTool && !toolEntityId.HasValue)
             return AuthoritativeActionEvaluation.Rejected("action_tool_required");
-
-        var world = new OntologyWorldState();
-        foreach (var fact in facts)
-        {
-            world.GetOrCreateEntity(fact.SubjectEntityId.ToString());
-            world.AddFactContribution(
-                fact.SubjectEntityId.ToString(),
-                fact.PredicateId,
-                fact.ObjectValue,
-                OntologyFactOrigin.Durable);
-        }
 
         var initialBinding = new Dictionary<string, OntologyId>
         {
@@ -403,10 +424,10 @@ internal static class AuthoritativeActionEvaluator
                     additionalBinding.Value;
         }
 
-        var matches = OntologyConditionMatcher.Match(
-            world,
+        var matches = snapshot.MatchConditions(
             definition.conditions ?? [],
-            initialBinding);
+            initialBinding,
+            ephemeralFact);
         if (matches.Count == 0)
             return AuthoritativeActionEvaluation.Rejected("action_conditions_not_met");
         if (matches.Count > 1)
@@ -414,7 +435,7 @@ internal static class AuthoritativeActionEvaluator
 
         var binding = matches[0];
         var mutations = new List<AuthorityMutation>();
-        var state = AuthorityEvaluationState.From(facts);
+        var state = snapshot.CreateEvaluationState();
         if (!string.IsNullOrWhiteSpace(definition.predicate))
         {
             var objectPattern = definition.objectPattern == "?tool"
@@ -610,24 +631,446 @@ internal static class AuthoritativeActionEvaluator
     }
 }
 
+/// <summary>
+/// Command-scoped input projection for Authority action evaluation. It compiles
+/// the durable input once, then may receive only mutations that PostgreSQL has
+/// already accepted in the same command transaction. It never stores an
+/// approval result and is never shared across revisions or requests.
+/// </summary>
+internal sealed class AuthorityEvaluationSnapshot
+{
+    private readonly object gate = new();
+    private readonly AuthorityCompiledEvaluationContract compiledBase;
+    private readonly Dictionary<
+        (Guid Subject, string Predicate), List<AuthorityFactSnapshot>> changedRows = new();
+    private readonly AuthoritySemanticFactOverlay semanticOverlay = new();
+
+    private AuthorityEvaluationSnapshot(
+        AuthorityCompiledEvaluationContract compiledBase)
+    {
+        this.compiledBase = compiledBase;
+        RequestScopeId = Guid.NewGuid();
+        SourceFactCount = compiledBase.SourceFactCount;
+    }
+
+    internal Guid RequestScopeId { get; }
+    internal int SourceFactCount { get; }
+
+    public static AuthorityEvaluationSnapshot Create(
+        IReadOnlyList<AuthorityFactSnapshot> facts)
+        => AuthorityCompiledEvaluationContract.Compile(facts)
+            .CreateCommandSnapshot();
+
+    internal static AuthorityEvaluationSnapshot Create(
+        AuthorityCompiledEvaluationContract compiledBase) =>
+        new(compiledBase);
+
+    internal List<Dictionary<string, OntologyId>> MatchConditions(
+        IReadOnlyList<OntologyCondition> conditions,
+        Dictionary<string, OntologyId> initialBinding,
+        AuthorityFactSnapshot? ephemeralFact)
+    {
+        // A prepared snapshot has a read phase followed by one single-threaded
+        // committed-mutation phase. Concurrent read-only evaluations never
+        // acquire the mutation gate or serialize on each other.
+        if (ephemeralFact is null)
+            return compiledBase.MatchConditions(
+                conditions, initialBinding, semanticOverlay);
+
+        // The canonical intent is a request-local read overlay. It never
+        // becomes a contribution owned by the command snapshot.
+        var overlayFact = new OntologyFact(
+            ephemeralFact.SubjectEntityId.ToString(),
+            ephemeralFact.PredicateId,
+            ephemeralFact.ObjectValue);
+        return compiledBase.MatchConditions(
+            conditions,
+            initialBinding,
+            new AuthorityCompositeFactOverlay(semanticOverlay, overlayFact));
+    }
+
+    internal AuthorityEvaluationState CreateEvaluationState() => new(this);
+
+    internal IReadOnlyList<string> GetValues(Guid subject, string predicate)
+    {
+        return changedRows.TryGetValue((subject, predicate), out var current)
+            ? current.Select(row => row.ObjectValue).ToArray()
+            : compiledBase.GetValues(subject, predicate);
+    }
+
+    internal bool TryGetSingleNumber(
+        Guid subject,
+        string predicate,
+        out long number)
+    {
+        number = 0;
+        if (!changedRows.TryGetValue((subject, predicate), out var current))
+            return compiledBase.TryGetSingleNumber(subject, predicate, out number);
+        return
+               current.Count == 1 &&
+               long.TryParse(
+                   current[0].ObjectValue,
+                   NumberStyles.Integer,
+                   CultureInfo.InvariantCulture,
+                   out number);
+    }
+
+    /// <summary>
+    /// Mirrors one mutation only after the matching SQL operation succeeded.
+    /// Raw row provenance is retained because different Rule bindings may own
+    /// the same semantic value and numeric evaluation requires exact row
+    /// cardinality. Rule-binding projection rows are never changed by Fact SQL.
+    /// </summary>
+    internal bool TryApplyCommittedMutation(
+        AuthorityMutation mutation,
+        Guid? sourceRuleBindingId,
+        out string rejectionCode)
+    {
+        lock (gate)
+        {
+            var key = (mutation.SubjectEntityId, mutation.PredicateId);
+            if (!changedRows.TryGetValue(key, out var current))
+            {
+                current = new List<AuthorityFactSnapshot>(compiledBase.GetRows(key));
+                changedRows.Add(key, current);
+            }
+            var beforeValues = SemanticValues(current);
+
+            switch (mutation.Kind)
+            {
+                case AuthorityMutationKind.Assert:
+                    if (mutation.Object is null)
+                        return RejectOverlay("action_snapshot_overlay_invalid_assert", out rejectionCode);
+                    AddRowIfMissing(
+                        current, mutation, mutation.Object,
+                        sourceRuleBindingId);
+                    break;
+                case AuthorityMutationKind.Retract:
+                    if (mutation.Object is null)
+                        return RejectOverlay("action_snapshot_overlay_invalid_retract", out rejectionCode);
+                    current.RemoveAll(row =>
+                        !row.IsRuleBindingProjection &&
+                        MatchesObject(row, mutation.Object));
+                    break;
+                case AuthorityMutationKind.Set:
+                    if (mutation.Object is null)
+                        return RejectOverlay("action_snapshot_overlay_invalid_set", out rejectionCode);
+                    current.RemoveAll(row =>
+                        !row.IsRuleBindingProjection &&
+                        !MatchesObject(row, mutation.Object));
+                    AddRowIfMissing(
+                        current, mutation, mutation.Object,
+                        sourceRuleBindingId);
+                    break;
+                case AuthorityMutationKind.AdjustNumber:
+                    var databaseRows = current
+                        .Where(row => !row.IsRuleBindingProjection)
+                        .ToArray();
+                    if (databaseRows.Length != 1 ||
+                        !long.TryParse(
+                            databaseRows[0].ObjectValue,
+                            NumberStyles.Integer,
+                            CultureInfo.InvariantCulture,
+                            out var currentNumber))
+                    {
+                        return RejectOverlay(
+                            "action_snapshot_overlay_numeric_state_diverged",
+                            out rejectionCode);
+                    }
+                    long next;
+                    try { next = checked(currentNumber + mutation.Delta); }
+                    catch (OverflowException)
+                    {
+                        return RejectOverlay(
+                            "action_snapshot_overlay_numeric_overflow",
+                            out rejectionCode);
+                    }
+                    if (mutation.Minimum.HasValue)
+                        next = Math.Max(next, mutation.Minimum.Value);
+                    if (mutation.Maximum.HasValue)
+                        next = Math.Min(next, mutation.Maximum.Value);
+                    current.Remove(databaseRows[0]);
+                    AddRowIfMissing(
+                        current,
+                        mutation,
+                        AuthorityObject.Number(next),
+                        sourceRuleBindingId);
+                    break;
+                default:
+                    return RejectOverlay(
+                        "action_snapshot_overlay_unsupported_mutation",
+                        out rejectionCode);
+            }
+
+            var afterValues = SemanticValues(current);
+            SynchronizeOverlay(
+                mutation.SubjectEntityId,
+                mutation.PredicateId,
+                beforeValues,
+                afterValues);
+            rejectionCode = string.Empty;
+            return true;
+        }
+    }
+
+    private static void AddRowIfMissing(
+        List<AuthorityFactSnapshot> current,
+        AuthorityMutation mutation,
+        AuthorityObject value,
+        Guid? sourceRuleBindingId)
+    {
+        if (current.Any(row =>
+                !row.IsRuleBindingProjection &&
+                MatchesObject(row, value) &&
+                row.SourceRuleBindingId == sourceRuleBindingId &&
+                row.ResultLifetime == mutation.ResultLifetime))
+        {
+            return;
+        }
+        current.Add(new AuthorityFactSnapshot(
+            mutation.SubjectEntityId,
+            mutation.PredicateId,
+            value.Kind,
+            SnapshotComparableValue(value),
+            sourceRuleBindingId,
+            mutation.ResultLifetime));
+    }
+
+    private static bool MatchesObject(
+        AuthorityFactSnapshot row,
+        AuthorityObject value) =>
+        string.Equals(row.ObjectKind, value.Kind, StringComparison.Ordinal) &&
+        string.Equals(
+            row.ObjectValue,
+            SnapshotComparableValue(value),
+            StringComparison.Ordinal);
+
+    private static string SnapshotComparableValue(AuthorityObject value) =>
+        string.Equals(value.Kind, "boolean", StringComparison.Ordinal) &&
+        bool.TryParse(value.ComparableValue, out var boolean)
+            ? boolean.ToString()
+            : value.ComparableValue;
+
+    private static HashSet<string> SemanticValues(
+        IEnumerable<AuthorityFactSnapshot> current) =>
+        current.Select(row => row.ObjectValue).ToHashSet(StringComparer.Ordinal);
+
+    private void SynchronizeOverlay(
+        Guid subject,
+        string predicate,
+        HashSet<string> beforeValues,
+        HashSet<string> afterValues)
+    {
+        foreach (var removed in beforeValues.Except(afterValues))
+            semanticOverlay.Remove(new OntologyFact(
+                subject.ToString(), predicate, removed));
+        foreach (var added in afterValues.Except(beforeValues))
+            semanticOverlay.Add(new OntologyFact(
+                subject.ToString(), predicate, added));
+    }
+
+    private static bool RejectOverlay(
+        string code,
+        out string rejectionCode)
+    {
+        rejectionCode = code;
+        return false;
+    }
+}
+
+/// <summary>
+/// Immutable, revision-keyed rule input. A cached instance contains only the
+/// compiled durable base. Every command receives a separate copy-on-write
+/// snapshot, so request intent and committed transaction mutations can never
+/// leak into another request or revision.
+/// </summary>
+internal sealed class AuthorityCompiledEvaluationContract
+{
+    private readonly OntologyWorldState world;
+    private readonly Dictionary<(Guid Subject, string Predicate),
+        List<AuthorityFactSnapshot>> rows;
+    private readonly AuthorityFactSnapshot[] facts;
+    private readonly IReadOnlyList<AuthorityFactSnapshot> factView;
+    private readonly long estimatedBytes;
+
+    private AuthorityCompiledEvaluationContract(
+        OntologyWorldState world,
+        Dictionary<(Guid Subject, string Predicate),
+            List<AuthorityFactSnapshot>> rows,
+        AuthorityFactSnapshot[] facts,
+        long estimatedBytes)
+    {
+        this.world = world;
+        this.rows = rows;
+        this.facts = facts;
+        this.estimatedBytes = estimatedBytes;
+        factView = Array.AsReadOnly(facts);
+    }
+
+    internal IReadOnlyList<AuthorityFactSnapshot> Facts => factView;
+    internal int SourceFactCount => facts.Length;
+    internal long EstimatedBytes => estimatedBytes;
+
+    internal List<Dictionary<string, OntologyId>> MatchConditions(
+        IReadOnlyList<OntologyCondition> conditions,
+        Dictionary<string, OntologyId> initialBinding,
+        OntologyFact? overlayFact) => overlayFact.HasValue
+            ? OntologyConditionMatcher.Match(
+                world, conditions, initialBinding, overlayFact.Value)
+            : OntologyConditionMatcher.Match(
+                world, conditions, initialBinding);
+
+    internal List<Dictionary<string, OntologyId>> MatchConditions(
+        IReadOnlyList<OntologyCondition> conditions,
+        Dictionary<string, OntologyId> initialBinding,
+        IOntologyFactOverlay overlay) => OntologyConditionMatcher.Match(
+            world, conditions, initialBinding, overlay);
+
+    internal IReadOnlyList<AuthorityFactSnapshot> GetRows(
+        (Guid Subject, string Predicate) key) =>
+        rows.TryGetValue(key, out var current)
+            ? current
+            : Array.Empty<AuthorityFactSnapshot>();
+
+    internal IReadOnlyList<string> GetValues(Guid subject, string predicate) =>
+        rows.TryGetValue((subject, predicate), out var current)
+            ? current.Select(row => row.ObjectValue).ToArray()
+            : Array.Empty<string>();
+
+    internal bool TryGetSingleNumber(
+        Guid subject, string predicate, out long number)
+    {
+        number = 0;
+        return rows.TryGetValue((subject, predicate), out var current) &&
+               current.Count == 1 &&
+               long.TryParse(current[0].ObjectValue,
+                   NumberStyles.Integer, CultureInfo.InvariantCulture,
+                   out number);
+    }
+
+    internal static AuthorityCompiledEvaluationContract Compile(
+        IReadOnlyList<AuthorityFactSnapshot> source)
+        => Compile(source, CancellationToken.None);
+
+    internal static AuthorityCompiledEvaluationContract Compile(
+        IReadOnlyList<AuthorityFactSnapshot> source,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var facts = new AuthorityFactSnapshot[source.Count];
+        for (var index = 0; index < source.Count; index++)
+        {
+            if ((index & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
+            facts[index] = source[index];
+        }
+        var world = new OntologyWorldState();
+        var rows = new Dictionary<(Guid Subject, string Predicate),
+            List<AuthorityFactSnapshot>>();
+        for (var index = 0; index < facts.Length; index++)
+        {
+            if ((index & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
+            var fact = facts[index];
+            world.GetOrCreateEntity(fact.SubjectEntityId.ToString());
+            world.AddFactContribution(
+                fact.SubjectEntityId.ToString(), fact.PredicateId,
+                fact.ObjectValue, OntologyFactOrigin.Durable);
+            var key = (fact.SubjectEntityId, fact.PredicateId);
+            if (!rows.TryGetValue(key, out var values))
+            {
+                values = new List<AuthorityFactSnapshot>();
+                rows.Add(key, values);
+            }
+            values.Add(fact);
+        }
+        var estimatedBytes = AuthorityCompiledContractMemoryEstimator.Estimate(
+            facts, cancellationToken);
+        return new AuthorityCompiledEvaluationContract(
+            world, rows, facts, estimatedBytes);
+    }
+
+    internal AuthorityEvaluationSnapshot CreateCommandSnapshot() =>
+        AuthorityEvaluationSnapshot.Create(this);
+}
+
+internal sealed class AuthoritySemanticFactOverlay : IOntologyFactOverlay
+{
+    private readonly HashSet<OntologyFact> additions = new();
+    private readonly HashSet<OntologyFact> tombstones = new();
+    private readonly Dictionary<OntologyId, HashSet<OntologyFact>> additionsByPredicate = new();
+
+    public IEnumerable<OntologyFact> GetAddedFacts() => additions;
+
+    public IEnumerable<OntologyFact> GetAddedFacts(OntologyId predicate) =>
+        additionsByPredicate.TryGetValue(predicate, out var current)
+            ? current
+            : Array.Empty<OntologyFact>();
+
+    public bool IsRemoved(OntologyFact fact) => tombstones.Contains(fact);
+
+    internal void Add(OntologyFact fact)
+    {
+        tombstones.Remove(fact);
+        if (!additions.Add(fact)) return;
+        if (!additionsByPredicate.TryGetValue(fact.Predicate, out var current))
+        {
+            current = new HashSet<OntologyFact>();
+            additionsByPredicate.Add(fact.Predicate, current);
+        }
+        current.Add(fact);
+    }
+
+    internal void Remove(OntologyFact fact)
+    {
+        if (additions.Remove(fact) &&
+            additionsByPredicate.TryGetValue(fact.Predicate, out var current))
+        {
+            current.Remove(fact);
+            if (current.Count == 0) additionsByPredicate.Remove(fact.Predicate);
+        }
+        tombstones.Add(fact);
+    }
+}
+
+internal sealed class AuthorityCompositeFactOverlay : IOntologyFactOverlay
+{
+    private readonly IOntologyFactOverlay baseOverlay;
+    private readonly OntologyFact ephemeral;
+
+    internal AuthorityCompositeFactOverlay(
+        IOntologyFactOverlay baseOverlay,
+        OntologyFact ephemeral)
+    {
+        this.baseOverlay = baseOverlay;
+        this.ephemeral = ephemeral;
+    }
+
+    public IEnumerable<OntologyFact> GetAddedFacts()
+    {
+        foreach (var fact in baseOverlay.GetAddedFacts()) yield return fact;
+        yield return ephemeral;
+    }
+
+    public IEnumerable<OntologyFact> GetAddedFacts(OntologyId predicate)
+    {
+        foreach (var fact in baseOverlay.GetAddedFacts(predicate)) yield return fact;
+        if (ephemeral.Predicate.Equals(predicate)) yield return ephemeral;
+    }
+
+    public bool IsRemoved(OntologyFact fact) =>
+        !fact.Equals(ephemeral) && baseOverlay.IsRemoved(fact);
+}
+
 internal sealed class AuthorityEvaluationState
 {
-    private readonly Dictionary<(Guid Subject, string Predicate), List<string>> values = new();
+    private readonly AuthorityEvaluationSnapshot snapshot;
+    private readonly Dictionary<(Guid Subject, string Predicate), List<string>>
+        overrides = new();
 
-    public static AuthorityEvaluationState From(IReadOnlyList<AuthorityFactSnapshot> facts)
+    internal AuthorityEvaluationState(AuthorityEvaluationSnapshot snapshot)
     {
-        var state = new AuthorityEvaluationState();
-        foreach (var fact in facts)
-        {
-            var key = (fact.SubjectEntityId, fact.PredicateId);
-            if (!state.values.TryGetValue(key, out var current))
-            {
-                current = new List<string>();
-                state.values[key] = current;
-            }
-            current.Add(fact.ObjectValue);
-        }
-        return state;
+        this.snapshot = snapshot;
     }
 
     public bool Matches(
@@ -676,7 +1119,7 @@ internal sealed class AuthorityEvaluationState
         }
         if (minimum.HasValue) next = Math.Max(next, minimum.Value);
         if (maximum.HasValue) next = Math.Min(next, maximum.Value);
-        values[(subject, predicate)] =
+        overrides[(subject, predicate)] =
             [next.ToString(CultureInfo.InvariantCulture)];
         rejectionCode = string.Empty;
         return true;
@@ -688,14 +1131,14 @@ internal sealed class AuthorityEvaluationState
         var key = (mutation.SubjectEntityId, mutation.PredicateId);
         if (mutation.Kind == AuthorityMutationKind.Set)
         {
-            values[key] = [mutation.Object.ComparableValue];
+            overrides[key] = [mutation.Object.ComparableValue];
             return;
         }
-        if (mutation.Kind != AuthorityMutationKind.Retract ||
-            !values.TryGetValue(key, out var current))
+        if (mutation.Kind != AuthorityMutationKind.Retract)
         {
             return;
         }
+        var current = GetMutableValues(key);
         current.RemoveAll(value =>
             string.Equals(
                 value,
@@ -705,9 +1148,10 @@ internal sealed class AuthorityEvaluationState
 
     public IReadOnlyList<string> GetValues(Guid subject, string predicate)
     {
-        return values.TryGetValue((subject, predicate), out var current)
-            ? current.ToArray()
-            : Array.Empty<string>();
+        var key = (subject, predicate);
+        if (overrides.TryGetValue(key, out var current))
+            return current.ToArray();
+        return snapshot.GetValues(subject, predicate);
     }
 
     public bool TryGetSingleNumber(
@@ -716,13 +1160,23 @@ internal sealed class AuthorityEvaluationState
         out long number)
     {
         number = 0;
-        return values.TryGetValue((subject, predicate), out var current) &&
-               current.Count == 1 &&
-               long.TryParse(
-                   current[0],
-                   NumberStyles.Integer,
-                   CultureInfo.InvariantCulture,
-                   out number);
+        var key = (subject, predicate);
+        if (!overrides.TryGetValue(key, out var current))
+            return snapshot.TryGetSingleNumber(subject, predicate, out number);
+        return current.Count == 1 &&
+               long.TryParse(current[0], NumberStyles.Integer,
+                   CultureInfo.InvariantCulture, out number);
+    }
+
+    private List<string> GetMutableValues(
+        (Guid Subject, string Predicate) key)
+    {
+        if (overrides.TryGetValue(key, out var current))
+            return current;
+        current = new List<string>(
+            snapshot.GetValues(key.Subject, key.Predicate));
+        overrides[key] = current;
+        return current;
     }
 }
 
@@ -730,7 +1184,11 @@ internal sealed record AuthorityFactSnapshot(
     Guid SubjectEntityId,
     string PredicateId,
     string ObjectKind,
-    string ObjectValue);
+    string ObjectValue,
+    Guid? SourceRuleBindingId = null,
+    OntologyRuleResultLifetime ResultLifetime =
+        OntologyRuleResultLifetime.RuleBound,
+    bool IsRuleBindingProjection = false);
 
 internal sealed record AuthoritativeActionEvaluation(
     bool Accepted,

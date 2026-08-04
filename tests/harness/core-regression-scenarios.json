@@ -121,6 +121,125 @@
       "disabledExpectationKo": "안정적인 계정·입력 Actor가 없을 때 Carryable·NPC·몬스터·배치 엔티티를 로컬 아바타로 추측하지 않는다."
     },
     {
+      "id": "ordered-remote-avatar-motion-transport",
+      "title": "Remote avatars render an ordered Authority motion timeline",
+      "titleKo": "원격 아바타는 순서가 보장된 Authority 이동 타임라인을 표시한다",
+      "kind": "server-unit-and-unity-playmode",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/WorldZoneMotionFramePolicyTests.cs",
+      "evidenceTest": "CreateFiltersScopeDeduplicatesAndOrdersDeterministically; OrderedSnapshotsRenderBehindLatestAuthorityTime; BufferedSnapshotsUseOnlyBoundedAuthorityVelocityExtrapolation; SnapshotOrderingRejectsOlderTicksButAcceptsARealTimelineRestart; SessionChangeAndLongGapRequireAVisualBaseline",
+      "enabledExpectation": "Fixed-tick Authority motion changes are batched into session/tick ordered SignalR frames and Unity renders a delayed interpolation timeline with only short velocity-bounded extrapolation.",
+      "disabledExpectation": "A stale generation, reordered tick, old runtime session, long transport gap, or missing direct frame cannot rewind an avatar, chase a destination at a Unity-owned speed, or remove presence from a delta omission.",
+      "enabledExpectationKo": "고정 Tick Authority 이동 변경분은 세션과 Tick 순서가 있는 SignalR 프레임으로 묶이며 Unity는 지연 보간과 짧은 속도 제한 외삽만 사용해 표시한다.",
+      "disabledExpectationKo": "오래된 연결 세대, 역순 Tick, 이전 런타임 세션, 긴 전송 공백, 직접 프레임 누락은 아바타를 되감거나 Unity 임의 속도로 목적지를 추격하거나 변경분 누락만으로 존재를 제거할 수 없다."
+    },
+    {
+      "id": "hybrid-realtime-transport-baseline",
+      "title": "Realtime migration starts with measurable Authority and presentation evidence",
+      "titleKo": "실시간 전송 이관은 측정 가능한 Authority 및 표현 증거부터 시작한다",
+      "kind": "server-unit",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/RealtimeTransportMetricsTests.cs",
+      "evidenceTest": "PlayerMotionTickRecordsDurationCountsAndOverrun; MotionFramePublishRecordsBoundedOutcomeAndFailure",
+      "enabledExpectation": "Authority fixed-tick and SignalR motion publication emit low-cardinality duration, overrun, item, and failure evidence while Unity records session-local transport and interpolation health.",
+      "disabledExpectation": "Removing diagnostic listeners changes no Rule, Fact, runtime session, motion state, or presentation result; UDP remains disabled until its security and loss gates pass.",
+      "enabledExpectationKo": "Authority 고정 Tick과 SignalR 이동 발행은 낮은 카디널리티의 시간·초과·항목·실패 증거를 만들고 Unity는 현재 세션의 전송·보간 상태를 기록한다.",
+      "disabledExpectationKo": "진단 listener를 제거해도 Rule, Fact, 런타임 세션, 이동 상태와 표현 결과는 변하지 않으며 보안·손실 검증 전까지 UDP는 비활성이다."
+    },
+    {
+      "id": "hybrid-udp-transport-dependency-pin",
+      "title": "Unity and Authority use one pinned UDP transport substrate",
+      "titleKo": "Unity와 Authority가 동일한 고정 UDP 전송 기반을 사용한다",
+      "kind": "development-harness",
+      "evidenceFile": "scripts/verify-realtime-transport-dependencies.ps1",
+      "evidenceTest": "Assert-LiteNetLibDependencyPin",
+      "enabledExpectation": "Unity OpenUPM and Authority NuGet resolve the exact LiteNetLib 2.1.4 version while HTTPS and SignalR retain control and recovery ownership.",
+      "disabledExpectation": "A missing, floating, mismatched, or differently sourced transport dependency fails development verification before the UDP lane can be enabled.",
+      "enabledExpectationKo": "Unity OpenUPM과 Authority NuGet이 정확히 LiteNetLib 2.1.4를 사용하며 제어와 복구 소유권은 HTTPS와 SignalR에 남는다.",
+      "disabledExpectationKo": "의존성이 없거나 버전이 유동적·불일치·다른 출처이면 UDP 활성화 전에 개발 검증이 실패한다."
+    },
+    {
+      "id": "authority-udp-ticket-admission",
+      "title": "UDP transport admission is one-time and Authority session bound",
+      "titleKo": "UDP 전송 입장은 일회성이며 Authority 세션에 결합된다",
+      "kind": "server-unit",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/UdpTransportTicketStoreTests.cs",
+      "evidenceTest": "Issue_AssignsGenerationAndReturnsOpaqueShortLivedSecrets; Redeem_RequiresProofAndInvalidProofCannotBurnTicket; Redeem_IsAtomicUnderConcurrencyAndOnlyOneCallerWins; Redeem_RevalidatesCurrentAuthorityRuntimeBindingBeforeConsume; RevokeRuntimeSession_RemovesTicketAndGenerationLifecycleState",
+      "enabledExpectation": "Authenticated HTTPS issues a server-generation-bound ticket and Redis atomically revalidates and promotes exactly one proof-bearing transport session.",
+      "disabledExpectation": "Disabled feature, stale runtime, invalid proof, replay, expiry, deactivation, missing Redis protection, or untrusted HTTP cannot create an authenticated UDP session.",
+      "enabledExpectationKo": "인증된 HTTPS가 서버 generation 결합 ticket을 발급하고 Redis가 증명된 전송 세션 하나만 원자적으로 재검증·승격한다.",
+      "disabledExpectationKo": "기능 비활성, 오래된 런타임, 잘못된 증명, 재전송, 만료, 비활성화, Redis 보호 누락, 신뢰하지 않은 HTTP는 인증 UDP 세션을 만들 수 없다."
+    },
+    {
+      "id": "authority-udp-listener-security-boundary",
+      "title": "Authority UDP listener authenticates and fences motion intents before gameplay",
+      "titleKo": "Authority UDP 리스너가 게임 실행 전에 이동 의도를 인증하고 차단 경계를 적용한다",
+      "kind": "server-integration",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/AuthorityUdpRealtimeListenerIntegrationTests.cs",
+      "evidenceTest": "Loopback_AcceptsFixedBootstrapAndOnlyUnreliableChannelZeroReachesSink; Loopback_MalformedAndPerAddressRateLimitedConnectionsAreRejected; Loopback_ShutdownCancelsPendingRedemptionAndRejectsConnection",
+      "enabledExpectation": "A fixed bootstrap, one-time ticket proof, current generation, packet MAC, replay window, delivery channel, and payload binding are all validated before an intent reaches the isolated bounded sink.",
+      "disabledExpectation": "Disabled listener, malformed bootstrap, invalid proof, stale generation, replay, wrong delivery method/channel, overload, shutdown, or missing current session cannot invoke gameplay or mutate durable state.",
+      "enabledExpectationKo": "고정 부트스트랩, 일회용 티켓 증명, 현재 세대, 패킷 MAC, 재전송 창, 전송 채널, 페이로드 결합을 모두 검증한 뒤에만 의도가 격리된 제한 큐에 도달한다.",
+      "disabledExpectationKo": "리스너 비활성, 잘못된 부트스트랩·증명, 오래된 세대, 재전송, 잘못된 전송 방식·채널, 과부하, 종료, 현재 세션 누락은 게임 동작이나 영속 상태를 변경할 수 없다."
+    },
+    {
+      "id": "unity-udp-motion-sender-preparation",
+      "title": "Unity prepares authenticated UDP motion without creating a second active writer",
+      "titleKo": "Unity가 두 번째 활성 Writer 없이 인증 UDP 이동 전송을 준비한다",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyUdpRealtimeBootstrapTests.cs",
+      "evidenceTest": "MotionDatagramAuthenticationUsesSharedAuthenticatedRegion",
+      "enabledExpectation": "An explicitly enabled, exact active runtime binding may obtain an HTTPS ticket and prepare a server-compatible authenticated Unreliable channel 0 datagram while HTTP remains the sole active gameplay writer.",
+      "disabledExpectation": "Default-off, disable, session/world/avatar/zone change, stale admission response, invalid credential, timeout, or disconnect clears the transport secret and cannot send or replace the HTTP writer.",
+      "enabledExpectationKo": "명시적으로 활성화되고 정확한 활성 런타임에 결합된 경우에만 HTTPS 티켓으로 서버 호환 인증 Unreliable 채널 0 데이터그램을 준비하며, 실제 게임 Writer는 HTTP 하나로 유지한다.",
+      "disabledExpectationKo": "기본 비활성, 비활성화, 세션·월드·아바타·Zone 변경, 오래된 입장 응답, 잘못된 자격 증명, 시간 초과, 연결 해제는 전송 비밀값을 지우며 송신하거나 HTTP Writer를 대체할 수 없다."
+    },
+    {
+      "id": "authority-udp-motion-admission",
+      "title": "HTTP and UDP motion share one Rule-evaluated Authority admission",
+      "titleKo": "HTTP와 UDP 이동이 하나의 Rule 평가 Authority 입장을 공유한다",
+      "kind": "server-unit",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/PlayerMotionIntentAdmissionTests.cs",
+      "evidenceTest": "UdpResolvesAuthorityOwnedLocomotionContractAndPublishesCanonicalIntent; RemovedRuleBlockRemovesUdpLocomotionAdmission; UdpPromotionFencesHigherHttpSequenceInSameRuntimeSession; WorldRevisionChangeRetractsCachedApproval",
+      "enabledExpectation": "Authenticated UDP and HTTP candidates pass the same ownership, runtime session, complete locomotion contract, Rule preview, revision and atomic single-writer admission before the fixed-tick registry accepts one canonical intent.",
+      "disabledExpectation": "Missing or removed Rule Block, stale session/generation/revision, pending commit, duplicate sequence, inactive writer, invalid semantics, transient cache pressure, or durable mutation fails closed without publishing an intent.",
+      "enabledExpectationKo": "인증 UDP와 HTTP 후보는 같은 소유권, 런타임 세션, 완전한 이동 계약, Rule 미리보기, revision, 원자적 단일 Writer 입장을 통과한 뒤에만 고정 Tick 레지스트리에 하나의 canonical intent를 등록한다.",
+      "disabledExpectationKo": "Rule Block 누락·제거, 오래된 세션·세대·revision, 커밋 대기, 중복 sequence, 비활성 Writer, 잘못된 의미, 일시적 캐시 압력, 영속 mutation은 intent를 등록하지 않고 실패 폐쇄된다."
+    },
+    {
+      "id": "authority-udp-motion-snapshots",
+      "title": "Authority publishes bounded authenticated UDP Zone motion snapshots",
+      "titleKo": "Authority가 제한되고 인증된 UDP Zone 이동 스냅샷을 발행한다",
+      "kind": "server-integration",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/AuthorityUdpMotionSnapshotIntegrationTests.cs",
+      "evidenceTest": "Loopback_PublishesAuthenticatedSnapshotOnlyToMatchingZonePeer; Loopback_DeterministicallyPagesWithinMtuWithoutDroppingItems; Loopback_ZeroItemsRevokedGenerationAndDisconnectedPeerSendNothing; IngressBuffer_CoalescesLatestPerZoneWithinByteBudget; IngressBuffer_HighWaterCardinalityIsBoundedWithZoneEviction; BackplaneStartFailure_RetriesWithoutStoppingPublisher; BatchGenerationFence_TimeoutRetainsActualOperationLease",
+      "enabledExpectation": "An Authority fixed-tick Zone frame is paged under the transport MTU, routed through the multi-instance backplane, generation-fenced in one bounded batch, and authenticated per active peer without changing canonical gameplay state.",
+      "disabledExpectation": "Disabled UDP, stale generation, missing peer, malformed or oversized input, stale Zone tick, backplane failure, or generation timeout emits no UDP snapshot and cannot stop Authority simulation or SignalR fallback.",
+      "enabledExpectationKo": "Authority 고정 Tick Zone 프레임은 전송 MTU 아래로 분할되고 다중 인스턴스 backplane을 거쳐 제한된 일괄 세대 검증 후 활성 peer별로 인증되며 canonical 게임 상태를 변경하지 않는다.",
+      "disabledExpectationKo": "UDP 비활성, 오래된 세대, peer 없음, 잘못되거나 너무 큰 입력, 이전 Zone Tick, backplane 장애, 세대 조회 시간 초과는 UDP 스냅샷을 만들지 않으며 Authority 시뮬레이션이나 SignalR 대체 경로를 중단시킬 수 없다."
+    },
+    {
+      "id": "unity-udp-motion-snapshot-ingestion",
+      "title": "Unity accepts only complete authenticated UDP motion occurrences through the shared feed",
+      "titleKo": "Unity가 완전히 인증된 UDP 이동 occurrence만 공용 feed로 수신한다",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyUdpMotionSnapshotReceiverTests.cs",
+      "evidenceTest": "FeedRequiresReliableBarrierForRuntimeSessionSwapAndDedupesLane",
+      "enabledExpectation": "An exact active transport binding may assemble reordered authenticated protocol-v2 pages and publish one occurrence through the motion feed after SignalR or HTTP confirms each actor runtime session.",
+      "disabledExpectation": "Default-off receive, invalid HMAC/session/generation/world/Zone, replay, incomplete or inconsistent pages, stale recovery, unknown actor session, disable, or scope change publishes no UDP presentation and never enables the UDP input writer.",
+      "enabledExpectationKo": "정확한 활성 전송 결합은 인증된 프로토콜 v2 페이지를 역순에서도 완전히 조립하고 SignalR 또는 HTTP가 actor 런타임 세션을 확인한 뒤 하나의 occurrence만 이동 feed로 발행한다.",
+      "disabledExpectationKo": "기본 비활성 수신, 잘못된 HMAC·세션·세대·월드·Zone, replay, 불완전하거나 불일치한 페이지, 오래된 복구, 확인되지 않은 actor 세션, 비활성화, scope 변경은 UDP 표현을 발행하지 않으며 UDP 입력 Writer를 켜지 않는다."
+    },
+    {
+      "id": "unity-udp-deterministic-fault-harness",
+      "title": "Unity UDP transport faults cross injectable production boundaries",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyUdpTransportFaultHarnessTests.cs",
+      "evidenceTest": "OntologyUdpTransportFaultHarnessTests",
+      "enabledExpectation": "Ticket admission, driver connection, authenticated send, ordered acknowledgement, fallback recovery, and fresh-ticket reconnect use the same injected boundaries as the production transport.",
+      "disabledExpectation": "Outbound failure, acknowledgement timeout, network failure, lost fallback response, or expired ticket fences UDP and cannot bypass reliable Authority recovery.",
+      "enabledExpectationKo": "Ticket 발급, 드라이버 연결, 인증 송신, 순서 ACK, fallback 복구 및 새 Ticket 재연결이 production 전송과 같은 주입 경계를 사용한다.",
+      "disabledExpectationKo": "송신 차단, ACK 시간초과, 네트워크 오류, fallback 응답 유실 또는 만료 Ticket은 UDP를 차단하며 신뢰성 있는 Authority 복구를 우회하지 못한다."
+    },
+    {
       "id": "account-profile-relations-revisioned",
       "title": "Account profile relations are revisioned and idempotent",
       "titleKo": "계정 프로필 관계의 리비전 및 멱등 저장",
@@ -661,6 +780,18 @@
       "disabledExpectationKo": "RespawnPlayerOnDeath 바인딩을 제거하면 Authority가 리스폰 의도를 거절하며 Unity는 숨은 fallback으로 체력·생존 상태·체크포인트 위치를 복구하지 않는다."
     },
     {
+      "id": "deterministic-versioned-combat-runtime",
+      "title": "Immutable action history resolves to one active combat runtime contract",
+      "titleKo": "불변 액션 이력은 하나의 활성 전투 런타임 계약으로 결정된다",
+      "kind": "server-unit-and-unity-editmode-and-live",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/OntologyCombatVerticalSliceAssetTests.cs",
+      "evidenceTest": "Autonomous configuration selects the highest published action definition inside one enabled package; CombatTargetEligibilityRequiresProjectedLivingState; ResolvedPoseIsPublishedOnlyForAcceptedLocomotionLease; PlayerDamageRequiresFreshCollisionResolvedContact",
+      "enabledExpectation": "Historical immutable action versions may coexist, while one enabled package deterministically supplies the newest target, chase, and attack definitions; living projected targets remain selectable and a renewed locomotion lease supplies fresh collision-resolved contact evidence.",
+      "disabledExpectation": "Multiple complete enabled packages, a missing assigned Rule Block, defeated lifecycle state, an expired locomotion lease, or stale/separated player contact evidence fails closed without a name, prefab, collider, or durable-position fallback.",
+      "enabledExpectationKo": "과거 불변 액션 버전이 함께 존재해도 하나의 활성 패키지가 최신 대상 선택·추적·공격 정의를 결정적으로 제공하며, 살아 있는 투영 대상만 선택되고 갱신되는 이동 lease가 최신 충돌 해결 접촉 근거를 제공한다.",
+      "disabledExpectationKo": "완전한 활성 패키지가 둘 이상이거나 배정 Rule Block이 없거나 죽은 생명주기 상태이거나 이동 lease가 만료되거나 플레이어 접촉 관찰이 오래됐거나 떨어져 있으면 이름·프리팹·충돌체·영속 위치 대체 경로 없이 fail-closed 처리한다."
+    },
+    {
       "id": "authority-projection-placeable-membership",
       "title": "Runtime placeable presentation follows Authority projection membership",
       "titleKo": "런타임 배치 오브젝트 표현은 Authority 투영 소속을 따른다",
@@ -789,18 +920,18 @@
       "evidenceTest": "MeleeDamageRequiresAuthoredContactModeAndAnimationWindow",
       "productionContract": {
         "contractId": "weapon-ontology-production",
-        "version": 5,
+        "version": 6,
         "appliesTo": "Every new, migrated, generated, or user-authored weapon",
         "stages": {
-          "resource": "Register the visual, collider, VFX, and catalog references in project-owned content without deriving gameplay from asset names.",
-          "triples": "Author Item/Weapon capability, equipment slot, action IDs, damage, range, cooldown, attack_contact_mode, physical profile, attachment profile, and other tuning as canonical data.",
+          "resource": "Register visual, explicit contact proxy, VFX, and catalog references in project-owned content without deriving gameplay from asset names.",
+          "triples": "Author Item/Weapon capability, equipment slot, action IDs, integer damage, range, cooldown, contact mode/open/window/reach, physical profile, attachment profile, and collision proxy tuning as canonical data.",
           "ruleBlocks": "Assign reusable equipment, swing-presentation, and target-damage Rule Blocks; each behavior must disappear when its block is removed.",
-          "actions": "Publish immutable equip, unequip, swing, and attack actions that invoke their matching assigned Rule Blocks instead of duplicating block-owned results.",
-          "physicalMeaning": "Resolve HandheldWeapon Physical Meaning plus authored attachment socket, grip alignment, and adjustable weapon contact volume.",
-          "animationManifest": "Validate equipment locomotion and attack animation intents, the normalized contact window, and VFX references through the manifest/catalog production line.",
-          "authority": "World Authority previews equipment, target, range, cooldown and Rule Block eligibility before the swing, then evaluates the durable damage action only after the approved-target contact observation.",
-          "unityPresentation": "Unity derives a conservative approach distance from the oriented authored weapon surface and target collider, primes adjacent pre-window poses without reporting impact, observes the authored weapon volume only inside the manifest contact window, derives the swing VFX plane from actual motion, and presents accepted impact feedback without creating damage state.",
-          "removedPath": "Executable evidence removes the required Rule Block or semantic stage and proves equip/attack behavior disappears without a hidden fallback."
+          "actions": "Publish immutable equip, unequip, swing, and attack actions that invoke their matching assigned Rule Blocks; durable attack requires an Authority-owned occurrence.",
+          "physicalMeaning": "Resolve HandheldWeapon Physical Meaning plus authored attachment socket, grip alignment, and explicit adjustable weapon contact volume.",
+          "animationManifest": "Validate equipment locomotion and attack animation intents, normalized contact window, and VFX references through the manifest/catalog production line.",
+          "authority": "World Authority previews eligibility, creates one ephemeral player AttackOccurrence, validates authored capsule contact during its authored window, consumes it exactly once, and only then invokes the immutable damage action and assigned Rule Block.",
+          "unityPresentation": "Unity derives approach distance from explicit authored contact proxies, reports only a projected candidate inside the contact window, and presents accepted animation/VFX without creating damage state.",
+          "removedPath": "Executable evidence removes the required Rule Block, occurrence, contact data, explicit proxy, or semantic stage and proves attack behavior disappears without a hidden fallback."
         },
         "forbiddenImplementations": [
           "mesh-name, prefab-name, or object-name gameplay branches",
@@ -815,8 +946,16 @@
             "tests": "AttackInputPublishesAuthoredActionsWithoutLocalRuleEvaluation; MeleeDamageRequiresAuthoredContactModeAndAnimationWindow; DisabledWeaponColliderStillObservesOnlyApprovedContact; WeaponSweepOrientationFollowsAuthoredBladeAndMotionAxes; WeaponContactSweepSubstepsCoverLinearAndAngularMotion; WeaponContactSweepObservesTargetSkippedBetweenFrames; ContactApproachUsesOrientedWeaponSurface; PrimedContactSampleSeedsFirstApprovedSweep"
           },
           {
+            "file": "Assets/Tests/Ontology/PlayMode/OntologySemanticAdapterSynchronizerTests.cs",
+            "tests": "WeaponWithoutAuthoredContactProxyFailsClosed"
+          },
+          {
             "file": "server/Tormia.WorldAuthority.Tests/AuthoritativeActionEvaluatorTests.cs",
             "tests": "PrimaryAttackRuleBindsToToolAndOwnsDamage; RemovingPrimaryAttackRuleBlockRemovesAttackBehavior"
+          },
+          {
+            "file": "server/Tormia.WorldAuthority.Tests/PlayerAttackOccurrenceRuntimeTests.cs",
+            "tests": "ContactOccurrenceCanBeResolvedExactlyOnce; RemovedOccurrenceCannotAuthorizeContact"
           },
           {
             "file": "Assets/Tests/Ontology/Unity/OntologyAnimationProductionLineTests.cs",
@@ -826,12 +965,12 @@
       },
       "pipelineStages": {
         "trigger": "Player/Attack maps left mouse click and owns only the trigger.",
-        "intentOrObservation": "Unity transports projected actor, target, and equipped-tool identities for preview, then reports only an ephemeral approved-target weapon-overlap observation during the authored animation window.",
+        "intentOrObservation": "Unity transports projected actor, target, and equipped-tool identities to request one Authority occurrence, then reports only an ephemeral approved-target contact candidate during the authored window.",
         "triples": "The weapon authors attack_action, attack_damage, attack_range, attack_cooldown, attack_contact_mode, MeleeAttack capability, and its profiles.",
         "ruleBlock": "MeleeAttackOnPrimaryIntent requires the authored WeaponContactWindow mode, is published and assignable, and remains bound on the equipped tool.",
-        "evaluation": "World Authority previews the bound immutable attack and swing rules first. After physical contact, the same Authority attack action re-evaluates actor, tool, target, hostility, life, equipment, range, cooldown, and contact-delivery semantics.",
+        "evaluation": "World Authority previews the bound immutable attack and swing rules first. At reported contact it re-evaluates actor, tool, target, faction hostility, life, equipment, runtime positions, authored capsule geometry, reach, range, cooldown, and contact-delivery semantics before consuming the occurrence once.",
         "result": "The Rule Block adjusts current_health and conditionally produces death and loot results with rule-binding provenance.",
-        "authorityBoundary": "Durable results use one revisioned idempotent Authority command; positions and cooldown leases remain ephemeral.",
+        "authorityBoundary": "Durable results use one revisioned idempotent Authority command after an exactly-once ephemeral occurrence; direct generic execution without that resolved occurrence fails closed, while positions and cooldown leases remain ephemeral.",
         "meaning": "HandheldWeapon physical meaning, the prefab-authored contact volume, and the AttackLight manifest contact window select when an approved impact may be requested.",
         "adapter": "Targeting, animation, weapon-contact, and VFX adapters consume projected data and accepted presentation intent; the facing adapter aligns the actor before intent publication, oriented contact surfaces select a conservative navigation stop, actor/target collider surfaces impose a non-overlapping minimum body clearance, adjacent pre-window poses seed continuous contact without owning damage, and the sweep adapter orients presentation from blade-axis and motion observations.",
         "experience": "A nearby hostile target can be attacked with left click. The player approaches until the oriented weapon surface can physically reach without overlapping the two character bodies, the slash plane follows the actual swing, and damage and impact feedback occur only when that weapon overlaps the approved target."
@@ -851,19 +990,67 @@
       "pipelineStages": {
         "trigger": "Player/Attack shares left mouse click with click-to-move and owns only input routing.",
         "intentOrObservation": "Unity reports a projected pointer candidate and authored action IDs; exact combat hits take priority, and a terrain hit directly beneath an unobstructed authored combat collider may recover that same observation. Unity does not classify hostility, life state, Rule Block assignment, or range.",
-        "triples": "The weapon authors swing_action alongside its attack capability and tuning triples.",
-        "ruleBlock": "SwingWeaponOnPrimaryIntent owns AttackLight presentation; MeleeAttackOnPrimaryIntent independently owns target damage.",
-        "evaluation": "World Authority previews attack and swing through the same prepared action and assigned Rule Block path used by execution.",
+        "triples": "The weapon authors swing_action and attack_playback_speed alongside its attack capability and tuning triples.",
+        "ruleBlock": "SwingWeaponOnPrimaryIntent owns AttackLight presentation and declares the tool's attack_playback_speed Triple as its numeric source; MeleeAttackOnPrimaryIntent independently owns target damage.",
+        "evaluation": "World Authority previews attack and swing through the same prepared action and assigned Rule Block path used by execution, resolves one positive bounded playback rate, and returns it only with the accepted presentation.",
         "result": "A projected living combat-target click is reserved while preview is pending. Out-of-range rejection starts ephemeral approach navigation using the tool's authored range; accepted preview runs the swing and separate durable damage action.",
         "authorityBoundary": "Preview applies no mutations, acquires no cooldown, and advances no revision; runtime presentation stays ephemeral while target damage remains revisioned and idempotent.",
         "meaning": "HandheldWeapon physical meaning and the validated animation manifest resolve the approved AttackLight intent.",
-        "adapter": "Unity targeting reports only a projected entity candidate. It scans past non-combat projected hits and may disambiguate a narrowly missed target from the authored collider footprint plus editable presentation padding and line of sight. The input adapter may approach to an Authority-authored range, but cooldown, hostility, life, Rule Block assignment, attack permission, animation, and damage remain Authority decisions.",
+        "adapter": "Unity targeting reports only a projected entity candidate. It scans past non-combat projected hits and may disambiguate a narrowly missed target from the authored collider footprint plus editable presentation padding and line of sight. The animation adapter applies the Authority-approved playback multiplier to the selected clip playable; it never reads the weapon Triple directly.",
         "experience": "Left click attacks a nearby eligible monster or approaches an out-of-range living combat target once. Busy and cooldown states never leak the same click into terrain movement."
       },
       "enabledExpectation": "With attack and swing data and Rule Blocks assigned, a living hostile consumes left click, is approached to the data-authored attack_range when necessary, and follows Authority-approved presentation plus separate damage evaluation without move/attack oscillation.",
       "disabledExpectation": "Removing either required Rule Block, the hostile/alive Facts, or a unique positive attack_range removes the combat input route; Unity supplies no fallback and the click remains available to movement.",
       "enabledExpectationKo": "공격·휘두르기 데이터와 룰블록이 배정되면 살아 있는 적대 대상이 왼쪽 클릭을 소비하고 필요하면 데이터로 작성된 attack_range까지 접근한 뒤 이동·공격 진동 없이 Authority 승인 표현과 별도 피해 평가를 따른다.",
       "disabledExpectationKo": "필요한 룰블록, 적대·생존 Fact, 유일한 양수 attack_range 중 하나라도 제거하면 전투 입력 경로가 사라지고 Unity fallback 없이 클릭은 이동 입력으로 남는다."
+    },
+    {
+      "id": "legacy-migration-ledger-adoption-safety",
+      "title": "An empty legacy migration ledger may be adopted only from verified compatible schema",
+      "titleKo": "비어 있는 기존 마이그레이션 ledger는 호환 스키마 검증 후에만 채택할 수 있다",
+      "kind": "harness-static-infrastructure",
+      "evidenceFile": "scripts/verify-migration-adoption-safety.ps1",
+      "evidenceTest": "LegacyLedgerAdoptionIsExplicitAndFingerprintGated",
+      "enabledExpectation": "A completely empty legacy ledger can be baselined through migration 016 only after every required schema and ownership-backfill fingerprint passes and the operator supplies -Apply.",
+      "disabledExpectation": "A partial ledger, missing schema fingerprint, incomplete ownership backfill, or ordinary dry run writes no ledger rows; data-repair migration 017 is never inferred from schema.",
+      "enabledExpectationKo": "완전히 비어 있는 기존 ledger는 필요한 모든 스키마와 소유권 백필 fingerprint가 통과하고 운영자가 -Apply를 지정한 경우에만 migration 016까지 기준선으로 채택한다.",
+      "disabledExpectationKo": "부분 ledger, 누락된 스키마 fingerprint, 불완전한 소유권 백필 또는 일반 dry run은 ledger를 쓰지 않으며 데이터 복구 migration 017은 스키마만으로 적용되었다고 추론하지 않는다."
+    },
+    {
+      "id": "database-migration-readiness-gate",
+      "title": "Required SQL migrations are verified before runtime service acceptance",
+      "titleKo": "필수 SQL 마이그레이션을 런타임 서비스 사용 전에 검증한다",
+      "kind": "harness-live-infrastructure",
+      "evidenceFile": "scripts/verify-database-migrations.ps1",
+      "evidenceTest": "PendingDatabaseMigrationFailsReadinessVerification",
+      "enabledExpectation": "With -RequireServices, every ordered repository migration is recorded in platform_schema_migrations before the development harness accepts the local stack.",
+      "disabledExpectation": "A healthy PostgreSQL process with one or more pending repository migrations fails readiness and cannot be mistaken for a compatible Authority database.",
+      "enabledExpectationKo": "-RequireServices 사용 시 개발 하네스가 로컬 스택을 승인하기 전에 저장소의 모든 순서형 마이그레이션이 platform_schema_migrations에 기록되어 있다.",
+      "disabledExpectationKo": "PostgreSQL 프로세스가 정상이어도 저장소 마이그레이션이 남아 있으면 준비 검증을 실패하여 호환되는 Authority DB로 오인하지 않는다."
+    },
+    {
+      "id": "immutable-content-release-manifest",
+      "title": "Rule and Action payload changes require reviewed immutable identities before play",
+      "titleKo": "규칙과 액션 payload 변경은 플레이 전에 검토된 새 불변 ID를 요구한다",
+      "kind": "harness-static-content-release",
+      "evidenceFile": "scripts/verify-content-release-manifest.ps1",
+      "evidenceTest": "PayloadChangeWithoutVersionBumpFailsManifestVerification",
+      "enabledExpectation": "Every configured development Rule and Action identity matches the reviewed deterministic source checksum in the committed release manifest.",
+      "disabledExpectation": "Changing authored payload content without first advancing and reviewing its immutable definition version fails the development harness before world entry.",
+      "enabledExpectationKo": "설정된 모든 개발 규칙과 액션 ID가 커밋된 릴리스 매니페스트의 검토된 결정적 소스 checksum과 일치한다.",
+      "disabledExpectationKo": "불변 정의 버전을 먼저 올리고 검토하지 않은 payload 변경은 월드 입장 전에 개발 하네스를 실패시킨다."
+    },
+    {
+      "id": "world-entry-release-boundary",
+      "title": "Immutable content is verified before play without publishing during world entry",
+      "titleKo": "불변 콘텐츠는 플레이 전에 검증되며 월드 입장 중 발행되지 않는다",
+      "kind": "harness-static-release-boundary",
+      "evidenceFile": "scripts/verify-world-entry-boundary.ps1",
+      "evidenceTest": "EntryPathDoesNotAuthorOrMigrateWorld; EntryReadinessPrecedesRecoveryActivationAndCommit",
+      "enabledExpectation": "Entry verifies the immutable content payload and prepared avatar semantics through read-only Authority queries before pending-command recovery, ephemeral runtime activation, and the final admission commit.",
+      "disabledExpectation": "Content publication, zone or avatar provisioning, semantic repair, legacy migration, or readiness checks ordered after recovery or activation fail development verification before play.",
+      "enabledExpectationKo": "검토된 콘텐츠 릴리스 매니페스트를 개발 하네스가 검증하고, 입장은 아바타나 월드를 변경하기 전에 읽기 전용 패키지 사전 검사를 수행한다.",
+      "disabledExpectationKo": "기존 불변 ID 아래 payload 변경, 입장 중 콘텐츠 POST, 영속 준비 이후에 배치된 사전 검사는 플레이 전에 개발 검증을 실패시킨다."
     },
     {
       "id": "optional-rule-presentation-wire-compatibility",
@@ -883,19 +1070,19 @@
       "titleKo": "어떤 배치 엔티티도 완전한 온톨로지 계약으로 자율 몬스터가 될 수 있다",
       "kind": "gameplay-pipeline-server-and-unity",
       "evidenceFile": "server/Tormia.WorldAuthority.Tests/AutonomousActorOntologyContractTests.cs",
-      "evidenceTest": "RemovingRuleBlockRemovesAutonomousAttackBehavior; ActorLosingOntologyEligibilityEvictsItsRuntimeMotion; LiveRuntimeOwnerDoesNotFallBackToDurableSpawn",
+      "evidenceTest": "RemovingRuleBlockRemovesAutonomousAttackBehavior; AttackOccurrenceResolvesContactOnceThenCompletesRecovery; MissingOccurrenceCannotProduceContactOrRecovery; ActorLosingOntologyEligibilityEvictsItsRuntimeMotion; LiveRuntimeOwnerDoesNotFallBackToDurableSpawn; MeleeContactUsesAuthoredCapsulesAndReach; MeleeContactFailsClosedForMissingOrSeparatedGeometry",
       "productionContract": {
         "contractId": "monster-ontology-production",
-        "version": 4,
+        "version": 8,
         "appliesTo": "Every new, migrated, generated, or user-authored autonomous monster",
         "stages": {
           "resource": "Register the visual prefab, collider, catalog, and VFX references as project-owned presentation content without deriving behavior from their names.",
-          "triples": "Author Actor, AutonomousAgent, Monster, Combatant, Damageable, faction, hostility, target_concept, targeting_profile, chase_profile, life, movement, detection, leash, attack, loot lifecycle, action, and animation-intent canonical data.",
+          "triples": "Author Actor, AutonomousAgent, Monster, Combatant, Damageable, faction, hostility, target_concept, targeting_profile, chase_profile, placement-time life defaults, movement, detection, leash, collision capsule radius/height, attack contact reach, attack range/damage/cooldown, attack windup/recovery timing, loot lifecycle, action, and animation-intent canonical data. Mutable current_health and is_alive belong to lifecycle state and must never be reintroduced by a semantic-baseline migration.",
           "ruleBlocks": "Assign reusable target acquisition, chase, autonomous attack, defeat-loot, and collection Rule Blocks; removing any block disables only its matching behavior.",
           "actions": "Publish immutable target, chase, and attack actions whose declared rule invocations match the active Rule Block bindings on the actor. Target and chase actions are explicitly evaluation-only and may not mutate durable state.",
           "physicalMeaning": "Assign AuthorityKinematic Physical Meaning so World Authority owns autonomous motion while Unity only interpolates it.",
           "animationManifest": "Validate idle, locomotion, attack, hit, death, and optional VFX intents through the animation manifest and compatible ActorProfile.",
-          "authority": "World Authority owns zone scheduling and previews the immutable target and chase actions through their assigned Rule definitions before selecting or moving. It also owns leash, cooldown, damage, death, loot lifecycle, revision, idempotency, and durable combat results.",
+          "authority": "World Authority owns zone scheduling and selects the highest published target, chase, and attack definition version inside the one enabled package before previewing its assigned Rule definitions. The current living projection evicts stale runtime occurrences every tick. An ephemeral AttackOccurrence advances through windup, one authored-capsule contact revalidation, and recovery; only accepted contact executes damage and immediately publishes its durable revision.",
           "unityPresentation": "Unity creates combat presentation from the projected Damageable semantic, interpolates accepted poses, and presents canonical animation/VFX intents without evaluating hostility, range, rules, damage, or loot ownership.",
           "removedPath": "Executable evidence removes the Rule Block, action link, required semantic data, or Physical Meaning and proves autonomous behavior disappears without a hidden fallback."
         },
@@ -909,11 +1096,11 @@
         "evidence": [
           {
             "file": "server/Tormia.WorldAuthority.Tests/AutonomousActorOntologyContractTests.cs",
-            "tests": "ArbitraryEntityWithCompleteContractCanAttackPlayerFaction; RemovingRuleBlockRemovesAutonomousAttackBehavior; TargetAndChaseExecuteTheirAssignedRuleDefinitions; ActorLosingOntologyEligibilityEvictsItsRuntimeMotion; LiveRuntimeOwnerDoesNotFallBackToDurableSpawn; DurableStaticTargetCanUseAuthoredTransform"
+            "tests": "ArbitraryEntityWithCompleteContractCanAttackPlayerFaction; RemovingRuleBlockRemovesAutonomousAttackBehavior; TargetAndChaseExecuteTheirAssignedRuleDefinitions; ActorLosingOntologyEligibilityEvictsItsRuntimeMotion; LiveRuntimeOwnerDoesNotFallBackToDurableSpawn; DurableStaticTargetCanUseAuthoredTransform; MeleeContactUsesAuthoredCapsulesAndReach; MeleeContactFailsClosedForMissingOrSeparatedGeometry"
           },
           {
             "file": "Assets/Tests/Ontology/Unity/OntologyAutonomousMonsterContractTests.cs",
-            "tests": "MonsterPresetCanGiveAnySelectedEntityCompleteMeaning; AuthorityPackagePublishesMonsterRuleAndAction; MonsterPresentationIntentsComeFromManifest; AuthorityKinematicAdapterDoesNotContainMonsterNames; AutonomousSchedulerResolvesRuleBindingsFromImmutableActions; AutonomousTargetsRequireProjectedLivingState"
+            "tests": "MonsterPresetCanGiveAnySelectedEntityCompleteMeaning; BeholderUsesSamePortableContractAsAnEditedObject; AuthorityPackagePublishesMonsterRuleAndAction; MonsterPresentationIntentsComeFromManifest; AuthorityKinematicAdapterDoesNotContainMonsterNames; AutonomousSchedulerResolvesRuleBindingsFromImmutableActions; AutonomousTargetsRequireProjectedLivingState"
           },
           {
             "file": "Assets/Tests/Ontology/Unity/OntologyCombatVerticalSliceAssetTests.cs",
@@ -931,8 +1118,8 @@
         "triples": "Concept, faction, hostility, target concept, targeting/chase profiles, life, movement, range, loot lifecycle, action and animation-intent data are authored on the selected entity.",
         "ruleBlock": "The actor has enabled target-acquisition, chase and autonomous-attack Rule Blocks matching the immutable actions and runtime profiles; defeat and collection have their own blocks.",
         "evaluation": "World Authority evaluates the actor's immutable target action and assigned target Rule for every candidate, then evaluates the immutable chase action and assigned chase Rule before movement; attack uses the same action-to-Rule path.",
-        "result": "Accepted attacks adjust health and death durably, an explicit post Rule Block makes loot available, and collection records durable target-owned provenance; accepted motion and animation intent remain ephemeral runtime state.",
-        "authorityBoundary": "Zone leases prevent duplicate simulation and damage uses revisioned idempotent Authority mutation.",
+        "result": "An accepted attack preview creates one ephemeral occurrence. Its contact tick revalidates the assigned Rule Block, current living eligibility, live positions, vertical overlap and authored capsule contact exactly once; accepted damage and death are durable while windup, recovery, motion and animation remain ephemeral.",
+        "authorityBoundary": "Zone leases prevent duplicate simulation, occurrence state prevents duplicate contact, and committed damage publishes an immediate revision notification while retaining revisioned idempotent mutation.",
         "meaning": "AuthorityKinematic Physical Meaning selects server-owned actor motion without depending on a prefab or object name.",
         "adapter": "Unity derives the combat presenter from projected Damageable meaning, interpolates accepted motion, and resolves canonical animation intent from the synchronized catalog.",
         "experience": "Applying the preset can make a Beholder, log or other placed visual behave as the same data-defined monster."
@@ -951,16 +1138,16 @@
       "evidenceTest": "AvatarTriplesDeclareCompleteGroundLocomotionMeaning",
       "productionContract": {
         "contractId": "player-ontology-production",
-        "version": 3,
+        "version": 7,
         "appliesTo": "Every new, migrated, generated, or user-authored player gameplay capability",
         "stages": {
           "resource": "Keep account-owned appearance/profile resources separate from the durable world avatar entity and register presentation assets through project-owned catalogs.",
-          "triples": "Author player role, capability, life, faction, locomotion/jump action IDs, movement/sprint/gravity/jump/ground-stick/maximum-step/ground-clearance tuning, impact-response meaning, physical profile, collision role/proxy shape/dimensions, and animation-intent canonical data on the world avatar.",
+          "triples": "Author player role, capability, life, faction, locomotion/jump action IDs, movement/sprint/gravity/jump/ground-stick/maximum-step/ground-clearance tuning, impact-response meaning, physical profile, collision role/proxy shape/dimensions, and idle/move/hit/death animation-intent canonical data on the world avatar.",
           "ruleBlocks": "Assign reusable ground-locomotion, grounded-jump, equipment, attack, death, and respawn Rule Blocks as applicable; removing a required block removes its behavior.",
           "actions": "Publish immutable player actions that invoke the matching assigned Rule Blocks; transient input carries the selected action identity.",
           "physicalMeaning": "Use LocalCharacterController Physical Meaning for local prediction and author ActorBody Capsule proxy data for the server collision boundary; controller impulses join one local move and a temporary Rigidbody reaction must take exclusive ownership.",
           "animationManifest": "Validate idle, locomotion, equipment, attack, hit, death, recovery, and respawn intents through the animation manifest and PlayerProfile.",
-          "authority": "World Authority evaluates every shared locomotion/action request and advances shared player motion at a fixed tick from authored speed, jump, gravity, step, clearance, Zone, and collision-proxy semantics including explicit WalkableSupport. Client-resolved poses remain ephemeral observations and never overwrite Authority state.",
+          "authority": "World Authority evaluates every shared locomotion/action request and advances shared player motion at a fixed tick from authored speed, jump, gravity, step, clearance, Zone, and collision-proxy semantics including explicit WalkableSupport. Client-resolved poses remain ephemeral observations tied only to an active accepted locomotion intent and never overwrite Authority state.",
           "unityPresentation": "Unity captures input and presents local prediction, animation, collision, bounded planar reconciliation, and feedback through the single CharacterController.Move owner while consuming Authority motion; it never restores behavior rejected by Authority.",
           "removedPath": "Executable evidence removes the locomotion action or Rule Block and proves both Unity prediction and Authority scheduling/evaluation stop without a hidden fallback."
         },
@@ -997,7 +1184,7 @@
           },
           {
             "file": "Assets/Tests/Ontology/Unity/OntologyAnimationProductionLineTests.cs",
-            "tests": "CurrentAnimationAssetsMatchManifestProjection"
+            "tests": "CurrentAnimationAssetsMatchManifestProjection; PlayerHitReactionUsesProjectOwnedAuthorityIntentContent; PlayerDeathUsesProjectOwnedAuthorityIntentContent"
           },
           {
             "file": "Assets/Tests/Ontology/PlayMode/OntologySemanticAdapterSynchronizerTests.cs",
@@ -1009,7 +1196,7 @@
           },
           {
             "file": "Assets/Tests/Ontology/Unity/OntologyCombatVerticalSliceAssetTests.cs",
-            "tests": "EquipmentTransitionMetadataAllowsImmediateLocomotion; SwordLightAttackYieldsPresentationToApprovedLocomotion"
+            "tests": "EquipmentTransitionMetadataAllowsImmediateLocomotion; SwordLightAttackYieldsPresentationToApprovedLocomotion; TargetHitPresentationRequiresNewAuthorityHealthDecrease"
           }
         ]
       },
@@ -1141,10 +1328,46 @@
       "kind": "unity-playmode",
       "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologySemanticAdapterSynchronizerTests.cs",
       "evidenceTest": "LocalCharacterPhysicalMeaningOwnsAndRemovesMotionLease",
-      "enabledExpectation": "LocalCharacterController Physical Meaning grants one motion coordinator the CharacterController.Move lease, supplies its authored maximum step height, and maps ActorBody meaning to its project-owned Unity Physics Layer.",
+      "enabledExpectation": "LocalCharacterController Physical Meaning grants one motion coordinator the CharacterController.Move lease, maps authored step, slope, skin-width, and minimum-move tuning onto Unity CharacterController settings, and maps ActorBody meaning to its project-owned Unity Physics Layer.",
       "disabledExpectation": "Removing or changing that Physical Meaning fails closed, restores the original Unity layer, clears step tuning, and removes the local motion lease.",
       "enabledExpectationKo": "LocalCharacterController 물리 의미가 하나의 이동 코디네이터에 CharacterController.Move 소유권과 작성된 최대 단차 높이를 제공하고 ActorBody 의미를 프로젝트 소유 Unity Physics Layer에 매핑한다.",
       "disabledExpectationKo": "해당 물리 의미를 제거하거나 변경하면 fail-closed로 원래 Unity Layer를 복원하고 파생 단차 튜닝과 로컬 이동 소유권을 제거한다."
+    },
+    {
+      "id": "unity-charactercontroller-physics-contract",
+      "title": "Unity CharacterController owns collision, slopes, and step resolution",
+      "titleKo": "Unity CharacterController가 충돌·경사·단차 해결을 소유한다",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyHybridCharacterMotionTests.cs",
+      "evidenceTest": "UnityCharacterControllerResolvesAuthoredWalkableStep",
+      "enabledExpectation": "Physical Meaning supplies CharacterController tuning while Unity Physics resolves the actual walkable step through the single coordinator-owned Move call; ontology code observes support but never injects a sampled step coordinate.",
+      "disabledExpectation": "Removing LocalCharacterController meaning clears its tuning and movement lease; no retired capsule/raycast/overlap step solver or Transform fallback continues movement.",
+      "enabledExpectationKo": "Physical Meaning은 CharacterController 설정값만 제공하고 실제 보행 단차는 단일 Move 호출에서 Unity Physics가 해결한다. 온톨로지 코드는 지지면을 관측하지만 계산한 단차 좌표를 주입하지 않는다.",
+      "disabledExpectationKo": "LocalCharacterController 의미를 제거하면 설정과 이동 lease가 함께 제거되며 폐기된 캡슐·레이캐스트·오버랩 단차 계산이나 Transform fallback이 동작하지 않는다."
+    },
+    {
+      "id": "unity-ground-contact-authority",
+      "title": "Unity collision contact owns ephemeral grounded state",
+      "titleKo": "Unity 충돌 접촉이 일시적 접지 상태를 소유한다",
+      "kind": "unity-playmode",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyHybridCharacterMotionTests.cs",
+      "evidenceTest": "DynamicPropContactUsesUnityGroundingWithoutSemanticOverride",
+      "enabledExpectation": "A solid collider permitted by the ontology-derived collision matrix remains grounded when CharacterController reports Below or isGrounded, even when the surface meaning is DynamicProp rather than WalkableSupport.",
+      "disabledExpectation": "Removing the collision permission prevents Unity contact itself; a semantic support probe never fabricates grounded state and never revokes an actual Unity contact.",
+      "enabledExpectationKo": "온톨로지에서 파생된 충돌 매트릭스가 허용한 단단한 콜라이더는 표면 의미가 WalkableSupport가 아닌 DynamicProp이어도 CharacterController의 Below 또는 isGrounded 접촉이 있으면 접지 상태를 유지한다.",
+      "disabledExpectationKo": "충돌 허용 의미를 제거하면 Unity 접촉 자체가 차단되며, 의미 지지면 프로브는 접지를 만들어내지도 실제 Unity 접촉을 취소하지도 않는다."
+    },
+    {
+      "id": "humanoid-foot-grounding-presentation",
+      "title": "Humanoid foot grounding is a Unity presentation result",
+      "titleKo": "휴머노이드 발 접지는 Unity 표현 결과다",
+      "kind": "unity-editmode",
+      "evidenceFile": "Assets/Tests/Ontology/Unity/OntologyCombatVerticalSliceAssetTests.cs",
+      "evidenceTest": "HumanoidFootGroundingAdapterIsPresentationOnly",
+      "enabledExpectation": "Physical Profile tuning enables Animator IK to align visible feet to Unity Physics contacts without moving the CharacterController or actor root.",
+      "disabledExpectation": "Removing or disabling foot-grounding presentation leaves gameplay collision and grounded state unchanged and no transform fallback moves the actor.",
+      "enabledExpectationKo": "Physical Profile 설정이 Animator IK를 활성화해 CharacterController나 Actor 루트를 움직이지 않고 보이는 발만 Unity Physics 접촉점에 정렬한다.",
+      "disabledExpectationKo": "발 접지 표현을 제거하거나 비활성화해도 게임 충돌과 접지 상태는 변하지 않으며 Transform fallback이 Actor를 이동하지 않는다."
     },
     {
       "id": "explicit-collision-layer-contract",
@@ -1205,6 +1428,108 @@
       "disabledExpectation": "A duplicate canonical/legacy ID or conflicting owner for one intent fails validation, and no source-name or intent-name normalization restores the removed mapping.",
       "enabledExpectationKo": "검증된 정의는 선언한 이전 ID를 하나의 canonical 애니메이션으로 해석하고 의도를 작성된 표현 소유자에게만 전달한다.",
       "disabledExpectationKo": "canonical·이전 ID가 중복되거나 한 의도의 소유자가 충돌하면 검증에 실패하며 원본 이름·의도 이름 정규화가 제거된 매핑을 복구하지 않는다."
+    },
+    {
+      "id": "authority-rule-binding-identity-lifecycle",
+      "title": "Authority owns exact Rule Block identity and contribution lifecycle",
+      "titleKo": "Authority가 정확한 규칙 블록 식별자와 기여 수명주기를 소유",
+      "kind": "local-integration",
+      "evidenceFile": "Assets/Tests/Ontology/PlayMode/OntologyRuntimeWorldEditorSelectionTests.cs",
+      "evidenceTest": "AuthorityRuleRemovalKeepsProjectionUntilConfirmed; RemoveByBindingIdRemovesOnlyExactDuplicateSemanticBinding; scripts/run-meaning-package-authority-smoke.ps1",
+      "enabledExpectation": "Quick Setup atomically creates declared Triples and at least one owned published Rule Block for behavior packages, and projection exposes revisioned ownership provenance.",
+      "disabledExpectation": "Removing one binding ID retracts only that binding and RuleBound results; the final owned binding closes the package, retracts owned Triples, and preserves independent contributions. A rejected command leaves Unity unchanged.",
+      "enabledExpectationKo": "빠른 설정은 행동 패키지의 선언 트리플과 게시된 소유 규칙 블록을 원자적으로 만들고 프로젝션은 리비전 기반 소유 출처를 제공한다.",
+      "disabledExpectationKo": "바인딩 ID 하나를 삭제하면 해당 바인딩과 RuleBound 결과만 철회하며 마지막 소유 바인딩은 패키지를 닫아 소유 트리플을 철회하되 독립 기여를 보존한다. 거부된 명령은 Unity 상태를 변경하지 않는다."
+    },
+    {
+      "id": "hybrid-udp-single-writer-transition",
+      "title": "Authority explicitly transitions one motion writer between HTTP and UDP",
+      "titleKo": "Authority가 HTTP와 UDP 사이의 단일 이동 writer를 명시적으로 전환한다",
+      "kind": "server-unit-and-unity-playmode",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/PlayerMotionIntentAdmissionTests.cs",
+      "evidenceTest": "UdpBeforeExplicitPromotionIsRejectedAndHttpRemainsCanonical; ExplicitUdpPromotionFencesHigherHttpSequenceInSameRuntimeSession; ExplicitFallbackIsIdempotentAndReenablesOnlyNewHttpEpoch; DisconnectedPeerCanFallbackUsingExactCurrentUdpWriter; QueuedUdpIntentCannotCommitAfterFallback; UnpromotedReissueCandidateDoesNotBlockOldWriterFallback; ActiveUdpWriterRejectsDirectUdpRekeyUntilExplicitFallback; FailedPromotionCanRecoverThroughIdempotentCurrentHttpFallback; RefreshedUdpWriterFallsBackWithStaleTicketRevision; UdpPromotionIdempotencyRejectsCrossUserAndCrossZoneScope; HttpFallbackIdempotencyRejectsCrossUserAndCrossZoneScope; RedeemedHandshakeIsNotDataplaneCurrentUntilPeerIsConnected; RevokeRuntimeSession_RemovesTicketAndGenerationLifecycleState; AcceptedIntentRefreshesWriterRevisionWithoutChangingWriterEpoch",
+      "pipelineStages": {
+        "trigger": "An authenticated client requests an explicit transport promotion or fallback for its active runtime avatar.",
+        "intent": "HTTPS carries only exact runtime, transport-session, generation, expected writer epoch, and world revision metadata.",
+        "evaluation": "Authority atomically validates ownership scope, runtime session, Zone, revision, redeemed transport binding, writer epoch, and current mode.",
+        "result": "The ephemeral writer state advances exactly one epoch and clears the prior intent lease; no world Fact, Rule result, or gameplay permission is created.",
+        "authority": "Redis Lua or the equivalent in-memory gate serializes promotion, fallback, generation fencing, and intent admission.",
+        "adapter": "Unity sends through only the Authority-acknowledged writer and performs reliable recovery before HTTP resumes.",
+        "removedPath": "Without an explicit promotion ACK, UDP intent is rejected; after fallback, stale UDP session, generation, or epoch cannot publish."
+      },
+      "enabledExpectation": "Activation starts HTTP with an Authority-issued epoch, explicit promotion admits only the latest exact connected UDP binding, disconnect revokes only connected presence, and exact fallback atomically fences UDP before a newer HTTP epoch resumes.",
+      "disabledExpectation": "Ticket issue, ticket redemption, stale epoch, stale generation, stale session, disconnected or queued packet arrival alone never changes the active writer or creates gameplay state; active UDP rekey requires explicit HTTP fallback.",
+      "enabledExpectationKo": "활성화는 Authority가 발급한 epoch의 HTTP로 시작하고, 명시적 승격은 정확한 UDP 결합만 허용하며, 명시적 fallback은 더 새 HTTP epoch가 재개되기 전에 UDP를 원자적으로 철회한다.",
+      "disabledExpectationKo": "티켓 발급·교환·연결, 오래된 epoch·generation·session 또는 패킷 도착만으로 활성 writer나 게임 상태가 바뀌지 않는다."
+    },
+    {
+      "id": "authority-udp-deterministic-fault-boundary",
+      "title": "Authority UDP faults cannot bypass canonical admission or writer fencing",
+      "titleKo": "Authority UDP 장애는 canonical 승인과 writer fence를 우회할 수 없다",
+      "kind": "server-unit-and-opt-in-redis-integration",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/AuthorityUdpMotionIntentConsumerFaultTests.cs",
+      "evidenceTest": "PacketLoss_DoesNotInventMissingIntentAndPublishesLatest; ReorderedDatagrams_CoalesceToHighestInputSequence; ReplayedDatagram_IsDroppedBeforeCanonicalAdmission; TooOldDatagram_IsDroppedWithoutRewindingRegistry; QueuedIntentAfterFallback_IsFencedBeforeRegistryCommit; Diagnostics_PreserveWriterAndConnectedPresenceFailures; GenerationFence_InvalidBatchResultFailsClosedWithBoundedMetric",
+      "pipelineStages": {
+        "trigger": "An authenticated UDP datagram arrives, is lost, reordered, replayed, delayed beyond the replay window, or remains queued while the writer falls back to HTTP.",
+        "intent": "Only a structurally valid authenticated motion intent with exact transport identity may enter the bounded consumer.",
+        "evaluation": "The consumer rechecks connected generation, exact writer scope and epoch, current runtime session, authored locomotion contract, and world revision before registry commit.",
+        "result": "At most the newest admissible ephemeral intent is stored; transport loss or failure creates no gameplay or durable result.",
+        "authority": "In-memory gates and Redis Lua enforce the same expiry, replay, generation, promotion, submission, and fallback contract across Authority instances.",
+        "adapter": "Snapshot paging and backplane fanout remain bounded replaceable presentation transport and never alter Authority state.",
+        "removedPath": "After fallback, generation revocation, expiry, replay, or too-old detection, the packet cannot publish even when it was previously authenticated or queued."
+      },
+      "enabledExpectation": "Loss and bounded reorder preserve a monotonic canonical intent sequence, exact current Redis generations pass one batched fence, and the active writer alone may publish.",
+      "disabledExpectation": "Replay, too-old input, expired credentials, stale generation, writer mismatch, queued-after-fallback input, snapshot queue overflow, and backplane failure cannot create a durable event, Fact, gameplay result, or second writer.",
+      "enabledExpectationKo": "손실과 제한 범위 역순 도착에서도 canonical intent sequence는 단조 증가하며 정확한 현재 Redis generation은 일괄 fence를 통과하고 활성 writer만 발행할 수 있다.",
+      "disabledExpectationKo": "replay, too-old 입력, 만료 자격 증명, 오래된 generation, writer 불일치, fallback 후 대기 입력, snapshot 큐 포화, backplane 장애는 영속 이벤트·Fact·게임 결과·두 번째 writer를 만들 수 없다."
+    },
+    {
+      "id": "redis-udp-cross-instance-fault-parity",
+      "title": "Redis instances share one ticket and motion-writer fault contract",
+      "titleKo": "Redis 인스턴스가 하나의 티켓·이동 writer 장애 계약을 공유한다",
+      "kind": "opt-in-redis-integration",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/RedisUdpTransportIntegrationTests.cs",
+      "evidenceTest": "TicketLifecycle_IsVisibleAcrossInstancesAndBatchFenceIsExact; ExpiredTicket_IsConsumedOnceAndReplayIsRejectedAcrossInstances; ConcurrentDuplicateRedeem_HasExactlyOneCanonicalWinner; WriterPromotionSubmitAndFallback_AreAtomicAcrossInstances; ConcurrentReissueAndPromotion_FencesTheOldGeneration; ConcurrentSubmitAndFallback_HasOneFinalWriterEpochAndRejectsStaleUdp",
+      "enabledExpectation": "Two independent Redis clients observe one duplicate-redemption winner, one canonical reissue-or-promotion outcome, and one final writer epoch after concurrent submit and fallback.",
+      "disabledExpectation": "Expired or replayed tickets, mismatched batched bindings, stale generations, and stale UDP intent after fallback cannot return key material or commit shared state.",
+      "enabledExpectationKo": "독립 Redis 클라이언트 두 개가 중복 교환 승자 하나, 재발급 또는 승격의 canonical 결과 하나, 동시 제출과 fallback 뒤 최종 writer epoch 하나를 관측한다.",
+      "disabledExpectationKo": "만료·replay 티켓, 일괄 조회 결합 불일치, 오래된 generation, fallback 뒤 오래된 UDP intent는 키 재료를 반환하거나 공유 상태를 commit할 수 없다."
+    },
+    {
+      "id": "authority-udp-reconnect-generation-fence",
+      "title": "UDP reconnect accepts only the fresh transport generation",
+      "titleKo": "UDP 재연결은 최신 transport generation만 허용한다",
+      "kind": "server-loopback-integration",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/AuthorityUdpRealtimeListenerIntegrationTests.cs",
+      "evidenceTest": "Loopback_ReconnectRequiresFreshGenerationAndRejectsOldBootstrap",
+      "enabledExpectation": "A disconnected client can reconnect with a fresh Authority binding and publish authenticated motion through the existing canonical sink.",
+      "disabledExpectation": "A bootstrap from the superseded transport session and generation is rejected before it can create peer state or motion input.",
+      "enabledExpectationKo": "연결이 끊긴 클라이언트는 새 Authority 결합으로 재연결해 기존 canonical sink에 인증된 이동을 제출할 수 있다.",
+      "disabledExpectationKo": "대체된 transport session과 generation의 bootstrap은 peer 상태나 이동 입력을 만들기 전에 거절된다."
+    },
+    {
+      "id": "authority-udp-snapshot-fault-isolation",
+      "title": "UDP snapshot paging and backplane failure remain replaceable presentation",
+      "titleKo": "UDP 스냅샷 페이지와 backplane 장애는 교체 가능한 표현으로 격리된다",
+      "kind": "server-integration",
+      "evidenceFile": "server/Tormia.WorldAuthority.Tests/AuthorityUdpMotionSnapshotIntegrationTests.cs",
+      "evidenceTest": "Loopback_DeterministicallyPagesWithinMtuWithoutDroppingItems; OutboundChannel_IsBoundedAndDropsNewestWithoutEvictingQueuedSnapshot; BackplanePublishFailure_DropsOnlyUdpFrameAndPublisherContinues",
+      "enabledExpectation": "Authenticated pages remain within MTU, preserve one Authority occurrence, and publish only to exact current Zone peers.",
+      "disabledExpectation": "Queue saturation, stale generation, disconnect, malformed page input, or backplane failure drops only replaceable UDP presentation and never stops Authority or reliable lanes.",
+      "enabledExpectationKo": "인증 페이지는 MTU 안에서 하나의 Authority occurrence를 보존하고 정확한 현재 Zone peer에게만 발행된다.",
+      "disabledExpectationKo": "큐 포화, 오래된 generation, 연결 종료, 잘못된 페이지 입력, backplane 장애는 교체 가능한 UDP 표현만 버리며 Authority나 신뢰 경로를 중단하지 않는다."
+    },
+    {
+      "id": "linux-x64-udp-container-readiness",
+      "title": "Linux x64 Authority container keeps UDP default-off and fail-closed",
+      "titleKo": "Linux x64 Authority 컨테이너는 UDP 기본 비활성과 실패 폐쇄를 유지한다",
+      "kind": "server-container-and-unit",
+      "evidenceFile": "server/Tormia.WorldAuthority/Dockerfile",
+      "evidenceTest": "UdpTransportConfigurationPolicyTests; clean linux-x64 Docker publish; default-off and enabled-without-host-UDP-mapping health smoke",
+      "enabledExpectation": "A non-root Linux Production container with Redis and protected credentials starts healthy with the explicitly enabled UDP listener while HTTPS and SignalR remain available.",
+      "disabledExpectation": "The production image starts with both UDP gates off and no host UDP mapping; incomplete enabled configuration or a privileged listener port fails before serving.",
+      "enabledExpectationKo": "Redis와 보호된 자격 증명을 갖춘 비루트 Linux Production 컨테이너는 UDP 리스너를 명시적으로 켰을 때 healthy가 되고 HTTPS와 SignalR도 계속 사용할 수 있다.",
+      "disabledExpectationKo": "운영 이미지는 두 UDP gate와 호스트 UDP 매핑이 모두 꺼진 채 시작하며, 불완전한 활성 설정이나 비특권 범위를 벗어난 포트는 서비스 시작 전에 실패한다."
     }
   ]
 }

@@ -9,7 +9,6 @@ namespace Tormia.Ontology.Core
         public CollisionFlags collisionFlags;
         public float requestedVerticalDisplacement;
         public float resolvedVerticalDisplacement;
-        public float resolvedStepRise;
         public OntologyCharacterSupportState supportBefore;
         public OntologyCharacterSupportState supportAfter;
     }
@@ -24,10 +23,6 @@ namespace Tormia.Ontology.Core
     [RequireComponent(typeof(OntologyCharacterSupportProbe))]
     public sealed class OntologyCharacterMotionCoordinator : MonoBehaviour
     {
-        [SerializeField, Min(0f), Tooltip(
-            "Runtime value derived from the active OntologyPhysicalProfile. " +
-            "Do not author this component value directly.")]
-        private float maximumStepHeight;
         [Header("Diagnostics")]
         [SerializeField, Tooltip(
             "Opt-in development tracing for controller motion, grounding, " +
@@ -44,6 +39,8 @@ namespace Tormia.Ontology.Core
         [SerializeField] private Vector3 lastResolvedDisplacement;
         [SerializeField] private Vector3 pendingAuthorityPlanarCorrection;
         [SerializeField] private long lastAuthorityServerTick;
+        [SerializeField] private long lastAuthorityProcessedIntentSequence;
+        [SerializeField] private long minimumAuthorityProcessedIntentSequence;
         [SerializeField, Min(0f)] private float authorityCorrectionSpeed;
 
         private CharacterController controller;
@@ -59,6 +56,7 @@ namespace Tormia.Ontology.Core
         private float nextDiagnosticSampleAt;
         private bool hasGroundedDiagnostic;
         private bool previousGroundedDiagnostic;
+        private OntologyPhysicalProfile activePhysicalProfile;
 
         public OntologyCharacterSupportState LastSupport => lastSupport;
         public string LastHitCollider => lastHitCollider;
@@ -67,17 +65,24 @@ namespace Tormia.Ontology.Core
             lastRequestedDisplacement;
         public Vector3 LastResolvedDisplacement =>
             lastResolvedDisplacement;
-        public float MaximumStepHeight => maximumStepHeight;
+        public float MaximumStepHeight =>
+            controller == null ? 0f : controller.stepOffset;
         public Vector3 PendingAuthorityPlanarCorrection =>
             pendingAuthorityPlanarCorrection;
         public long LastAuthorityServerTick =>
             lastAuthorityServerTick;
+        public long LastAuthorityProcessedIntentSequence =>
+            lastAuthorityProcessedIntentSequence;
         public CollisionFlags LastCollisionFlags =>
             lastCollisionFlags;
+        public OntologyPhysicalProfile ActivePhysicalProfile =>
+            activePhysicalProfile;
+        // Grounded is an ephemeral Unity collision observation. Ontology
+        // collision roles decide which layers may collide, but must not revoke
+        // a support contact that CharacterController already resolved.
         public bool HasGroundContact =>
             controller != null &&
             controller.enabled &&
-            lastSupport.hasSupport &&
             (controller.isGrounded ||
              (lastCollisionFlags & CollisionFlags.Below) != 0);
         public bool IsGrounded =>
@@ -86,24 +91,48 @@ namespace Tormia.Ontology.Core
         private void Awake()
         {
             ResolveDependencies();
-            EnforceExplicitStepOwnership();
             lastSupport = supportProbe.Probe();
         }
 
         private void OnEnable()
         {
             ResolveDependencies();
-            EnforceExplicitStepOwnership();
         }
 
         public void Configure(OntologyPhysicalProfile profile)
         {
-            maximumStepHeight =
+            ResolveDependencies();
+            activePhysicalProfile = profile;
+            if (controller == null)
+            {
+                return;
+            }
+
+            var localController =
                 profile != null &&
                 profile.motionDriver ==
-                OntologyMotionDriver.LocalCharacterController
-                    ? Mathf.Max(0f, profile.maximumStepHeight)
-                    : 0f;
+                OntologyMotionDriver.LocalCharacterController;
+            controller.stepOffset = localController
+                ? Mathf.Clamp(
+                    profile.maximumStepHeight,
+                    0f,
+                    Mathf.Max(0f, controller.height))
+                : 0f;
+            if (!localController)
+            {
+                return;
+            }
+
+            controller.slopeLimit = Mathf.Clamp(
+                profile.characterSlopeLimit,
+                0f,
+                89f);
+            controller.skinWidth = Mathf.Max(
+                0.001f,
+                profile.characterSkinWidth);
+            controller.minMoveDistance = Mathf.Max(
+                0f,
+                profile.characterMinimumMoveDistance);
         }
 
         public OntologyCharacterMotionResult Move(
@@ -128,29 +157,14 @@ namespace Tormia.Ontology.Core
                 return result;
             }
 
-            EnforceExplicitStepOwnership();
             var authorityCorrection =
-                ConsumeAuthorityPlanarCorrection(Time.deltaTime);
+                ResolveAuthorityPlanarCorrectionStep(Time.deltaTime);
             var planar =
                 Vector3.ProjectOnPlane(
                     horizontalDisplacement +
                     additiveDisplacement +
                     authorityCorrection,
                     Vector3.up);
-            var groundedOnWalkableSupport =
-                controller.isGrounded &&
-                result.supportBefore.hasSupport;
-            var stepRise = 0f;
-            if (groundedOnWalkableSupport &&
-                verticalDisplacement <= 0f)
-            {
-                supportProbe.TryResolveStep(
-                    planar,
-                    result.supportBefore,
-                    maximumStepHeight,
-                    out stepRise);
-            }
-
             // CharacterController is the sole collision resolver. Feeding it a
             // support-tangent vector would first manufacture a Y displacement
             // from a sampled triangle normal and then ask the controller to
@@ -162,8 +176,7 @@ namespace Tormia.Ontology.Core
             var requested =
                 surfaceDisplacement +
                 gravityOrAdhesion +
-                Vector3.up *
-                (additiveDisplacement.y + stepRise);
+                Vector3.up * additiveDisplacement.y;
             lastRequestedDisplacement = requested;
             var before = transform.position;
             lastPositionBeforeMove = before;
@@ -180,9 +193,13 @@ namespace Tormia.Ontology.Core
             }
             lastPositionAfterMove = transform.position;
             lastResolvedDisplacement = lastPositionAfterMove - before;
+            pendingAuthorityPlanarCorrection =
+                ResolveRemainingAuthorityCorrection(
+                    pendingAuthorityPlanarCorrection,
+                    authorityCorrection,
+                    lastResolvedDisplacement);
             result.resolvedVerticalDisplacement =
                 lastResolvedDisplacement.y;
-            result.resolvedStepRise = stepRise;
             result.supportAfter = supportProbe.Probe();
             lastSupport = result.supportAfter;
             TraceUnexpectedControllerRise(result);
@@ -198,10 +215,19 @@ namespace Tormia.Ontology.Core
         public bool QueueAuthorityPlanarCorrection(
             Vector3 correction,
             long serverTick,
+            long processedIntentSequence,
             float correctionSpeed,
             float deadZone)
         {
-            if (serverTick <= lastAuthorityServerTick ||
+            if (serverTick <= 0 ||
+                processedIntentSequence <
+                    minimumAuthorityProcessedIntentSequence ||
+                serverTick < lastAuthorityServerTick ||
+                (processedIntentSequence <
+                    lastAuthorityProcessedIntentSequence) ||
+                (serverTick == lastAuthorityServerTick &&
+                 processedIntentSequence <=
+                    lastAuthorityProcessedIntentSequence) ||
                 !IsFinite(correction) ||
                 !float.IsFinite(correctionSpeed) ||
                 !float.IsFinite(deadZone) ||
@@ -212,6 +238,8 @@ namespace Tormia.Ontology.Core
             }
 
             lastAuthorityServerTick = serverTick;
+            lastAuthorityProcessedIntentSequence =
+                processedIntentSequence;
             authorityCorrectionSpeed = correctionSpeed;
             correction = Vector3.ProjectOnPlane(
                 correction,
@@ -223,14 +251,35 @@ namespace Tormia.Ontology.Core
             return true;
         }
 
+        /// <summary>
+        /// Advances the local prediction fence when Authority accepts a newer
+        /// input. A residual calculated from an earlier input can no longer be
+        /// consumed while the server catches up to that accepted sequence.
+        /// </summary>
+        public void AdvanceAuthorityIntentFence(long acceptedIntentSequence)
+        {
+            if (acceptedIntentSequence <=
+                minimumAuthorityProcessedIntentSequence)
+            {
+                return;
+            }
+
+            minimumAuthorityProcessedIntentSequence =
+                acceptedIntentSequence;
+            pendingAuthorityPlanarCorrection = Vector3.zero;
+            authorityCorrectionSpeed = 0f;
+        }
+
         public void ClearAuthorityCorrection()
         {
             pendingAuthorityPlanarCorrection = Vector3.zero;
             authorityCorrectionSpeed = 0f;
             lastAuthorityServerTick = 0;
+            lastAuthorityProcessedIntentSequence = 0;
+            minimumAuthorityProcessedIntentSequence = 0;
         }
 
-        private Vector3 ConsumeAuthorityPlanarCorrection(
+        private Vector3 ResolveAuthorityPlanarCorrectionStep(
             float deltaSeconds)
         {
             if (pendingAuthorityPlanarCorrection.sqrMagnitude <=
@@ -242,17 +291,46 @@ namespace Tormia.Ontology.Core
                 return Vector3.zero;
             }
 
-            var displacement = Vector3.MoveTowards(
+            return Vector3.MoveTowards(
                 Vector3.zero,
                 pendingAuthorityPlanarCorrection,
                 authorityCorrectionSpeed * deltaSeconds);
-            pendingAuthorityPlanarCorrection -= displacement;
-            if (pendingAuthorityPlanarCorrection.sqrMagnitude <=
-                0.0000001f)
+        }
+
+        public static Vector3 ResolveRemainingAuthorityCorrection(
+            Vector3 pendingCorrection,
+            Vector3 requestedCorrectionStep,
+            Vector3 resolvedDisplacement)
+        {
+            pendingCorrection = Vector3.ProjectOnPlane(
+                pendingCorrection,
+                Vector3.up);
+            requestedCorrectionStep = Vector3.ProjectOnPlane(
+                requestedCorrectionStep,
+                Vector3.up);
+            var requestedMagnitude = requestedCorrectionStep.magnitude;
+            if (!IsFinite(pendingCorrection) ||
+                !IsFinite(requestedCorrectionStep) ||
+                !IsFinite(resolvedDisplacement) ||
+                requestedMagnitude <= Mathf.Epsilon)
             {
-                pendingAuthorityPlanarCorrection = Vector3.zero;
+                return pendingCorrection;
             }
-            return displacement;
+
+            var direction = requestedCorrectionStep / requestedMagnitude;
+            var resolvedAlongCorrection = Mathf.Clamp(
+                Vector3.Dot(
+                    Vector3.ProjectOnPlane(
+                        resolvedDisplacement,
+                        Vector3.up),
+                    direction),
+                0f,
+                requestedMagnitude);
+            var remaining = pendingCorrection -
+                            direction * resolvedAlongCorrection;
+            return remaining.sqrMagnitude <= 0.0000001f
+                ? Vector3.zero
+                : remaining;
         }
 
         private static bool IsFinite(Vector3 value) =>
@@ -394,8 +472,8 @@ namespace Tormia.Ontology.Core
                 lastRequestedDisplacement.ToString("F4") +
                 " resolved=" +
                 lastResolvedDisplacement.ToString("F4") +
-                " stepRise=" +
-                result.resolvedStepRise.ToString("F4"));
+                " unityStepOffset=" +
+                controller.stepOffset.ToString("F4"));
         }
 
         private bool ShouldTraceExternalWrite(Vector3 delta)
@@ -537,8 +615,21 @@ namespace Tormia.Ontology.Core
             if (controller == null || !controller.enabled ||
                 !OntologyMotionDriverAdapter.Allows(
                     this,
-                    OntologyMotionDriver.LocalCharacterController) ||
-                !supportProbe.TryResolveGroundingOffset(
+                    OntologyMotionDriver.LocalCharacterController))
+            {
+                return false;
+            }
+
+            // Entry readiness consumes Unity's actual collision result first.
+            // A DynamicProp or another ontology-permitted solid may already
+            // support the capsule even though it is not classified as the
+            // authored fallback surface used by the entry alignment probe.
+            if (HasGroundContact)
+            {
+                return true;
+            }
+
+            if (!supportProbe.TryResolveGroundingOffset(
                     maximumDown,
                     maximumUp,
                     clearance,
@@ -567,17 +658,13 @@ namespace Tormia.Ontology.Core
                     Mathf.Max(0.001f, controller.skinWidth * 0.25f));
                 lastSupport = supportProbe.Probe();
             }
-            return lastSupport.hasSupport && HasGroundContact;
+            return HasGroundContact;
         }
 
         public void RefreshSupport()
         {
             ResolveDependencies();
             lastSupport = supportProbe.Probe();
-            if (!lastSupport.hasSupport)
-            {
-                lastCollisionFlags &= ~CollisionFlags.Below;
-            }
         }
 
         private void OnControllerColliderHit(ControllerColliderHit hit)
@@ -606,13 +693,5 @@ namespace Tormia.Ontology.Core
                 GetComponent<OntologyCharacterSupportProbe>();
         }
 
-        private void EnforceExplicitStepOwnership()
-        {
-            if (controller != null &&
-                !Mathf.Approximately(controller.stepOffset, 0f))
-            {
-                controller.stepOffset = 0f;
-            }
-        }
     }
 }

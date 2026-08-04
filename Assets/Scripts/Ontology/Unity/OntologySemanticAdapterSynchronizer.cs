@@ -46,6 +46,7 @@ namespace Tormia.Ontology.Core
             SynchronizePhysicalEffects(target, bootstrap);
             SynchronizeAttachment(target, bootstrap, actor);
             SynchronizeCombatPresentation(target);
+            SynchronizeWeaponPresentation(target);
         }
 
         public static void SynchronizePhysical(
@@ -360,6 +361,8 @@ namespace Tormia.Ontology.Core
             if (!isDamageable)
             {
                 if (existing != null) existing.enabled = false;
+                target.GetComponent<OntologyCombatHitProxyAdapter>()
+                    ?.Disable();
                 return;
             }
 
@@ -374,6 +377,12 @@ namespace Tormia.Ontology.Core
             var presenter = existing ??
                             target.AddComponent<
                                 OntologyCombatTargetPresenter>();
+            var hitProxy = ResolveCombatHitProxy(target, existing);
+            if (hitProxy == null)
+            {
+                presenter.enabled = false;
+                return;
+            }
             presenter.enabled = true;
             presenter.Configure(
                 identity,
@@ -388,12 +397,92 @@ namespace Tormia.Ontology.Core
                     ontology,
                     OntologyPredicates.HitVfxIntent),
                 null,
-                target.GetComponentInChildren<Collider>(true));
+                hitProxy);
             var authorityClient =
                 Object.FindAnyObjectByType<OntologyWorldAuthorityClient>();
             if (authorityClient?.CurrentProjection != null)
                 presenter.ApplyProjection(
                     authorityClient.CurrentProjection);
+        }
+
+        /// <summary>
+        /// Materializes the contact-query adapter from projected weapon meaning.
+        /// Authored prefabs may provide a calibrated contact volume; arbitrary UGC
+        /// objects receive a conservative renderer-bounds volume. The generated
+        /// collider is query geometry only and never grants attack permission.
+        /// </summary>
+        public static void SynchronizeWeaponPresentation(GameObject target)
+        {
+            if (target == null) return;
+            var ontology = target.GetComponent<OntologyObject>();
+            var existing = target.GetComponent<OntologyCombatWeaponPresenter>();
+            var isWeapon = ontology != null &&
+                           ontology.Concepts.Any(concept =>
+                               string.Equals(
+                                   concept,
+                                   OntologyConcepts.Weapon,
+                                   System.StringComparison.Ordinal));
+            var contactMode = ResolveCanonicalFact(
+                ontology,
+                OntologyPredicates.AttackContactMode);
+            if (!isWeapon || string.IsNullOrWhiteSpace(contactMode))
+            {
+                if (existing != null) existing.enabled = false;
+                return;
+            }
+
+            var identity =
+                target.GetComponent<OntologyAuthorityEntityIdentity>();
+            if (identity == null)
+            {
+                if (existing != null) existing.enabled = false;
+                target.GetComponent<OntologyCombatHitProxyAdapter>()
+                    ?.Disable();
+                return;
+            }
+
+            var volume = ResolveAuthoredWeaponContactVolume(target, existing);
+            if (volume == null)
+            {
+                if (existing != null) existing.enabled = false;
+                return;
+            }
+
+            var presenter = existing ??
+                            target.AddComponent<OntologyCombatWeaponPresenter>();
+            presenter.enabled = true;
+            presenter.Configure(
+                string.Empty,
+                target.transform,
+                volume,
+                contactMode);
+        }
+
+        private static BoxCollider ResolveAuthoredWeaponContactVolume(
+            GameObject target,
+            OntologyCombatWeaponPresenter existing)
+        {
+            if (existing != null && existing.ContactVolume != null)
+                return existing.ContactVolume;
+            var authored = target.GetComponentsInChildren<BoxCollider>(true)
+                .FirstOrDefault(value =>
+                    value != null &&
+                    value.GetComponentInParent<OntologyCombatTargetPresenter>() ==
+                    null);
+            if (authored != null) return authored;
+            return null;
+        }
+
+        private static Collider ResolveCombatHitProxy(
+            GameObject target,
+            OntologyCombatTargetPresenter existing)
+        {
+            var ontology = target.GetComponent<OntologyObject>();
+            var adapter = target.GetComponent<OntologyCombatHitProxyAdapter>() ??
+                          target.AddComponent<OntologyCombatHitProxyAdapter>();
+            return adapter.TryConfigure(ontology)
+                ? adapter.Collider
+                : null;
         }
 
         private static string ResolveCanonicalFact(

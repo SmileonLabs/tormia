@@ -36,6 +36,7 @@ MonoBehaviour:
   detachInteractionLocalSize: {x: 1, y: 1, z: 1}
   detachForwardDistance: 1.75
   detachVerticalOffset: 0.25
+  placeInWorldOnRelationRemoval: 1
   detachSurfaceClearance: 0.05
   detachSurfaceProbeHeight: 20
   detachSurfaceProbeDistance: 60

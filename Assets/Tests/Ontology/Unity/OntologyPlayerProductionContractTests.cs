@@ -4,6 +4,7 @@ using System.Linq;
 using NUnit.Framework;
 using Tormia.Ontology.Core;
 using UnityEditor;
+using UnityEngine;
 
 namespace Tormia.Ontology.Tests
 {
@@ -29,7 +30,7 @@ namespace Tormia.Ontology.Tests
                             OntologyWorldAuthoritySettings>(
                             SettingsPath).defaultAvatarMovementSpeed);
 
-            Assert.That(facts, Has.Length.EqualTo(34));
+            Assert.That(facts, Has.Length.EqualTo(37));
             AssertCanonical(
                 facts,
                 OntologyPredicates.LocomotionAction,
@@ -66,6 +67,14 @@ namespace Tormia.Ontology.Tests
                 facts,
                 OntologyPredicates.MoveAnimationIntent,
                 OntologyAnimationIntentIds.Locomotion);
+            AssertCanonical(
+                facts,
+                OntologyPredicates.HitAnimationIntent,
+                OntologyAnimationIntentIds.HitReaction);
+            AssertCanonical(
+                facts,
+                OntologyPredicates.DeathAnimationIntent,
+                OntologyAnimationIntentIds.Death);
             Assert.That(
                 facts,
                 Has.Some.Matches<OntologyAuthorityInitialFact>(value =>
@@ -138,6 +147,33 @@ namespace Tormia.Ontology.Tests
                             OntologyActorProfile>(
                             PlayerProfilePath));
             Assert.That(proxyFacts, Has.Length.EqualTo(7));
+
+            var hitPresentationFacts =
+                OntologyWorldAuthorityAccountEntryFlow
+                    .CreateAvatarHitPresentationSemanticFacts(
+                        AssetDatabase.LoadAssetAtPath<
+                            OntologyActorProfile>(
+                            PlayerProfilePath));
+            Assert.That(hitPresentationFacts, Has.Length.EqualTo(1));
+            AssertCanonical(
+                hitPresentationFacts,
+                OntologyPredicates.HitAnimationIntent,
+                OntologyAnimationIntentIds.HitReaction);
+
+            var deathPresentationFacts =
+                OntologyWorldAuthorityAccountEntryFlow
+                    .CreateAvatarDeathPresentationSemanticFacts(
+                        AssetDatabase.LoadAssetAtPath<
+                            OntologyActorProfile>(
+                            PlayerProfilePath));
+            Assert.That(deathPresentationFacts, Has.Length.EqualTo(1));
+            AssertCanonical(
+                deathPresentationFacts,
+                OntologyPredicates.DeathAnimationIntent,
+                OntologyAnimationIntentIds.Death);
+            Assert.That(
+                OntologySemanticContracts.PlayerAvatarVersion,
+                Is.EqualTo(12));
         }
 
         [Test]
@@ -156,7 +192,7 @@ namespace Tormia.Ontology.Tests
             Assert.That(rules, Is.Not.Null);
             Assert.That(
                 settings.developmentPackageVersion,
-                Is.EqualTo("3.9.0"));
+                Is.EqualTo("4.0.0"));
             Assert.That(
                 settings.developmentRules,
                 Has.Some.Matches<
@@ -164,7 +200,7 @@ namespace Tormia.Ontology.Tests
                     value != null &&
                     value.ruleId ==
                     OntologyRuleBlocks.MovePlayerFromIntent &&
-                    value.definitionVersion == 2));
+                    value.definitionVersion == 3));
 
             var action = settings.developmentActions.Single(value =>
                 value != null &&
@@ -214,18 +250,18 @@ namespace Tormia.Ontology.Tests
                     value != null &&
                     value.ruleId ==
                     OntologyRuleBlocks.JumpPlayerFromIntent &&
-                    value.definitionVersion == 3));
+                    value.definitionVersion == 4));
             Assert.That(
                 settings.developmentActions,
                 Has.Some.Matches<OntologyAuthorityDevelopmentAction>(value =>
                     value != null &&
                     value.actionId == OntologyActions.JumpAvatar &&
-                    value.definitionVersion == 2));
+                    value.definitionVersion == 3));
             var jumpRule = rules.Definitions.Single(value =>
                 value != null &&
                 value.id ==
                 OntologyRuleBlocks.JumpPlayerFromIntent);
-            Assert.That(jumpRule.catalogVersion, Is.EqualTo(3));
+            Assert.That(jumpRule.catalogVersion, Is.EqualTo(4));
             Assert.That(jumpRule.effects, Is.Empty);
             Assert.That(
                 jumpRule.runtimePresentation.actorAnimationIntent,
@@ -531,6 +567,73 @@ namespace Tormia.Ontology.Tests
                         1f),
                 Is.False,
                 "Rejected revalidation remains rate-limited.");
+
+            Assert.That(
+                OntologyWorldAuthorityPlayerIntentSender
+                    .ShouldSubmitRuntimeIntent(
+                        true,
+                        true,
+                        false,
+                        false,
+                        1f,
+                        1f),
+                Is.True,
+                "Standing players renew the ephemeral locomotion lease so " +
+                "Authority contact uses a current position.");
+        }
+
+        [Test]
+        public void IdenticalActiveHeartbeatDoesNotInvalidatePredictionCorrection()
+        {
+            Assert.That(
+                OntologyWorldAuthorityPlayerIntentSender
+                    .HasPredictionAffectingSampleChange(
+                        true, true,
+                        Vector2.right, 5f, true, new Vector2(4f, 8f), 0.1f,
+                        Vector2.right, 5f, true, new Vector2(4f, 8f), 0.1f),
+                Is.False,
+                "An identical active lease heartbeat must not clear a pending " +
+                "Authority reconciliation residual.");
+            Assert.That(
+                OntologyWorldAuthorityPlayerIntentSender
+                    .HasPredictionAffectingSampleChange(
+                        true, true,
+                        Vector2.up, 4f, true, new Vector2(4f, 8f), 0.1f,
+                        Vector2.right, 5f, true, new Vector2(4f, 8f), 0.1f),
+                Is.False,
+                "NavigateTo direction samples are presentation detail; the " +
+                "unchanged canonical destination must keep one fence.");
+            Assert.That(
+                OntologyWorldAuthorityPlayerIntentSender
+                    .HasPredictionAffectingSampleChange(
+                        true, false,
+                        Vector2.right, 5f, false, Vector2.zero, 0f,
+                        Vector2.zero, 0f, false, Vector2.zero, 0f),
+                Is.True,
+                "Active movement changes the prediction fence.");
+            Assert.That(
+                OntologyWorldAuthorityPlayerIntentSender
+                    .HasPredictionAffectingSampleChange(
+                        false, true,
+                        Vector2.zero, 0f, false, Vector2.zero, 0f,
+                        Vector2.right, 5f, false, Vector2.zero, 0f),
+                Is.True,
+                "The first stop after movement changes the prediction fence.");
+        }
+
+        [Test]
+        public void StopEdgeBypassesPeriodicIntentGate()
+        {
+            Assert.That(
+                OntologyWorldAuthorityPlayerIntentSender
+                    .ShouldSubmitRuntimeIntent(
+                        true,
+                        true,
+                        false,
+                        true,
+                        0f,
+                        10f),
+                Is.True);
         }
 
         [Test]
@@ -610,6 +713,20 @@ namespace Tormia.Ontology.Tests
             StringAssert.Contains(
                 "EnsureAvatarSemanticContractRoutine",
                 source);
+        }
+
+        [Test]
+        public void AuthorityPlayerMotionSelectsLatestPublishedActionVersion()
+        {
+            var source = File.ReadAllText(
+                "server/Tormia.WorldAuthority/Program.cs");
+
+            StringAssert.Contains(
+                "ORDER BY d.definition_version DESC\n" +
+                "                LIMIT 1",
+                source,
+                "Historical immutable locomotion definitions must not make " +
+                "the active player configuration ambiguous.");
         }
 
         [Test]

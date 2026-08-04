@@ -223,6 +223,31 @@ namespace Tormia.Ontology.Tests
         }
 
         [Test]
+        public void InvitedMemberPreflightsWorldsActiveContentPackage()
+        {
+            var memberId = Guid.NewGuid();
+            var world = new OntologyAuthorityAccountWorld
+            {
+                activeContentPackageId = "social_village_owner_release",
+                activeContentPackageVersion = "2026.08.03"
+            };
+
+            OntologyWorldAuthorityClient.ResolveDevelopmentPackageIdentity(
+                "social_village",
+                "local",
+                memberId.ToString("D"),
+                world,
+                out var packageId,
+                out var packageVersion);
+
+            Assert.That(packageId,
+                Is.EqualTo("social_village_owner_release"));
+            Assert.That(packageVersion, Is.EqualTo("2026.08.03"));
+            Assert.That(packageId,
+                Does.Not.Contain(memberId.ToString("N")));
+        }
+
+        [Test]
         public void WorldSelectionHidesAuthoredSlotsWhenAccountHasNoWorlds()
         {
             var root = new GameObject(

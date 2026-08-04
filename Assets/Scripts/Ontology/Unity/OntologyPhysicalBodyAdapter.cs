@@ -19,6 +19,8 @@ namespace Tormia.Ontology.Core
         private Rigidbody targetBody;
         private bool baselineCaptured;
         private bool createdBody;
+        private OntologyPhysicalProfile pendingAttachmentProfile;
+        private bool hasPendingAttachmentProfile;
 
         public OntologyPhysicalProfile PhysicalProfile => physicalProfile;
         public Rigidbody TargetBody => targetBody;
@@ -32,6 +34,19 @@ namespace Tormia.Ontology.Core
         }
 
         public void Configure(OntologyPhysicalProfile profile)
+        {
+            var attachment = GetComponent<OntologyAttachmentAdapter>();
+            if (attachment != null && attachment.OwnsWorldTransform)
+            {
+                pendingAttachmentProfile = profile;
+                hasPendingAttachmentProfile = true;
+                return;
+            }
+
+            ConfigureImmediately(profile);
+        }
+
+        private void ConfigureImmediately(OntologyPhysicalProfile profile)
         {
             if (profile != null &&
                 !RequiresRigidbodyPresentation(profile))
@@ -94,6 +109,94 @@ namespace Tormia.Ontology.Core
             return found;
         }
 
+        /// <summary>
+        /// Reasserts the current meaning-owned physical presentation after a
+        /// temporary attachment/editor lease ends. Temporary adapters must not
+        /// become a second owner of durable Collider or Rigidbody policy.
+        /// </summary>
+        public bool RestoreProfileAfterTemporaryOverride()
+        {
+            if (hasPendingAttachmentProfile)
+            {
+                var pending = pendingAttachmentProfile;
+                pendingAttachmentProfile = null;
+                hasPendingAttachmentProfile = false;
+                ConfigureImmediately(pending);
+            }
+
+            if (physicalProfile == null ||
+                !RequiresRigidbodyPresentation(physicalProfile))
+            {
+                return false;
+            }
+
+            if ((physicalProfile.dynamicColliderMode ==
+                    OntologyDynamicColliderMode.BoundsBox ||
+                 physicalProfile.dynamicColliderMode ==
+                    OntologyDynamicColliderMode.BoundsSphere) &&
+                generatedColliders.Count == 0)
+            {
+                ConfigureDynamicColliders();
+            }
+
+            var usesGeneratedSolid =
+                physicalProfile.dynamicColliderMode ==
+                    OntologyDynamicColliderMode.BoundsBox ||
+                physicalProfile.dynamicColliderMode ==
+                    OntologyDynamicColliderMode.BoundsSphere;
+            foreach (var state in originalColliderStates)
+            {
+                if (state.collider == null)
+                {
+                    continue;
+                }
+
+                state.collider.enabled = state.enabled &&
+                    (!usesGeneratedSolid || state.collider.isTrigger);
+            }
+            foreach (var collider in generatedColliders)
+            {
+                if (collider != null)
+                {
+                    collider.enabled = true;
+                }
+            }
+
+            targetBody ??= GetComponent<Rigidbody>();
+            if (targetBody != null)
+            {
+                var dynamic = physicalProfile.mobilityMode ==
+                              OntologyPhysicalMobilityMode.Dynamic;
+                targetBody.detectCollisions = true;
+                targetBody.useGravity = dynamic;
+                targetBody.isKinematic = !dynamic;
+                if (!dynamic)
+                {
+                    targetBody.linearVelocity = Vector3.zero;
+                    targetBody.angularVelocity = Vector3.zero;
+                }
+            }
+
+            var hasSolidCollider = false;
+            foreach (var collider in GetComponentsInChildren<Collider>(true))
+            {
+                if (collider != null && collider.enabled && !collider.isTrigger)
+                {
+                    hasSolidCollider = true;
+                    break;
+                }
+            }
+            if (!hasSolidCollider && targetBody != null)
+            {
+                targetBody.linearVelocity = Vector3.zero;
+                targetBody.angularVelocity = Vector3.zero;
+                targetBody.useGravity = false;
+                targetBody.isKinematic = true;
+            }
+
+            return hasSolidCollider;
+        }
+
         private void ApplyPhysicalProfile()
         {
             if (physicalProfile == null ||
@@ -135,6 +238,8 @@ namespace Tormia.Ontology.Core
                 targetBody.angularVelocity = Vector3.zero;
             }
             targetBody.isKinematic = !dynamic;
+            GetComponent<OntologyPhysicsPresentationCoordinator>()?
+                .RefreshActiveAttachmentOverride();
         }
 
         public static bool RequiresRigidbodyPresentation(

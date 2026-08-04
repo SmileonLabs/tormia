@@ -1,0 +1,14 @@
+{
+    "name": "Tormia.Ontology.Realtime.Protocol",
+    "rootNamespace": "Tormia.Ontology.Realtime.Protocol",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -37,8 +38,20 @@ namespace Tormia.Ontology.Core
         private OntologyRuntimeObjectPlacementController subscribedPlacementController;
         private OntologyRuntimeWorldEditorController subscribedWorldEditorController;
         private bool suppressOutgoingChanges;
+        // Projection rows and presentation identities are indexed only for the
+        // currently received Authority projection. This is a lookup cache, not
+        // an ontology evaluator: rebuilding for a newer revision discards every
+        // prior row before Unity adapters consume the approved result.
+        private readonly OntologyAuthorityProjectionIndex projectionIndex = new();
+        [SerializeField, Tooltip(
+            "Ephemeral observability for the most recently applied Authority projection. " +
+            "This is never persisted as a world Fact.")]
+        private OntologyAuthorityProjectionApplyStatistics
+            lastProjectionApplyStatistics;
 
         public string LastPublishStatus => lastPublishStatus;
+        public OntologyAuthorityProjectionApplyStatistics
+            LastProjectionApplyStatistics => lastProjectionApplyStatistics;
         public bool HasSelectedAuthorityWorld => authorityClient != null && authorityClient.IsWorldRuntimeReady;
         public bool CanEditAuthorityWorld => authorityClient != null && authorityClient.CanEditCurrentWorld;
         public event Action StatusChanged;
@@ -301,6 +314,10 @@ namespace Tormia.Ontology.Core
                             projection,
                             entityId,
                             definition.defaultRuleBlocks);
+                    var lifecycleSnapshot =
+                        CaptureMutableLifecycleFacts(
+                            projection,
+                            entity.entityId);
                     var migratedBaselineOwned = false;
                     yield return PublishDefaultMeaningPackage(
                         definition,
@@ -311,6 +328,44 @@ namespace Tormia.Ontology.Core
                     {
                         SetStatus(
                             "Semantic baseline ownership was rejected for '" +
+                            entity.displayName + "': " +
+                            authorityClient.LastStatus);
+                        completed?.Invoke(false);
+                        yield break;
+                    }
+
+                    OntologyAuthorityWorldProjection postBaselineProjection = null;
+                    yield return LoadProjectionCapture(
+                        value => postBaselineProjection = value);
+                    var missingLifecycleFacts = lifecycleSnapshot
+                        .Where(value => !HasProjectedInitialFact(
+                            postBaselineProjection,
+                            entity.entityId,
+                            value))
+                        .ToArray();
+                    var lifecycleRestored = false;
+                    yield return PublishInitialFacts(
+                        missingLifecycleFacts,
+                        entityId,
+                        value => lifecycleRestored = value);
+                    if (!lifecycleRestored)
+                    {
+                        SetStatus(
+                            "Lifecycle preservation was rejected for '" +
+                            entity.displayName + "': " +
+                            authorityClient.LastStatus);
+                        completed?.Invoke(false);
+                        yield break;
+                    }
+
+                    var lifecycleNormalized = false;
+                    yield return NormalizeMutableLifecycleFacts(
+                        entityId,
+                        value => lifecycleNormalized = value);
+                    if (!lifecycleNormalized)
+                    {
+                        SetStatus(
+                            "Lifecycle normalization was rejected for '" +
                             entity.displayName + "': " +
                             authorityClient.LastStatus);
                         completed?.Invoke(false);
@@ -1181,6 +1236,8 @@ namespace Tormia.Ontology.Core
                         HandleAuthoredFactChanged;
                     subscribedWorldEditorController.RuleBlockChanged -=
                         HandleRuleBlockChanged;
+                    subscribedWorldEditorController.RuleBlockRemovalRequested -=
+                        HandleRuleBlockRemovalRequested;
                     subscribedWorldEditorController.MeaningPackageChangeRequested -=
                         HandleMeaningPackageChangeRequested;
                 }
@@ -1198,6 +1255,8 @@ namespace Tormia.Ontology.Core
                         HandleAuthoredFactChanged;
                     subscribedWorldEditorController.RuleBlockChanged +=
                         HandleRuleBlockChanged;
+                    subscribedWorldEditorController.RuleBlockRemovalRequested +=
+                        HandleRuleBlockRemovalRequested;
                     subscribedWorldEditorController.MeaningPackageChangeRequested +=
                         HandleMeaningPackageChangeRequested;
                 }
@@ -1233,6 +1292,8 @@ namespace Tormia.Ontology.Core
                     HandleAuthoredFactChanged;
                 subscribedWorldEditorController.RuleBlockChanged -=
                     HandleRuleBlockChanged;
+                subscribedWorldEditorController.RuleBlockRemovalRequested -=
+                    HandleRuleBlockRemovalRequested;
                 subscribedWorldEditorController.MeaningPackageChangeRequested -=
                     HandleMeaningPackageChangeRequested;
             }
@@ -1478,6 +1539,54 @@ namespace Tormia.Ontology.Core
             }
             StartCoroutine(PublishMeaningPackageChangeRoutine(
                 entityId, change));
+        }
+
+        private void HandleRuleBlockRemovalRequested(
+            OntologyPlaceableInstance instance,
+            OntologyRuleBlockBinding binding)
+        {
+            if (instance == null || binding == null ||
+                !Guid.TryParse(binding.bindingId, out var bindingId) ||
+                !IsAutomaticAuthorityEnabled())
+            {
+                worldEditorController?.CompleteRuleBlockRemoval(
+                    binding?.bindingId);
+                return;
+            }
+            StartCoroutine(PublishExactRuleBlockRemovalRoutine(
+                bindingId, binding.bindingId));
+        }
+
+        private IEnumerator PublishExactRuleBlockRemovalRoutine(
+            Guid bindingId,
+            string bindingIdText)
+        {
+            OntologyAuthorityCommandResult result = null;
+            yield return authorityClient.SendCommandWithRevisionRetryRoutine(
+                () => OntologyWorldAuthorityClient.CreateCommand(
+                    OntologyWorldCommandKinds.RemoveRuleBlock,
+                    OntologyWorldAuthorityClient.CreateRemoveRuleBlockPayload(
+                        bindingId)),
+                value => result = value);
+
+            if (result != null && result.accepted)
+            {
+                yield return authorityClient.LoadWorldRoutine();
+                SetStatus(
+                    "Authority confirmed exact rule binding removal at revision " +
+                    result.revision + ".");
+            }
+            else
+            {
+                SetStatus("Authority rejected exact rule binding removal: " +
+                          (result?.rejectionCode ?? "unknown_error"));
+                if (string.Equals(
+                        result?.rejectionCode,
+                        "stale_revision",
+                        StringComparison.Ordinal))
+                    yield return authorityClient.LoadWorldRoutine();
+            }
+            worldEditorController?.CompleteRuleBlockRemoval(bindingIdText);
         }
 
         private IEnumerator PublishMeaningPackageChangeRoutine(
@@ -2225,6 +2334,14 @@ namespace Tormia.Ontology.Core
                     continue;
                 }
 
+                // Mutable lifecycle state is initialized by placement and
+                // thereafter owned by lifecycle Rule Blocks. Reapplying a
+                // semantic baseline must never heal or resurrect an entity.
+                if (IsMutableLifecyclePredicate(fact.predicateId))
+                {
+                    continue;
+                }
+
                 if (string.Equals(
                         fact.predicateId,
                         OntologyPredicates.HasConcept,
@@ -2318,6 +2435,143 @@ namespace Tormia.Ontology.Core
                         change)),
                 value => result = value);
             completed?.Invoke(result != null && result.accepted);
+        }
+
+        private static bool IsMutableLifecyclePredicate(
+            string predicateId) =>
+            string.Equals(
+                predicateId,
+                OntologyPredicates.CurrentHealth,
+                StringComparison.Ordinal) ||
+            string.Equals(
+                predicateId,
+                OntologyPredicates.IsAlive,
+                StringComparison.Ordinal);
+
+        private static OntologyAuthorityInitialFact[]
+            CaptureMutableLifecycleFacts(
+                OntologyAuthorityWorldProjection projection,
+                string entityId)
+        {
+            var rows = projection?.facts?
+                .Where(value =>
+                    value != null &&
+                    string.Equals(
+                        value.subjectEntityId,
+                        entityId,
+                        StringComparison.OrdinalIgnoreCase))
+                .ToArray() ?? Array.Empty<OntologyAuthorityFactProjection>();
+            var result = new List<OntologyAuthorityInitialFact>();
+
+            var healthValues = rows
+                .Where(value => string.Equals(
+                    value.predicateId,
+                    OntologyPredicates.CurrentHealth,
+                    StringComparison.Ordinal))
+                .Select(value =>
+                    double.TryParse(
+                        value.objectValueJson,
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out var number)
+                        ? (double?)number
+                        : null)
+                .Where(value => value.HasValue)
+                .Select(value => value.Value)
+                .ToArray();
+            if (healthValues.Length > 0)
+            {
+                result.Add(OntologyWorldAuthorityClient.CreateInitialFact(
+                    OntologyPredicates.CurrentHealth,
+                    healthValues.Min().ToString(
+                        "R",
+                        CultureInfo.InvariantCulture)));
+            }
+
+            var aliveValues = rows
+                .Where(value => string.Equals(
+                    value.predicateId,
+                    OntologyPredicates.IsAlive,
+                    StringComparison.Ordinal))
+                .Select(value =>
+                    bool.TryParse(value.objectValueJson, out var alive)
+                        ? (bool?)alive
+                        : null)
+                .Where(value => value.HasValue)
+                .Select(value => value.Value)
+                .ToArray();
+            if (aliveValues.Length > 0)
+            {
+                // Conflicting lifecycle rows fail closed. This also repairs
+                // older baselines that accidentally reintroduced true over a
+                // durable false defeat result.
+                result.Add(OntologyWorldAuthorityClient.CreateInitialFact(
+                    OntologyPredicates.IsAlive,
+                    aliveValues.All(value => value)
+                        ? bool.TrueString
+                        : bool.FalseString));
+            }
+
+            return result.ToArray();
+        }
+
+        private IEnumerator NormalizeMutableLifecycleFacts(
+            Guid entityId,
+            Action<bool> completed)
+        {
+            OntologyAuthorityWorldProjection projection = null;
+            yield return LoadProjectionCapture(value => projection = value);
+            var subjectId = entityId.ToString("D");
+            var duplicates = projection?.facts?
+                .Where(value =>
+                    value != null &&
+                    string.Equals(
+                        value.subjectEntityId,
+                        subjectId,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    IsMutableLifecyclePredicate(value.predicateId))
+                .GroupBy(value =>
+                    value.predicateId + "\n" +
+                    value.objectKind + "\n" +
+                    (value.objectValueJson ?? string.Empty) + "\n" +
+                    (value.objectCanonicalId ?? string.Empty),
+                    StringComparer.Ordinal)
+                .SelectMany(group => group
+                    .OrderByDescending(value => string.Equals(
+                        value.sourceType,
+                        "action",
+                        StringComparison.Ordinal))
+                    .ThenByDescending(value => value.createdRevision)
+                    .Skip(1))
+                .ToArray() ?? Array.Empty<OntologyAuthorityFactProjection>();
+
+            foreach (var duplicate in duplicates)
+            {
+                if (!Guid.TryParse(duplicate.factId, out var factId))
+                {
+                    completed?.Invoke(false);
+                    yield break;
+                }
+                OntologyAuthorityCommandResult result = null;
+                yield return authorityClient.SendCommandWithRevisionRetryRoutine(
+                    () => OntologyWorldAuthorityClient.CreateCommand(
+                        OntologyWorldCommandKinds.RetractAuthoredFact,
+                        OntologyWorldAuthorityClient.CreateRetractFactPayload(
+                            factId)),
+                    value => result = value);
+                if (result == null ||
+                    (!result.accepted &&
+                     !string.Equals(
+                         result.rejectionCode,
+                         "fact_not_found",
+                         StringComparison.Ordinal)))
+                {
+                    completed?.Invoke(false);
+                    yield break;
+                }
+            }
+
+            completed?.Invoke(true);
         }
 
         private static OntologyRuleBlockBinding[]
@@ -2623,115 +2877,191 @@ namespace Tormia.Ontology.Core
         {
             if (projection?.entities == null) return;
             ResolveDependencies();
-            var changed = RemoveUnprojectedPlaceablePresentations(projection);
-
-            // Phase 1 creates every projected entity before semantic entity
-            // references are resolved. No Transform is applied yet because an
-            // attachment relation in this same projection may transfer
-            // presentation ownership away from the durable world Transform.
-            foreach (var remote in projection.entities.Where(value =>
-                         value != null && Guid.TryParse(value.entityId, out _)))
+            var presentationEntityCount = 0;
+            var createdPresentationCount = 0;
+            var removedPresentationCount = 0;
+            var durableTransformUpdateCount = 0;
+            var dynamicTransformSeedCount = 0;
+            var attachmentPresentationSyncCount = 0;
+            var semanticChangedEntityCount = 0;
+            var indexBuildObservation = default(OntologyRuntimePerformanceObservation);
+            var presentationReconciliationObservation =
+                default(OntologyRuntimePerformanceObservation);
+            var semanticApplyObservation = default(OntologyRuntimePerformanceObservation);
+            var sceneObjectSynchronizationObservation =
+                default(OntologyRuntimePerformanceObservation);
+            var simulationObservation = default(OntologyRuntimePerformanceObservation);
+            var totalObservation = OntologyRuntimePerformanceObservation.Begin();
+            try
             {
-                var identity = FindIdentity(remote.entityId);
-                var createdFromProjection = false;
-                if (identity == null)
+                indexBuildObservation = OntologyRuntimePerformanceObservation.Begin();
+                projectionIndex.Rebuild(
+                    projection,
+                    FindObjectsByType<OntologyAuthorityEntityIdentity>(
+                        FindObjectsInactive.Exclude));
+                indexBuildObservation.Complete();
+
+                var initialPresentationObservation =
+                    OntologyRuntimePerformanceObservation.Begin();
+                var changed = RemoveUnprojectedPlaceablePresentations(
+                    projection,
+                    out removedPresentationCount);
+
+                // Phase 1 creates every projected entity before semantic entity
+                // references are resolved. No Transform is applied yet because an
+                // attachment relation in this same projection may transfer
+                // presentation ownership away from the durable world Transform.
+                foreach (var remote in projection.entities.Where(value =>
+                             value != null && Guid.TryParse(value.entityId, out _)))
                 {
-                    var created = placementController == null || remote.transform == null
-                        ? null
-                        : placementController.CreateAuthorityPresentation(
-                            remote.entityId,
-                            remote.templateId,
-                            remote.displayName,
-                            ToPosition(remote.transform),
-                            ToRotation(remote.transform),
-                            ToScale(remote.transform));
-                    if (created == null) continue;
-                    identity = created.GetComponent<OntologyAuthorityEntityIdentity>();
-                    if (!string.IsNullOrWhiteSpace(projection.scopeZoneKey))
+                    projectionIndex.TryGetIdentity(remote.entityId, out var identity);
+                    var createdFromProjection = false;
+                    if (identity == null)
                     {
-                        var presentation = created.GetComponent<OntologyAuthorityRemotePresentation>() ??
-                                           created.gameObject.AddComponent<OntologyAuthorityRemotePresentation>();
-                        presentation.SetScopeZoneKey(projection.scopeZoneKey);
+                        var created = placementController == null || remote.transform == null
+                            ? null
+                            : placementController.CreateAuthorityPresentation(
+                                remote.entityId,
+                                remote.templateId,
+                                remote.displayName,
+                                ToPosition(remote.transform),
+                                ToRotation(remote.transform),
+                                ToScale(remote.transform));
+                        if (created == null) continue;
+                        identity = created.GetComponent<OntologyAuthorityEntityIdentity>();
+                        projectionIndex.SetIdentity(identity);
+                        if (!string.IsNullOrWhiteSpace(projection.scopeZoneKey))
+                        {
+                            var presentation = created.GetComponent<OntologyAuthorityRemotePresentation>() ??
+                                               created.gameObject.AddComponent<OntologyAuthorityRemotePresentation>();
+                            presentation.SetScopeZoneKey(projection.scopeZoneKey);
+                        }
+                        changed = true;
+                        createdFromProjection = true;
+                        createdPresentationCount++;
                     }
-                    changed = true;
-                    createdFromProjection = true;
+
+                    if (identity != null)
+                    {
+                        presentationEntityCount++;
+                        publishedEntityIds.Add(remote.entityId);
+                        if (createdFromProjection)
+                        {
+                            dynamicProjectionSeeded.Add(remote.entityId);
+                        }
+                    }
+                }
+                initialPresentationObservation.Complete();
+                presentationReconciliationObservation.AddCompleted(
+                    initialPresentationObservation);
+
+                semanticApplyObservation = OntologyRuntimePerformanceObservation.Begin();
+                var semanticsChanged = ApplyAuthoritySemantics(
+                    projection,
+                    projectionIndex,
+                    out semanticChangedEntityCount,
+                    out var bootstrap);
+                semanticApplyObservation.Complete();
+                if (semanticsChanged && bootstrap != null)
+                {
+                    bootstrap.SynchronizeSceneObjects(runSimulation: true);
+                    sceneObjectSynchronizationObservation =
+                        bootstrap.LastSceneObjectSynchronizationObservation;
+                    simulationObservation = bootstrap.LastSimulationObservation;
                 }
 
-                if (identity != null)
+                var finalPresentationObservation =
+                    OntologyRuntimePerformanceObservation.Begin();
+                attachmentPresentationSyncCount =
+                    SynchronizeAttachmentPresentations();
+
+                // Phase 2 applies durable world transforms only after semantic
+                // presentation ownership has been resolved. An attached item is
+                // controlled by its generic attachment adapter until the relation
+                // is removed; it must never be pulled back to its stored ground
+                // transform by a later projection.
+                foreach (var remote in projection.entities.Where(value =>
+                             value != null &&
+                             value.transform != null &&
+                             Guid.TryParse(value.entityId, out _)))
                 {
-                    publishedEntityIds.Add(remote.entityId);
-                    if (createdFromProjection)
+                    projectionIndex.TryGetIdentity(remote.entityId, out var identity);
+                    if (identity == null) continue;
+                    var instance = identity.GetComponent<OntologyPlaceableInstance>();
+                    var worldEditorOwnsTransform =
+                        worldEditorController != null &&
+                        worldEditorController.IsMoving &&
+                        worldEditorController.Selected == instance;
+                    var owner = OntologyTransformOwnershipResolver.Resolve(
+                        identity,
+                        localAvatarIdentity,
+                        worldEditorOwnsTransform);
+                    var seedDynamic = OntologyTransformOwnershipResolver
+                        .ShouldSeedDynamicProjection(
+                            owner,
+                            dynamicProjectionSeeded.Contains(remote.entityId));
+                    if (!OntologyTransformOwnershipResolver
+                            .ShouldApplyDurableProjection(owner) &&
+                        !seedDynamic)
                     {
+                        continue;
+                    }
+
+                    var target = identity.transform;
+                    var position = ToPosition(remote.transform);
+                    var rotation = Quaternion.Euler(ToRotation(remote.transform));
+                    var scale = ToScale(remote.transform);
+                    if ((target.position - position).sqrMagnitude > 0.000001f ||
+                        Quaternion.Angle(target.rotation, rotation) > 0.01f ||
+                        (target.localScale - scale).sqrMagnitude > 0.000001f)
+                    {
+                        target.SetPositionAndRotation(position, rotation);
+                        target.localScale = scale;
+                        changed = true;
+                        durableTransformUpdateCount++;
+                    }
+                    if (seedDynamic)
+                    {
+                        var body = identity.GetComponent<Rigidbody>();
+                        if (body != null)
+                        {
+                            body.position = position;
+                            body.rotation = rotation;
+                            body.linearVelocity = Vector3.zero;
+                            body.angularVelocity = Vector3.zero;
+                        }
                         dynamicProjectionSeeded.Add(remote.entityId);
+                        dynamicTransformSeedCount++;
                     }
                 }
-            }
 
-            var semanticsChanged = ApplyAuthoritySemantics(projection);
-            SynchronizeAttachmentPresentations();
-
-            // Phase 2 applies durable world transforms only after semantic
-            // presentation ownership has been resolved. An attached item is
-            // controlled by its generic attachment adapter until the relation
-            // is removed; it must never be pulled back to its stored ground
-            // transform by a later projection.
-            foreach (var remote in projection.entities.Where(value =>
-                         value != null &&
-                         value.transform != null &&
-                         Guid.TryParse(value.entityId, out _)))
-            {
-                var identity = FindIdentity(remote.entityId);
-                if (identity == null) continue;
-                var instance = identity.GetComponent<OntologyPlaceableInstance>();
-                var worldEditorOwnsTransform =
-                    worldEditorController != null &&
-                    worldEditorController.IsMoving &&
-                    worldEditorController.Selected == instance;
-                var owner = OntologyTransformOwnershipResolver.Resolve(
-                    identity,
-                    localAvatarIdentity,
-                    worldEditorOwnsTransform);
-                var seedDynamic = OntologyTransformOwnershipResolver
-                    .ShouldSeedDynamicProjection(
-                        owner,
-                        dynamicProjectionSeeded.Contains(remote.entityId));
-                if (!OntologyTransformOwnershipResolver
-                        .ShouldApplyDurableProjection(owner) &&
-                    !seedDynamic)
+                if (changed) Physics.SyncTransforms();
+                finalPresentationObservation.Complete();
+                presentationReconciliationObservation.AddCompleted(
+                    finalPresentationObservation);
+                if (semanticsChanged)
                 {
-                    continue;
-                }
-
-                var target = identity.transform;
-                var position = ToPosition(remote.transform);
-                var rotation = Quaternion.Euler(ToRotation(remote.transform));
-                var scale = ToScale(remote.transform);
-                if ((target.position - position).sqrMagnitude > 0.000001f ||
-                    Quaternion.Angle(target.rotation, rotation) > 0.01f ||
-                    (target.localScale - scale).sqrMagnitude > 0.000001f)
-                {
-                    target.SetPositionAndRotation(position, rotation);
-                    target.localScale = scale;
-                    changed = true;
-                }
-                if (seedDynamic)
-                {
-                    var body = identity.GetComponent<Rigidbody>();
-                    if (body != null)
-                    {
-                        body.position = position;
-                        body.rotation = rotation;
-                        body.linearVelocity = Vector3.zero;
-                        body.angularVelocity = Vector3.zero;
-                    }
-                    dynamicProjectionSeeded.Add(remote.entityId);
+                    SetStatus("Authority world data was updated from the latest server revision.");
                 }
             }
-
-            if (changed) Physics.SyncTransforms();
-            if (semanticsChanged)
+            finally
             {
-                SetStatus("Authority world data was updated from the latest server revision.");
+                totalObservation.Complete();
+                lastProjectionApplyStatistics.Record(
+                    projectionIndex,
+                    presentationEntityCount,
+                    createdPresentationCount,
+                    removedPresentationCount,
+                    durableTransformUpdateCount,
+                    dynamicTransformSeedCount,
+                    attachmentPresentationSyncCount,
+                    semanticChangedEntityCount,
+                    indexBuildObservation,
+                    presentationReconciliationObservation,
+                    semanticApplyObservation,
+                    sceneObjectSynchronizationObservation,
+                    simulationObservation,
+                    totalObservation);
             }
         }
 
@@ -2742,8 +3072,10 @@ namespace Tormia.Ontology.Core
         /// disabled immediately and destroyed at the end of the frame.
         /// </summary>
         private bool RemoveUnprojectedPlaceablePresentations(
-            OntologyAuthorityWorldProjection projection)
+            OntologyAuthorityWorldProjection projection,
+            out int removedPresentationCount)
         {
+            removedPresentationCount = 0;
             if (!Application.isPlaying ||
                 authorityClient == null ||
                 !authorityClient.IsWorldRuntimeReady ||
@@ -2783,6 +3115,8 @@ namespace Tormia.Ontology.Core
                 removed++;
             }
 
+            removedPresentationCount = removed;
+
             if (removed > 0)
             {
                 Debug.LogWarning(
@@ -2794,14 +3128,19 @@ namespace Tormia.Ontology.Core
             return removed > 0;
         }
 
-        private static void SynchronizeAttachmentPresentations()
+        private static int SynchronizeAttachmentPresentations()
         {
+            var synchronized = 0;
             foreach (var attachment in FindObjectsByType<OntologyAttachmentAdapter>(
                          FindObjectsInactive.Include))
             {
                 if (attachment != null && attachment.isActiveAndEnabled)
+                {
                     attachment.SynchronizePresentation();
+                    synchronized++;
+                }
             }
+            return synchronized;
         }
 
         private void HandleProjectionZoneScopeChanged(string previousZoneKey, string nextZoneKey)
@@ -2828,27 +3167,25 @@ namespace Tormia.Ontology.Core
             }
         }
 
-        private bool ApplyAuthoritySemantics(OntologyAuthorityWorldProjection projection)
+        private bool ApplyAuthoritySemantics(
+            OntologyAuthorityWorldProjection projection,
+            OntologyAuthorityProjectionIndex index,
+            out int changedEntityCount,
+            out OntologyWorldBootstrap bootstrap)
         {
+            changedEntityCount = 0;
+            bootstrap = null;
             if (projection?.entities == null) return false;
             var changed = false;
             var changedObjects = new List<GameObject>();
             foreach (var remoteEntity in projection.entities.Where(value =>
                          value != null && Guid.TryParse(value.entityId, out _)))
             {
-                var identity = FindIdentity(remoteEntity.entityId);
+                index.TryGetIdentity(remoteEntity.entityId, out var identity);
                 if (identity == null) continue;
-                var factRows = projection.facts == null
-                    ? Array.Empty<OntologyAuthorityFactProjection>()
-                    : projection.facts.Where(value => value != null &&
-                        string.Equals(value.subjectEntityId, remoteEntity.entityId,
-                            StringComparison.OrdinalIgnoreCase)).ToArray();
-                var ruleRows = projection.ruleBindings == null
-                    ? Array.Empty<OntologyAuthorityRuleBindingProjection>()
-                    : projection.ruleBindings.Where(value => value != null && value.enabled &&
-                        string.Equals(value.targetEntityId, remoteEntity.entityId,
-                            StringComparison.OrdinalIgnoreCase)).ToArray();
-                var hasSemanticRows = factRows.Length > 0 || ruleRows.Length > 0;
+                var factRows = index.GetFacts(remoteEntity.entityId);
+                var ruleRows = index.GetEnabledRuleBindings(remoteEntity.entityId);
+                var hasSemanticRows = factRows.Count > 0 || ruleRows.Count > 0;
                 if (!hasSemanticRows &&
                     !semanticProjectionInitialized.Contains(remoteEntity.entityId))
                 {
@@ -2863,8 +3200,9 @@ namespace Tormia.Ontology.Core
                                identity.gameObject.AddComponent<OntologyObject>();
                 var concepts = new List<string>();
                 var facts = new List<OntologyFactEntry>();
-                foreach (var remoteFact in factRows)
+                for (var factIndex = 0; factIndex < factRows.Count; factIndex++)
                 {
+                    var remoteFact = factRows[factIndex];
                     if (remoteFact.objectKind == "canonical" &&
                         remoteFact.predicateId == OntologyPredicates.HasConcept)
                     {
@@ -2874,7 +3212,7 @@ namespace Tormia.Ontology.Core
                     }
 
                     if (string.IsNullOrWhiteSpace(remoteFact.predicateId)) continue;
-                    var value = ResolveRemoteFactObject(remoteFact);
+                    var value = ResolveRemoteFactObject(remoteFact, index);
                     if (string.IsNullOrWhiteSpace(value)) continue;
                     facts.Add(new OntologyFactEntry
                     {
@@ -2884,43 +3222,73 @@ namespace Tormia.Ontology.Core
                 }
 
                 var assignment = identity.GetComponent<OntologyRuleBlockAssignment>();
-                var bindings = ruleRows.Select(value => new OntologyRuleBlockBinding
+                var semanticProjection = identity.GetComponent<
+                    OntologyAuthoritySemanticProjection>() ??
+                    identity.gameObject.AddComponent<
+                        OntologyAuthoritySemanticProjection>();
+                semanticProjection.Replace(factRows, projection.revision);
+                var bindings = new List<OntologyRuleBlockBinding>(ruleRows.Count);
+                for (var bindingIndex = 0;
+                     bindingIndex < ruleRows.Count;
+                     bindingIndex++)
                 {
-                    ruleId = value.ruleId,
-                    bindingVariable = ResolveBindingVariable(value.parameterValuesJson)
-                }).Where(value => !string.IsNullOrWhiteSpace(value.ruleId)).ToArray();
+                    var value = ruleRows[bindingIndex];
+                    if (string.IsNullOrWhiteSpace(value.ruleId))
+                    {
+                        continue;
+                    }
+
+                    bindings.Add(new OntologyRuleBlockBinding
+                    {
+                        bindingId = value.bindingId,
+                        ruleId = value.ruleId,
+                        ruleVersion = value.ruleVersion,
+                        bindingVariable = ResolveBindingVariable(value.parameterValuesJson),
+                        parameterValuesJson = value.parameterValuesJson,
+                        applicationId = value.applicationId,
+                        packageId = value.packageId,
+                        slotId = value.slotId,
+                        createdRevision = value.createdRevision
+                    });
+                }
 
                 if (!SameOntologyData(ontology, concepts, facts) ||
                     !SameBindings(assignment, bindings))
                 {
                     ontology.ReplaceFactsAndConcepts(concepts, facts);
-                    if (assignment == null && bindings.Length > 0)
+                    if (assignment == null && bindings.Count > 0)
                         assignment = identity.gameObject.AddComponent<OntologyRuleBlockAssignment>();
                     assignment?.Replace(bindings);
                     changed = true;
                     changedObjects.Add(identity.gameObject);
+                    changedEntityCount++;
                 }
             }
 
             if (!changed) return false;
-            var bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
+            bootstrap = FindAnyObjectByType<OntologyWorldBootstrap>();
             foreach (var changedObject in changedObjects)
             {
                 OntologySemanticAdapterSynchronizer.SynchronizeAll(
                     changedObject, bootstrap);
             }
-            bootstrap?.SynchronizeSceneObjects(runSimulation: true);
             return true;
         }
 
         private static string ResolveRemoteFactObject(
-            OntologyAuthorityFactProjection remoteFact)
+            OntologyAuthorityFactProjection remoteFact,
+            OntologyAuthorityProjectionIndex index = null)
         {
             if (remoteFact.objectKind == "canonical")
                 return remoteFact.objectCanonicalId;
             if (remoteFact.objectKind == "entity")
             {
-                var identity = FindIdentity(remoteFact.objectEntityId);
+                var identity = index != null &&
+                               index.TryGetIdentity(
+                                   remoteFact.objectEntityId,
+                                   out var indexedIdentity)
+                    ? indexedIdentity
+                    : FindIdentity(remoteFact.objectEntityId);
                 return identity == null
                     ? string.Empty
                     : identity.GetComponent<OntologyObject>()?.EntityId;
@@ -2986,12 +3354,16 @@ namespace Tormia.Ontology.Core
             var existing = assignment == null
                 ? new HashSet<string>(StringComparer.Ordinal)
                 : new HashSet<string>(assignment.Bindings.Where(value => value != null)
-                    .Select(value => (value.ruleId ?? string.Empty) + "\u001f" +
-                                     (value.bindingVariable ?? string.Empty)),
+                    .Select(value => !string.IsNullOrWhiteSpace(value.bindingId)
+                        ? "id:" + value.bindingId
+                        : "semantic:" + (value.ruleId ?? string.Empty) + "\u001f" +
+                          (value.bindingVariable ?? string.Empty)),
                     StringComparer.Ordinal);
             var next = new HashSet<string>(bindings.Where(value => value != null)
-                .Select(value => (value.ruleId ?? string.Empty) + "\u001f" +
-                                 (value.bindingVariable ?? string.Empty)),
+                .Select(value => !string.IsNullOrWhiteSpace(value.bindingId)
+                    ? "id:" + value.bindingId
+                    : "semantic:" + (value.ruleId ?? string.Empty) + "\u001f" +
+                      (value.bindingVariable ?? string.Empty)),
                 StringComparer.Ordinal);
             return existing.SetEquals(next);
         }

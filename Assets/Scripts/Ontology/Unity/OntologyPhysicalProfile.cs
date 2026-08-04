@@ -94,6 +94,26 @@ namespace Tormia.Ontology.Core
             "this profile selects LocalCharacterController. This tuning is " +
             "derived from Physical Meaning and is ignored by other drivers.")]
         [Min(0f)] public float maximumStepHeight = 0.3f;
+        [Tooltip(
+            "Unity CharacterController slopeLimit used while this profile " +
+            "selects LocalCharacterController.")]
+        [Range(0f, 89f)] public float characterSlopeLimit = 45f;
+        [Tooltip(
+            "Unity CharacterController skinWidth used for collision contact.")]
+        [Min(0.001f)] public float characterSkinWidth = 0.03f;
+        [Tooltip(
+            "Unity CharacterController minMoveDistance. Keep at zero unless " +
+            "a platform-specific profile requires filtering tiny moves.")]
+        [Min(0f)] public float characterMinimumMoveDistance;
+        [Header("Character Foot Presentation")]
+        public bool enableFootGrounding = true;
+        [Min(0.01f)] public float footProbeStartHeight = 0.35f;
+        [Min(0.01f)] public float footProbeDistance = 0.75f;
+        [Min(0f)] public float footSoleOffset = 0.025f;
+        [Min(0.01f)] public float footIkBlendSpeed = 10f;
+        [Range(0f, 1f)] public float footIkStationaryWeight = 1f;
+        [Range(0f, 1f)] public float footIkMovingWeight = 0.15f;
+        [Range(0f, 89f)] public float footMaximumSlope = 55f;
 
         [Header("Character Impact Presentation")]
         [Tooltip(

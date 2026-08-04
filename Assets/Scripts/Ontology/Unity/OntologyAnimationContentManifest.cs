@@ -83,6 +83,8 @@ namespace Tormia.Ontology.Core
         [Tooltip(
             "Data-authored exclusive end of the usable clip segment.")]
         [Range(0f, 1f)] public float playbackEndNormalized = 1f;
+        [Tooltip("Data-authored playback rate. Existing content with an unset value resolves to 1x.")]
+        [Min(0.01f)] public float playbackSpeed = 1f;
         public string[] properties = Array.Empty<string>();
         public string contentVersion = "1.0.0";
         public string checksum;
@@ -112,6 +114,7 @@ namespace Tormia.Ontology.Core
                     ResolvePlaybackEndNormalized(
                         playbackStartNormalized,
                         playbackEndNormalized),
+                playbackSpeed = playbackSpeed > 0f ? playbackSpeed : 1f,
                 rootMotionMode = rootMotionMode,
                 presentationOwner = presentationOwner,
                 properties = Copy(properties),
@@ -260,6 +263,9 @@ namespace Tormia.Ontology.Core
                 if (entry.transitionDuration < 0f)
                     AddError(issues, id, "transition_negative",
                         "Transition duration cannot be negative.");
+                if (entry.playbackSpeed < 0f)
+                    AddError(issues, id, "playback_speed_invalid",
+                        "Playback speed cannot be negative.");
                 if (entry.hasContactWindow &&
                     (entry.contactWindowStartNormalized < 0f ||
                      entry.contactWindowStartNormalized > 1f ||

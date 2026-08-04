@@ -233,7 +233,7 @@ namespace Tormia.Ontology.Core
                     ?? transform.Find("PartCircle/PartIcon")?.GetComponent<Image>()
                     ?? transform.Find("ThumbnailMask/PartIcon")?.GetComponent<Image>();
             }
-            if (icon != null)
+            if (icon != null && createMask)
             {
                 // Appearance thumbnails come from mixed source images: some
                 // contain opaque square preview backgrounds while others are
@@ -246,7 +246,7 @@ namespace Tormia.Ontology.Core
                     if (maskGraphic != null)
                     {
                         var mask = maskRoot.GetComponent<Mask>();
-                        if (mask == null && createMask)
+                        if (mask == null)
                             mask = maskRoot.gameObject.AddComponent<Mask>();
                         if (mask != null)
                         {

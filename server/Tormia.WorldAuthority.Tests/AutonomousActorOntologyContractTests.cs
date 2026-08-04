@@ -140,6 +140,8 @@ public sealed class AutonomousActorOntologyContractTests
             10d,
             2d,
             20d,
+            CollisionRadius: 0.45d,
+            CollisionHeight: 2d,
             RequiresRuntimePosition: true);
 
         var resolved = WorldAutonomousTargetPositionPolicy.TryResolve(
@@ -161,6 +163,8 @@ public sealed class AutonomousActorOntologyContractTests
             10d,
             2d,
             20d,
+            CollisionRadius: 0.45d,
+            CollisionHeight: 2d,
             RequiresRuntimePosition: false);
 
         var resolved = WorldAutonomousTargetPositionPolicy.TryResolve(
@@ -172,6 +176,65 @@ public sealed class AutonomousActorOntologyContractTests
         Assert.True(resolved);
         Assert.Equal(10d, position.PositionX);
         Assert.Equal(20d, position.PositionZ);
+    }
+
+    [Fact]
+    public void MeleeContactUsesAuthoredCapsulesAndReach()
+    {
+        Assert.True(WorldAutonomousMeleeContactPolicy.HasContact(
+            0d, 0d, 0d, 0.65d, 1.3d,
+            1.2d, 0d, 0d, 0.45d, 2d,
+            0.1d));
+        Assert.False(WorldAutonomousMeleeContactPolicy.HasContact(
+            0d, 0d, 0d, 0.65d, 1.3d,
+            1.3d, 0d, 0d, 0.45d, 2d,
+            0.1d));
+    }
+
+    [Fact]
+    public void MeleeContactFailsClosedForMissingOrSeparatedGeometry()
+    {
+        Assert.False(WorldAutonomousMeleeContactPolicy.HasContact(
+            0d, 0d, 0d, 0d, 1.3d,
+            0d, 0d, 0d, 0.45d, 2d,
+            0.1d));
+        Assert.False(WorldAutonomousMeleeContactPolicy.HasContact(
+            0d, 0d, 0d, 0.65d, 1d,
+            0d, 2d, 0d, 0.45d, 0.5d,
+            0.1d));
+    }
+
+    [Fact]
+    public void PlayerDamageRequiresFreshCollisionResolvedContact()
+    {
+        var worldId = Guid.NewGuid();
+        var avatarId = Guid.NewGuid();
+        const long now = 10_000;
+        var near = new WorldPlayerPoseObservation(
+            worldId, avatarId, "world_main", 4, 8,
+            1d, 0d, 0d, "idle", now - 100);
+        var far = near with { PositionX = 10d, PoseSequence = 9 };
+        var stale = near with
+        {
+            PoseSequence = 10,
+            ObservedAtUnixMilliseconds = now - 2_000
+        };
+
+        Assert.True(
+            WorldAutonomousPlayerContactObservationPolicy.HasFreshContact(
+                near, worldId, avatarId, "world_main",
+                0d, 0d, 0d, 0.65d, 1.3d,
+                0.45d, 2d, 0.1d, now));
+        Assert.False(
+            WorldAutonomousPlayerContactObservationPolicy.HasFreshContact(
+                far, worldId, avatarId, "world_main",
+                0d, 0d, 0d, 0.65d, 1.3d,
+                0.45d, 2d, 0.1d, now));
+        Assert.False(
+            WorldAutonomousPlayerContactObservationPolicy.HasFreshContact(
+                stale, worldId, avatarId, "world_main",
+                0d, 0d, 0d, 0.65d, 1.3d,
+                0.45d, 2d, 0.1d, now));
     }
 
     [Fact]
@@ -187,6 +250,75 @@ public sealed class AutonomousActorOntologyContractTests
 
         Assert.Equal([deadActor], removed);
     }
+
+    [Fact]
+    public void AttackOccurrenceResolvesContactOnceThenCompletesRecovery()
+    {
+        var state = AttackState(contactResolved: false);
+
+        Assert.False(
+            WorldAutonomousAttackOccurrencePolicy.ShouldResolveContact(
+                state,
+                999));
+        Assert.True(
+            WorldAutonomousAttackOccurrencePolicy.ShouldResolveContact(
+                state,
+                1000));
+
+        var resolved = state with { AttackContactResolved = true };
+        Assert.False(
+            WorldAutonomousAttackOccurrencePolicy.ShouldResolveContact(
+                resolved,
+                1001));
+        Assert.False(
+            WorldAutonomousAttackOccurrencePolicy.ShouldCompleteRecovery(
+                resolved,
+                1499));
+        Assert.True(
+            WorldAutonomousAttackOccurrencePolicy.ShouldCompleteRecovery(
+                resolved,
+                1500));
+    }
+
+    [Fact]
+    public void MissingOccurrenceCannotProduceContactOrRecovery()
+    {
+        var state = AttackState(contactResolved: true) with
+        {
+            AttackOccurrenceId = null
+        };
+
+        Assert.False(
+            WorldAutonomousAttackOccurrencePolicy.ShouldResolveContact(
+                state,
+                long.MaxValue));
+        Assert.False(
+            WorldAutonomousAttackOccurrencePolicy.ShouldCompleteRecovery(
+                state,
+                long.MaxValue));
+    }
+
+    private static WorldAutonomousActorMotionState AttackState(
+        bool contactResolved) =>
+        new(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "world_main",
+            0,
+            0,
+            0,
+            0,
+            1,
+            "attacking",
+            Guid.NewGuid(),
+            "MonsterAttack",
+            2,
+            500,
+            Guid.NewGuid(),
+            "windup",
+            1000,
+            1500,
+            contactResolved);
 
     private static IReadOnlyList<AuthorityFactSnapshot> Facts(
         Guid actor,

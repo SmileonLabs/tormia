@@ -18,7 +18,7 @@ MonoBehaviour:
     attachmentProfile: {fileID: 11400000, guid: a8de882a115c46e7aa56ee0cf1ef2ed8, type: 2}
     weaponFamily: Sword
     attackActionId: attack
-    actionDefinitionVersion: 10
+    actionDefinitionVersion: 12
     equipAnimationIntent: WeaponEquip
     unequipAnimationIntent: WeaponUnequip
     idleAnimationIntent: WeaponIdle
@@ -31,7 +31,7 @@ MonoBehaviour:
     attachmentProfile: {fileID: 11400000, guid: a8de882a115c46e7aa56ee0cf1ef2ed8, type: 2}
     weaponFamily: Sword
     attackActionId: attack
-    actionDefinitionVersion: 10
+    actionDefinitionVersion: 12
     equipAnimationIntent: WeaponEquip
     unequipAnimationIntent: WeaponUnequip
     idleAnimationIntent: WeaponIdle
@@ -44,7 +44,7 @@ MonoBehaviour:
     attachmentProfile: {fileID: 11400000, guid: a8de882a115c46e7aa56ee0cf1ef2ed8, type: 2}
     weaponFamily: Sword
     attackActionId: attack
-    actionDefinitionVersion: 10
+    actionDefinitionVersion: 12
     equipAnimationIntent: WeaponEquip
     unequipAnimationIntent: WeaponUnequip
     idleAnimationIntent: WeaponIdle

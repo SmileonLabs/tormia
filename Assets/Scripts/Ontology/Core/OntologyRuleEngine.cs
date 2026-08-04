@@ -49,18 +49,27 @@ namespace Tormia.Ontology.Core
             var events = new List<OntologyEvent>();
             var addedFactCount = 0;
             var changedFactCount = 0;
+            var evaluatedRuleCount = 0;
+            var skippedRuleCount = 0;
             if (world == null)
             {
-                return new OntologyRuleEvaluationStep(events, addedFactCount, changedFactCount);
+                return new OntologyRuleEvaluationStep(
+                    events,
+                    addedFactCount,
+                    changedFactCount,
+                    evaluatedRuleCount,
+                    skippedRuleCount);
             }
 
             foreach (var entry in rules)
             {
                 if (!entry.ShouldEvaluate(changes))
                 {
+                    skippedRuleCount++;
                     continue;
                 }
 
+                evaluatedRuleCount++;
                 var ruleEvents = entry.Rule.Evaluate(world);
                 foreach (var ontologyEvent in ruleEvents)
                 {
@@ -122,7 +131,12 @@ namespace Tormia.Ontology.Core
                 }
             }
 
-            return new OntologyRuleEvaluationStep(events, addedFactCount, changedFactCount);
+            return new OntologyRuleEvaluationStep(
+                events,
+                addedFactCount,
+                changedFactCount,
+                evaluatedRuleCount,
+                skippedRuleCount);
         }
 
         private static HashSet<OntologyId> GetDependencies(OntologyRuleDefinition definition)
@@ -192,15 +206,24 @@ namespace Tormia.Ontology.Core
 
     public readonly struct OntologyRuleEvaluationStep
     {
-        public OntologyRuleEvaluationStep(List<OntologyEvent> events, int addedFactCount, int changedFactCount)
+        public OntologyRuleEvaluationStep(
+            List<OntologyEvent> events,
+            int addedFactCount,
+            int changedFactCount,
+            int evaluatedRuleCount,
+            int skippedRuleCount)
         {
             Events = events;
             AddedFactCount = addedFactCount;
             ChangedFactCount = changedFactCount;
+            EvaluatedRuleCount = evaluatedRuleCount;
+            SkippedRuleCount = skippedRuleCount;
         }
 
         public List<OntologyEvent> Events { get; }
         public int AddedFactCount { get; }
         public int ChangedFactCount { get; }
+        public int EvaluatedRuleCount { get; }
+        public int SkippedRuleCount { get; }
     }
 }

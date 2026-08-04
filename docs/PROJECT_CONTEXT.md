@@ -1,5 +1,62 @@
 # TOV Project Context
 
+## 93. Ordered remote-avatar motion transport
+
+- Authority player motion remains an ephemeral fixed-tick result. When a Zone
+  tick changes one or more avatar states, the server publishes a batched
+  `zoneMotionFrame` containing the evaluated session ID, server tick/time,
+  position, velocity, grounding, and motion status. The existing HTTP Zone
+  snapshot is retained only for join, reconnect, and presence recovery.
+- A Unity remote avatar renders an ordered per-session snapshot timeline about
+  100-150 ms behind Authority time. It interpolates between approved samples,
+  permits only short velocity-bounded extrapolation, rejects stale or reordered
+  ticks, and establishes a new baseline after a session change or long gap. It
+  must never chase an input destination or a latest position at a locally
+  invented speed.
+- SignalR connection ownership is generation-scoped. A connection becomes live
+  only after its protocol handshake acknowledgement; messages from older socket
+  generations cannot disconnect or rewind the active generation. Reconnect uses
+  bounded exponential backoff with jitter.
+- Motion frames are deltas, not complete presence lists. Avatar removal is
+  decided only from a complete authenticated recovery snapshot and its grace
+  policy. This transport is Unity presentation of an already evaluated
+  Authority result and does not introduce a gameplay Rule Block or durable Fact.
+
+> Canonical Rule Definitions are immutable global identities keyed by Rule ID
+> and definition version. A world package activates actions and content, while
+> an assigned Rule Block resolves its published canonical definition by that
+> global identity; execution must not require the definition's original
+> publishing package version to equal the world's current package version.
+
+## 81. Data-authored combat presentation boundaries
+
+- Equip input is authored in the shared Unity Input Action asset. The input
+  publishes an interaction trigger only; `equip_action` / `unequip_action` and
+  their assigned Rule Blocks remain the permission and state-transition owner.
+- A Damageable presentation requires an authored collision proxy contract
+  (`collision_proxy_shape`, `collision_radius`, and `collision_height`). Unity
+  materializes query-only hit geometry from those Triples and fails closed when
+  the contract is missing or ambiguous; it does not pick an arbitrary renderer
+  or child Collider.
+- Weapon contact queries use a non-allocating fast path but must retry without a
+  fixed-capacity omission when the buffer saturates. Query capacity must never
+  decide whether an Authority-approved target was contacted.
+- Equipped locomotion presentation is selected from the equipped entity's
+  projected `idle_animation_intent` and `move_animation_intent` Facts. Template
+  IDs and visual catalog entries may locate assets, but they are not semantic
+  permission or animation-intent fallbacks.
+
+## 80. Authority-evaluated attack playback rate
+
+- A weapon authors `attack_playback_speed` as a numeric Triple. The assigned
+  swing Rule Block declares that Triple as its presentation-speed source.
+  Authority evaluates the block and returns the approved rate with `AttackLight`.
+- The animation Manifest retains a neutral `1.0x` base rate and the normalized
+  contact window. Unity multiplies only the selected clip playable by the
+  Authority-approved rate; it never reads the weapon Triple directly.
+- Removing the swing Rule Block or the required speed Triple fails closed and
+  removes the accelerated attack without a name-based fallback.
+
 > **Language**: Korean companion: [`PROJECT_CONTEXT.ko.md`](PROJECT_CONTEXT.ko.md).
 > Keep both files updated in the same change.
 >
@@ -948,23 +1005,30 @@ SignedOut -> Authenticated -> CharacterSelected -> WorldSelected
   world-vertical. A support-normal adhesion vector is forbidden because its
   planar component causes backward slope drift.
 
-## 31. Persistent Unity MCP development transport
+## 31. Official Unity MCP development transport
 
-- Local Codex/Unity development uses one Streamable HTTP MCP endpoint at
-  `http://127.0.0.1:8080/mcp`. Per-task stdio servers are not the project
-  default because Unity assembly reloads temporarily close their editor-owned
-  TCP listener and can race port discovery and framed handshakes.
-- MCP for Unity runs its local HTTP server independently of the editor domain.
-  Unity connects to it through the HTTP/WebSocket bridge with `Auto-Start on
-  Editor Load` enabled. An assembly reload may make the Unity instance
-  temporarily absent, but the bridge must reconnect without a manual Start
-  Session click.
-- `scripts/verify-unity-mcp.ps1` verifies server health, the expected connected
-  Unity project, and the Codex HTTP configuration. Run
-  `scripts/verify-development.ps1 -RequireUnityMcp` when the editor is expected
-  to be open.
-- Logs from `com.unity.ai.assistant` relay ports 9001/9002 are a separate Unity
-  AI service and are not evidence that MCP for Unity disconnected.
+- Local Codex/Unity development uses the MCP server included in Unity's
+  `com.unity.ai.assistant` package. Codex launches
+  `%USERPROFILE%\.unity\relay\relay_win.exe --mcp` and pins the target with
+  `--project-path <absolute TOV project path>` so another open Editor cannot be
+  selected accidentally.
+- The official relay communicates with the Unity Editor bridge over the
+  platform IPC channel (a named pipe on Windows). The bridge starts with the
+  Editor, remembers approved clients, and owns reconnection across normal
+  client sessions. It replaces the separately maintained MCP for Unity HTTP
+  server as the primary transport.
+- During migration, `http://127.0.0.1:8080/mcp` may remain configured only as a
+  temporary fallback. Remove the fallback and `com.coplaydev.unity-mcp` after
+  the official relay passes restart, assembly-reload, console, scene,
+  GameObject, save, compile, and test probes. Do not treat two active MCP
+  implementations as a permanent architecture.
+- `scripts/verify-unity-mcp.ps1` verifies the official relay, Assistant package,
+  project-pinned Codex configuration, live Editor process, connection record,
+  and named pipe without creating a new approval request. `-LiveToolProbe` is
+  reserved for an approved interactive client session because Unity approval
+  is client-scoped. The script can optionally report the legacy fallback. Run
+  `scripts/verify-development.ps1 -RequireUnityMcp` while the expected Editor
+  is open.
 - This is development infrastructure only. It owns no account data, world
   Fact, Rule Block, physical meaning, or runtime gameplay authority.
 
@@ -2033,7 +2097,7 @@ SignedOut -> Authenticated -> CharacterSelected -> WorldSelected
   proxy is a flat Box; terrain height fields and moving supports are later
   authored proxy types, not mesh-name exceptions.
 
-## 72. Contact-owned landing and authored air presentation
+## 72. Contact-owned air presentation
 
 - A support-probe hit means that an authored support surface is nearby; it does
   not mean that the CharacterController has landed. Ground contact now requires
@@ -2041,19 +2105,17 @@ SignedOut -> Authenticated -> CharacterSelected -> WorldSelected
   grounded/`Below` collision result. Support proximity alone cannot approve a
   jump, end an airborne state, or start Landing.
 - One approved jump occurrence still owns the ephemeral presentation lifecycle.
-  The movement-state resolver selects `JumpStart`, `Airborne`, `Fall`, and
-  `Landing` from vertical motion plus collision contact and never writes those
-  phases as durable Facts.
+  The movement-state resolver selects `JumpStart`, `Airborne`, and `Fall` from
+  vertical motion plus collision contact and never writes those phases as
+  durable Facts. The current player Manifest has no Landing presentation;
+  physical contact returns directly to idle, locomotion, or equipment motion.
 - `Airborne` and `Fall` now resolve to separate canonical Manifest entries.
   The current first slice reuses different authored playback segments from the
   same licensed source clip, but the segment boundaries, looping, transition,
   root-motion mode, and presentation owner are Manifest data rather than code
   constants or clip-name branches.
-- `Landing` starts only after physical contact and uses a Manifest-authored
-  blend. Idle, locomotion, or equipment idle is selected only after the landing
-  segment completes. Removing one required motion-state entry fails animation
-  content validation; Unity does not replace it with an object-name,
-  animation-name, timer, or proximity fallback.
+- Removing a motion-state entry removes that presentation. Unity does not
+  replace it with an object-name, animation-name, timer, or proximity fallback.
 
 ## 73. Actor-profile repertoire survives runtime world rebuilds
 
@@ -2071,3 +2133,644 @@ SignedOut -> Authenticated -> CharacterSelected -> WorldSelected
   previous ActorProfile contribution, so removing a Manifest/profile assignment
   removes the matching runtime animation route instead of retaining a stale
   clip.
+
+## 74. Unity-owned local collision presentation
+
+- Ontology data and Physical Meaning configure Unity physics; they do not
+  calculate replacement collision coordinates. The LocalCharacterController
+  profile maps authored maximum-step, slope-limit, skin-width, and
+  minimum-move-distance tuning onto the Unity `CharacterController`.
+- Unity `CharacterController.Move` is the sole runtime collision, slope, and
+  step resolver for the local player. The retired custom capsule/raycast/
+  overlap step solver no longer computes or injects an upward displacement.
+- `OntologyCharacterSupportProbe` uses Unity casts only to observe and classify
+  nearby `WalkableSupport`. Its result is ephemeral evidence and cannot move a
+  Transform or manufacture grounded state without Unity controller contact.
+- CharacterController gravity remains a data-tuned velocity integration because
+  Unity does not apply Rigidbody gravity to CharacterController. Rigidbody
+  entities continue to use Unity gravity, collision, damping, constraints, and
+  Physic Material behavior configured by their Physical Profile adapters.
+- A bounded one-time world-entry grounding alignment remains before input opens;
+  it is readiness initialization, not a second runtime locomotion owner.
+## Rule Block and meaning-package lifecycle
+
+- Authority `bindingId`, not a rule label or binding variable, is the identity of an assigned Rule Block.
+- Online authoring is Authority-first: Unity keeps the current projection visible while a command is pending and refreshes only from an accepted revision.
+- Meaning-package Fact and Binding ownership is normalized and revisioned. Removing one binding retracts only that binding and its `RuleBound` results; removing the final owned binding closes the behavior package and retracts its owned canonical/typed Triples while preserving independent contributions.
+- Behavior packages declare `requiresOwnedBinding`; Authority rejects a package that would add behavior Triples without an owned Rule Block. Data-only packages may explicitly opt out.
+- The authoring Results view exposes projected Fact provenance so package-owned, authored, system, and Rule-bound results can be distinguished without Unity inventing ownership.
+- When adopting existing catalog contributions, exact desired Facts are claimed before replace-predicate retraction. Adopted rows must never enter the displaced baseline ledger or reappear as independent data after final Rule Block removal.
+Humanoid foot grounding is presentation-only: the active Physical Profile
+supplies probe and blend tuning, Unity Physics supplies foot contact points,
+and Animator IK aligns the visible feet. It never moves the actor root or
+changes Authority pose, grounded state, or collision resolution.
+
+## 75. Portable UGC melee-weapon meaning
+
+- The `melee_weapon` Rule Block preset authors one Authority meaning package
+  containing Weapon/Carryable concepts, equip/unequip/swing/attack bindings,
+  combat tuning Triples, `HandheldWeapon` Physical Meaning, and attachment data.
+- A projected `Weapon` with `attack_contact_mode=WeaponContactWindow` receives
+  a Unity contact-query presenter from semantic data only when an explicit
+  authored contact collider exists. Renderer bounds never become gameplay
+  contact geometry implicitly.
+- The generated contact geometry is presentation-only evidence. It cannot grant
+  attack permission, damage a target, or survive removal of the weapon meaning.
+
+## 76. Authority-projected player hit reaction
+
+- PlayerProfile authors `hit_animation_intent=HitReaction`; the project-owned
+  `Standing React Large From Front.fbx` is registered as
+  `Anim_Player_HitReaction_Front` through Manifest -> Database -> PlayerProfile.
+- A Damageable presenter establishes the first Authority health projection as
+  its baseline and emits the authored transient hit intent only when a newer
+  Authority revision reduces health. Replayed projections, healing, and the
+  defeat transition do not emit an ordinary hit reaction.
+- Root motion is disabled because CharacterController remains the sole player
+  motion owner. The local contact-completion path presents only impact VFX, so
+  it cannot duplicate the projection-owned animation.
+
+## 77. Authority-owned autonomous attack occurrences
+
+- An autonomous attack preview executes the actor's assigned Rule Block and,
+  when accepted, creates one ephemeral Authority `AttackOccurrence` rather
+  than applying damage on every scheduler tick.
+- Authored `attack_windup_seconds` and `attack_recovery_seconds` Triples drive
+  the occurrence through windup, one contact, and recovery. Contact executes
+  the same action-to-Rule path again so current life, hostility, runtime range,
+  and cooldown are revalidated before one durable damage mutation.
+- A committed contact publishes its revision immediately. Unity presents the
+  projected attack intent and health/death revision; it owns neither contact
+  timing permission nor damage. Removing the Rule Block removes the behavior.
+- The revision hint carries the committed event ID, target entity ID, and an
+  evaluated damage-result flag. A matching Damageable presenter consumes that
+  ephemeral occurrence once and plays its authored hit intent immediately;
+  the later projection remains the authority for health and death state.
+- Humanoid death clips keep root motion disabled and bake vertical/XZ root
+  displacement into the pose. CharacterController therefore remains the sole
+  actor-position owner while the death pose stays grounded.
+
+## 78. Lifecycle-gated autonomous melee contact
+
+- The current Authority target projection is the per-tick lifecycle gate. An
+  actor missing the projected active `is_alive=true` state is removed from
+  ephemeral autonomous motion immediately, even if an older configuration is
+  still cached.
+- Autonomous melee contact is not inferred from prefab geometry or the broad
+  action `attack_range`. Monsters author `collision_radius`,
+  `collision_height`, and `attack_contact_reach`; Authority requires vertical
+  overlap and capsule-surface reach both when starting and when resolving an
+  attack occurrence.
+- Contact resolution previews the assigned attack Rule Block again and fails
+  closed when the target is dead, absent, lacks live position, lacks collision
+  semantics, or has moved out of contact. A defeated target's ephemeral motion
+  is evicted immediately after the durable Rule-owned lifecycle result commits.
+- Mutable `current_health` and `is_alive` values are placement/lifecycle state,
+  not semantic-baseline ownership. Contract migration snapshots them, replaces
+  only immutable meaning, restores a missing snapshot without overwriting an
+  existing Rule result, and removes duplicate authored copies while preferring
+  the durable action-produced lifecycle result.
+
+## 79. Authority-owned player melee contact
+
+- Left click publishes intent and requests one ephemeral player
+  `AttackOccurrence`; it does not directly execute durable damage.
+- The immutable attack action must explicitly require an Authority attack
+  occurrence. A generic action request without the matching resolved occurrence
+  fails closed, so Unity contact, animation timing, or a forged command cannot
+  bypass the assigned Rule Block.
+- Weapon Triples author contact-open time, contact-window duration, reach,
+  damage, range, and cooldown. During that window Unity may report only the
+  projected target candidate; Authority revalidates current actor/tool/target
+  identity, equipment, faction relationship, lifecycle, runtime positions, and
+  authored capsule contact before consuming the occurrence exactly once.
+- Durable damage remains an integer health-point rule result in the current
+  contract. Fractional or ambiguous numeric tuning fails validation rather than
+  being rounded by Unity or transport code.
+- Removing the attack Rule Block, occurrence requirement, contact Triples,
+  explicit contact proxy, live target eligibility, or faction relationship
+  removes the attack result without a renderer-, prefab-, or name-based fallback.
+
+## 81. Authority-projected actor health feedback
+
+- Player and monster floating health numbers present changes to the Authority
+  projection's canonical `current_health` value.
+- The first value is a silent baseline. Later decreases render as damage and
+  increases as healing; Unity never predicts or mutates health.
+- Presentation binds by durable entity GUID and visual bounds, never prefab or
+  object name. Missing or duplicate values fail closed, and absent entities
+  have their baselines evicted.
+
+## 82. Ephemeral avatar recovery after Authority restart
+
+- A durable world entry may remain valid while an Authority or Redis restart
+  removes the player's ephemeral runtime avatar. Equipment range checks,
+  autonomous targeting, and melee contact remain fail-closed while it is absent.
+- The client remembers only the avatar and Zone activated by the completed
+  entry flow. A heartbeat checks whether that runtime avatar exists and
+  reactivates it from the durable checkpoint only when missing; it never resets
+  a healthy avatar.
+- Runtime-position reads may request the same idempotent recovery and retry
+  once. Recovery creates no authored Fact and bypasses no Rule Block, distance,
+  lifecycle, or contact validation.
+
+## 83. Deterministic runtime definition and combat lifecycle projection
+
+- Immutable published definition history remains available, but a world runtime
+  selects only the highest published definition version for each action inside
+  its single enabled package. Historical versions must not multiply scheduler
+  candidates; multiple complete enabled packages for one actor remain ambiguous
+  and fail closed.
+- Autonomous actor eligibility is rebuilt from the current Triple, assigned Rule
+  Block, enabled package, Physical Meaning, and active lifecycle projection. A
+  defeated or contract-incomplete actor loses its ephemeral motion occurrence.
+- Unity pointer targeting scans only currently projected living targets. A
+  defeated presentation disables all of its entity-owned colliders so it cannot
+  intercept later combat input, while Authority remains the owner of life and
+  damage state.
+- Equipment presentation follows the projected `equipped_by` relation. When one
+  authored slot is occupied, Unity presents the enabled unequip action for that
+  projected item; it does not invent an implicit replacement rule.
+- Collision-resolved pose observations are sent only while an accepted active
+  locomotion intent exists. A stop or expired intent receives no later pose
+  samples, avoiding rejected observations and stale combat-contact evidence.
+## 84. Autonomous player contact requires current dual-position evidence
+
+- Standing input now renews the ephemeral locomotion lease at the configured
+  rate, so Authority movement and collision-resolved observations do not expire
+  while the player is idle.
+- Player-motion configuration, like autonomous combat configuration, resolves
+  the highest published locomotion action version inside one enabled package;
+  immutable history must not make the active avatar disappear from simulation.
+- Autonomous melee damage against a player requires both the current Authority
+  motion capsules and a fresh collision-resolved Unity pose observation to be
+  in contact at the occurrence contact time.
+- The Unity observation remains non-authoritative: it can reject stale or
+  separated contact, but it never overwrites Authority motion or durable data.
+
+## 85. Ontology runtime performance evidence boundary
+
+- Runtime optimization starts with measured counters rather than semantic
+  shortcuts. Rule evaluation records evaluated/skipped rules, iterations, and
+  elapsed time without changing rule results.
+- The headless Zone runtime records input entity, Fact, binding, compile, and
+  iteration counts. Active and reduced Zones now honor their authored one- and
+  five-second schedules; reduced mode must not silently evaluate every second.
+- Authority Projection rows are indexed once per received Projection by entity
+  and subject. This lookup index never infers a capability or repairs a missing
+  Rule Block, and rebuilding it retracts the prior Projection's rows.
+- Representative evidence at 1,000 entities, 100 rules, and 100,100 authored
+  Facts showed 0.426 ms inside indexed rule evaluation on the current machine,
+  while the complete test took 286 ms. This confines the next investigation to
+  world/snapshot construction, rule deserialization/compilation, and Projection
+  synchronization rather than the indexed stable-step evaluator itself.
+- A persistent runtime-contract cache is not yet authorized by this evidence.
+  Its next gate is server-side measurement of snapshot load time, definition
+  compilation time, cache hit/miss, and revision/package invalidation.
+
+## 86. Request-scoped Authority evaluation snapshots
+
+- Action performance metrics cover the bounded `call.kind` and fixed
+  `prepare_action_evaluation` scope only. Raw UGC action IDs are never metric
+  tags because unbounded tags create a telemetry cardinality and denial-of-
+  service risk.
+- At 1,000 entities, 100,000 Facts, 100 rules, and 20 concurrent Actions, the
+  original batch took 8,495 ms with p95 Action evaluation at 6,383 ms. Reusing
+  one request-scoped read-only evaluation snapshot for transport and invoked
+  Rule evaluation reduced the batch to 6,236 ms and pure evaluation p95 to
+  27.998 ms.
+- The snapshot is created once per `PrepareActionEvaluation` request and is
+  never shared across world revisions. It caches no approval or mutation.
+  Request-local effect overlays and the temporary canonical intent are removed
+  after evaluation, and a newly built snapshot after Rule removal fails closed.
+- The remaining measured bottleneck is compiling the complete 100,000-Fact
+  snapshot for every request (p50 about 3,498 ms). A revision-wide persistent
+  cache remains blocked until the matcher uses a non-mutating intent overlay
+  and Authority publication has a PostgreSQL-revision-aware multi-instance
+  fence.
+- Headless Zone input is copied inside one Repeatable Read transaction with its
+  world revision and immutable binding identity. Evaluation runs after that
+  transaction closes; a changed revision discards the inferred result and
+  preserves the last completed snapshot.
+- Projection index construction for 1,000 entities, 100,000 Facts, and 100
+  bindings measured 79.306 ms. Unity thread-allocation reporting returned zero
+  in the current Editor, so allocation remains an explicit measurement gap
+  rather than a claimed optimization result.
+
+## 87. Immutable evaluation overlays and publication fencing
+
+- Canonical input intent is matched through a request-local overlay and is
+  never inserted into or removed from the shared world snapshot. Concurrent
+  Action evaluations cannot leak intent or require a global matcher lock.
+- One command-scoped, provenance-aware overlay carries successful primary and
+  post-Rule mutations forward in order. It preserves raw contribution
+  cardinality, source Rule Binding, and result lifetime for Assert, Retract,
+  Set, Adjust, and inverse effects.
+- Post-Rule evaluation no longer reloads the complete Authority snapshot. At
+  100,000 Facts, commands with zero, one, and four post-Rules each loaded one
+  prepare snapshot and zero post-Rule snapshots. Warmed snapshot compilation
+  measured 610.753, 422.798, and 562.736 ms; the four-rule chain measured
+  0.210 ms.
+- Headless Zone publication uses an atomic compare-and-set fence ordered by
+  world revision, evaluation completion time, and observation time. The
+  scheduler rechecks PostgreSQL revision immediately before publication, so a
+  stale evaluator cannot replace a newer completed runtime snapshot.
+- Required post-Rule failure occurs before cooldown acquisition and rolls back
+  durable mutation. A rare failure after cooldown acquisition but before final
+  commit can still retain the external lease until TTL because the registry has
+  no reservation-cancel API.
+- Full snapshot compilation per command remains the dominant cost. A
+  revision-wide immutable contract cache is the next candidate, but it must
+  invalidate by world revision and package identity and remain fail-closed when
+  a Rule is removed.
+
+## 88. Exact-revision compiled contracts and command deltas
+
+- Authority caches only an immutable compiled evaluation base. Its exact key
+  contains world ID, world revision, evaluator schema version, and a canonical
+  SHA-256 identity of every enabled package and published definition checksum.
+  There is no earlier-revision or compatible-package fallback.
+- A cache miss is built in its own Repeatable Read connection and transaction.
+  Key and Fact rows come from that same database snapshot. The caller's
+  observed key must still match the completed build, while cancelling one
+  waiter does not cancel or remove the shared single-flight build.
+- Bound Rule lookup now requires the Rule definition to belong to the exact
+  enabled package ID and version recorded by the binding. A published Rule from
+  a disabled or unrelated package cannot satisfy the gameplay contract.
+- Commands never mutate or clone the cached base. They keep only changed raw
+  rows and semantic additions/tombstones for affected subject-predicate keys.
+  Primary effects and ordered post-Rules read the same command-local delta;
+  provenance, raw cardinality, result lifetime, and Rule Binding projection
+  remain intact, and rollback discards the delta.
+- The process-local cache is single-flight and bounded by entry count and
+  conservative estimated retained bytes. In-flight builds are not evicted;
+  overflow keys use a separate bounded single-flight table and the complete
+  build pipeline has a process-wide concurrency limit. When the pending-key
+  bound is exhausted, Authority fails closed with
+  `action_evaluation_backpressure` instead of creating an unbounded DB queue.
+  Metrics use fixed names and no world, package, or action identifiers as tags.
+- At 100,000 Facts, measured cold compilation was 464.556 ms, an exact-key read
+  hit was 15.742 ms, and the first committed mutation through the delta was
+  4.902 ms. The former 762 ms full copy-on-write rebuild is removed.
+
+## 89. Compiled-contract operational lifetime and memory bounds
+
+- Shared contract builds are owned by the service rather than an individual
+  request. Caller cancellation stops only that waiter. Application stopping
+  cancels the shared owner with a distinct shutdown meaning, while a configurable
+  build timeout (30 seconds by default) rejects the Action as
+  `action_evaluation_timeout`.
+- Cancellation reaches database reads, source copying, world compilation, and
+  retained-memory estimation. Large loops check the owner token periodically,
+  so timeout and shutdown do not wait for an entire 100,000-Fact compile to
+  finish before cleanup.
+- The retained-memory estimate includes source records and strings, raw
+  provenance row dictionaries/lists/arrays, and the compiled world's entity,
+  Fact, origin, predicate, changed-predicate, and concept indexes. Arithmetic
+  saturates instead of overflowing on hostile input, and the estimate is
+  computed once during compilation.
+- A contract larger than the per-cache byte limit is returned to its current
+  waiter but is not retained. Resident count and bytes return to zero and the
+  event is recorded as an oversized bypass. Overflow pending-key metrics are
+  explicitly named as such and MeterListener tests prove resident, byte,
+  pending, and oversized counters return to their expected balances.
+- Shutdown, timeout, failure, overflow, oversized admission, and disposal while
+  a build is unwinding all preserve single-flight identity and release pending
+  keys and concurrency permits.
+
+## 90. Activation-scoped player-motion reconciliation
+
+- Every successful player-runtime activation creates a server-owned opaque
+  `RuntimeSessionId`. Motion state, locomotion intent, runtime Action intent,
+  and collision-resolved pose observations carry that identity.
+- Sequence numbers are monotonic only inside one runtime session. Unity accepts
+  correction only when the snapshot session matches and
+  `LastProcessedIntentSequence` has caught up to the latest accepted input.
+  A newer server Tick alone is not sufficient evidence.
+- Accepting a newer input immediately retracts planar correction derived from
+  an older input, so a delayed moving snapshot cannot pull a stopped player
+  backward.
+- Authority publishes motion with a runtime-session-and-Tick compare-and-set.
+  An in-flight scheduler step from an older activation cannot overwrite the
+  newly activated state.
+- Normal durable checkpoint writes do not restart live motion. Respawn or
+  recovery that intentionally reseeds runtime motion performs a new activation
+  and resets client reconciliation fences.
+
+## 91. Release, world preparation, and admission are separate phases
+
+- Immutable Rule and Action definitions are published together through one
+  atomic content release. A conflict rolls back the complete release. Runtime
+  world entry never publishes or activates authoring content.
+- Admission begins with read-only checks of the exact enabled package, canonical
+  local Rule/Action payloads, and the avatar semantic-contract manifest.
+  Package identity alone is not sufficient when the canonical payload differs.
+- World creation or an explicit owner preparation operation authors the Zone
+  foundation and uses `prepare_player_avatar` to create the avatar entity,
+  register ownership, and apply its semantic contract in one revisioned,
+  idempotent Authority transaction.
+- The profile-review launch orchestrator performs that explicit idempotent
+  preparation for an editable legacy world before it invokes admission. This
+  orchestration must remain outside `EnterRoutineCore`; read-only visitors do
+  not receive world-authoring permission through launch.
+- An existing world avatar identity comes from the Authority account dashboard's
+  user-and-world registration. Unity must not derive or replace it from an
+  account character ID, scene GUID, prefab, or a cached identity from another
+  world. When the selected world has no registered avatar yet, Unity derives a
+  deterministic world-scoped ID from the immutable scene seed and world ID.
+- Semantic readiness requires the exact active application, slot, contract,
+  and unreleased ownership rows for every owned Fact and Rule Binding.
+  Independent matching contributions cannot impersonate a prepared contract.
+- Normal entry performs no content publication, Zone/entity provisioning,
+  legacy migration, or semantic repair. Pending-command recovery is a separate
+  recovery gate; respawn Rule evaluation and collision-corrected checkpoint
+  confirmation remain explicit admission-owned gameplay operations.
+- Runtime activation is ephemeral and session-scoped. Any later admission
+  failure deactivates only the exact session that it created. The durable
+  `/entry` binding is committed only after all preparation succeeds.
+- Pre-admission life, respawn, zero-motion locomotion, and collision-corrected
+  checkpoint confirmation require the exact active ephemeral avatar session,
+  not `IsWorldRuntimeReady`. That latter state means the durable entry binding
+  has already committed and must not be a prerequisite for an earlier admission
+  check.
+- Development verification checks the immutable release manifest, the absence
+  of authoring calls in admission, and all applied database migrations before
+  a service-backed run.
+- A service-backed verification deploys the current World Authority image and
+  probes the entry preflight route. A healthy but stale container is a failed
+  deployment contract, not a content mismatch and not an admissible fallback.
+
+## 92. Isolated remote multiplayer test deployment
+
+- The first remote multiplayer slice runs in a dedicated `tormia_test`
+  PostgreSQL database owned by the least-privilege `tormia_test_app` login.
+  Existing service databases, processes, and Nginx virtual hosts remain outside
+  this deployment boundary.
+- The World Authority container binds to `127.0.0.1:5272`. Public traffic enters
+  only through the independent `tov-api.punkarena.app` Nginx virtual host.
+- RDS administrator credentials are bootstrap-only. The remote bootstrap file
+  is removed after database creation and migration; the running service keeps
+  only the application credential.
+- Unity preserves both local and remote Authority endpoints. An authored Editor
+  switch selects the HTTPS test Authority for play mode and content-authoring
+  tools without rewriting either URL; Android always selects the remote test
+  endpoint. No database or Redis credentials are stored in the client.
+- Public Android testing requires DNS to resolve the test hostname to the test
+  server and a trusted TLS certificate to be installed before APK distribution.
+- Invited world entry resolves the selected world's explicit active content
+  package. First entry provisions a member avatar through Authority with an ID
+  scoped by avatar seed, world, and authenticated user; existing avatar IDs are
+  preserved.
+- Remote multiplayer uses separate Nginx REST and SignalR proxy paths, and
+  coalesces bursty Zone notifications before reading avatar snapshots. One
+  avatar has one active runtime controller session, so parallel device tests
+  use distinct accounts.
+# 94. Hybrid realtime transport baseline
+
+- HTTPS and SignalR remain the reliable control and recovery lanes. UDP is a
+  future replaceable lane for high-frequency motion intent and Authority motion
+  snapshots only.
+- Transport never owns gameplay permission. Every motion packet remains scoped
+  to the active runtime session and evaluated locomotion contract.
+- The current baseline is instrumented before UDP enablement. Authority records
+  player-motion tick duration/overrun/avatar/frame-item counts and SignalR
+  motion-frame publish count/item/duration/failure. Unity records reconnect
+  evidence, frame counts, stale/reordered snapshots, snapshot age, interpolation
+  underrun and bounded extrapolation episodes.
+- Measured evidence, not a vendor or protocol assumption, gates each migration
+  phase. SignalR/HTTP remain the fallback and complete recovery path.
+
+## 95. Hybrid UDP transport selection
+
+- LiteNetLib 2.1.4 is the pinned delivery substrate for the first UDP motion
+  slice on Unity and .NET 8 Authority.
+- It owns no identity, rule, gameplay result, durable state, or recovery path.
+  HTTPS issues transport admission and SignalR remains the complete fallback.
+- UDP enablement is gated by Editor, Android IL2CPP, Linux .NET 8, authentication,
+  replay, loss, reorder, reconnect, fallback, and isolated deployment evidence.
+
+## 96. Authority-owned UDP transport admission
+
+- Authenticated HTTPS issues one short-lived UDP ticket for an account-owned
+  avatar's exact active runtime session. Authority assigns the generation.
+- Redemption requires nonce-bound HMAC proof. Redis atomically revalidates the
+  runtime session and Zone, consumes the ticket once, and promotes a short
+  authenticated transport handshake; protected key material uses AES-GCM.
+- UDP is disabled by default and fails closed without Redis, key protection,
+  trusted-proxy HTTPS, or multi-instance support. Runtime deactivation revokes
+  the complete ephemeral transport scope.
+- Ticket admission creates no gameplay permission or durable ontology state.
+  A listener, replay window, and single-writer fence remain activation gates.
+
+## 97. Authority UDP listener security boundary
+
+- The LiteNetLib Authority listener is disabled by default and accepts only the
+  exact fixed bootstrap frame followed by authenticated `Unreliable` channel 0
+  motion datagrams. It exposes no Docker or production UDP port yet.
+- Packet processing is ordered as bounded structural validation, active
+  session and exact generation validation, constant-time HMAC, atomic replay
+  window consumption, payload decode and binding, then a second generation
+  fence before delivery.
+- Authenticated motion intents enter only an isolated bounded channel. They are
+  not connected to `PlayerIntentRegistry`, rule evaluation, gameplay state, or
+  durable persistence in this stage.
+- Address, pending handshake, redemption, lookup and queue capacities fail
+  closed. Shutdown, runtime deactivation, ticket reissue and stale generation
+  revoke transport authority and clear retained secret material.
+- HTTPS and SignalR remain the control, fallback and complete recovery paths.
+
+## 98. Unity UDP motion sender preparation
+
+- Unity can request an Authority UDP ticket over authenticated HTTPS and build
+  the exact fixed bootstrap and authenticated motion datagram contract.
+- The adapter is default-off. Its `IPlayerMotionIntentTransport` entry point
+  still delegates to HTTP, so there is exactly one active gameplay writer until
+  Authority consumption and acknowledgement are integrated.
+- Admission is fenced by component lifecycle and exact runtime session, world,
+  avatar and Zone binding. Disable, re-entry, timeout, disconnect or binding
+  change invalidates the operation and clears retained byte-array secrets.
+- The client assembly explicitly pins the LiteNetLib reference. Android IL2CPP,
+  external-network and allocation evidence remain later activation gates.
+
+## 99. Shared Authority motion admission
+
+- HTTP and authenticated UDP motion candidates enter one Authority admission
+  service and one fixed-tick intent registry. Transport never selects or owns a
+  locomotion rule.
+- Admission validates ownership, exact runtime session and Zone, the complete
+  authored locomotion semantics, a unique enabled action and Rule binding, an
+  ephemeral Rule preview, current world revision and monotonic sequence.
+- Runtime session, UDP generation, revision pending/exact state and active
+  writer are checked atomically when the intent is stored. UDP promotion fences
+  HTTP and older generations until a later explicit fallback transition.
+- Rule changes use a two-phase revision fence: pending is written before the
+  durable commit and cleared only after the exact committed revision is
+  observed. Crash-gap reconciliation is fail-closed, per-world single-flight,
+  waiter-bounded and backoff-limited.
+- Compiled admission contracts are bounded and revision-keyed. Rule Block
+  removal cannot use an older cached approval. UDP snapshots and Unity writer
+  activation remain later stages.
+
+## 100. Authority UDP Zone motion snapshots
+
+- UDP motion snapshots are a replaceable presentation branch derived only from
+  the already accepted Authority fixed-tick Zone frame. They never evaluate a
+  Rule, mutate gameplay state, or replace the canonical SignalR publication.
+- SignalR and UDP receive the same `FrameOccurrenceId` generated once at the
+  composite publication boundary. Redis is only a UDP fan-out backplane and
+  never rewrites the source frame identity or tick. Redis or backplane failure
+  drops or retries only UDP work; Authority simulation, HTTP, and SignalR
+  continue independently.
+- Frames are bounded by entity count, retained bytes, and an effective 1000-byte
+  datagram limit. Protocol v2 authenticates occurrence ID, page index/count,
+  total item count, and each actor's server tick. Because fixed-tick frames may
+  contain changed-actor deltas, the bounded ingress queue preserves accepted
+  occurrences in arrival order and drops the newest occurrence when full; it
+  never overwrites an earlier queued delta from the same Zone.
+- Each recipient is revalidated against the exact active transport generation
+  in one bounded batch, then checked again against the local peer/session before
+  a per-peer HMAC and server-owned packet sequence are emitted on Unreliable
+  channel 0. Timed-out non-cancellable generation lookups retain their capacity
+  lease until the underlying operation actually completes.
+- No Unity snapshot consumer is activated in this stage. HTTPS and SignalR stay
+  the complete fallback and recovery lanes until client verification passes.
+
+## 101. Unity UDP motion snapshot ingestion
+
+- UDP snapshot reception is independently gated from UDP input writing. Both
+  remain default-off, and enabling receive preparation cannot create a second
+  motion-intent writer.
+- The admission bootstrap keeps its outer frame version 1 while the ticket and
+  realtime wire negotiate protocol v2. Unity validates channel, delivery,
+  structure, exact transport session and generation, HMAC, a 64-packet replay
+  window, world, Zone, and current Authority runtime binding in that order.
+- Pages are bounded by occurrence count, page and item caps, retained bytes,
+  and age. Reordered pages may complete, but missing, duplicated, inconsistent,
+  stale, or malformed page sets never reach presentation.
+- A complete authenticated occurrence enters only the transport-neutral motion
+  feed. The feed deduplicates SignalR and UDP by `FrameOccurrenceId` and orders
+  each actor by runtime session plus actor server tick; it never mutates a
+  Transform or infers gameplay permission.
+- Only reliable SignalR or exact HTTP recovery may establish or replace an
+  actor runtime-session barrier. Complete Zone recovery removes absent actors,
+  and captured scope, reliable epoch, server tick, and update time prevent late
+  HTTP responses from rewinding a newer session. UDP can advance only a barrier
+  already confirmed by a reliable lane.
+- Unity compilation has no new C# error. Automated PlayMode execution remains
+  pending because the official MCP test runner retains an older zero-progress
+  `tests_running` job; the added tests are not claimed as executed evidence.
+
+## 102. Explicit Authority motion-writer transitions
+
+- Runtime activation creates an Authority-owned HTTP writer record and returns
+  its mode, epoch, and exact world revision. HTTP remains usable when UDP is
+  disabled or no ticket is requested.
+- Ticket issue, redemption, and peer connection prepare transport identity but
+  never promote the gameplay input writer. Only the authenticated HTTPS
+  `udp/promote` transition may move the writer from HTTP to an exact redeemed
+  UDP session and generation.
+- HTTP intent carries the Authority-issued writer epoch. UDP intent resolves
+  its epoch from the exact active transport session and generation. The final
+  registry commit rechecks runtime session, Zone, user/avatar scope, revision,
+  writer mode, epoch, and UDP binding atomically.
+- Ticket issue is rejected with `udp_rekey_requires_fallback` while UDP is the
+  active writer. Rekey therefore requires an explicit UDP-to-HTTP fallback
+  before a fresh ticket can be issued; direct UDP-to-UDP writer swaps are not
+  part of the Stage 11 contract.
+- A redeemed handshake and an exact connected-peer presence are separate
+  ephemeral records. Datagram and snapshot admission requires the connected
+  record; disconnect removes only that presence so reliable fallback remains
+  possible for the exact current UDP writer.
+- The authenticated HTTPS `http/fallback` transition atomically clears the UDP
+  intent lease, revokes the promoted binding and outstanding candidate,
+  advances the generation fence, and creates a newer HTTP writer epoch.
+  Repeated ACK requests are idempotent; stale session, generation, epoch, or
+  revision fails closed. Accepted intent commits refresh the writer's observed
+  world revision without changing its epoch, while pending/current Authority
+  revision fences still apply.
+- Fallback reconciles against the current Authority revision rather than the
+  ticket's issuance revision. An exact current UDP binding may therefore return
+  to HTTP after a later world edit, while stale session, binding, or writer
+  epoch still fails closed. If promotion failed and HTTP is still the exact
+  current writer, fallback is an idempotent recovery that preserves its epoch,
+  clears candidate transport state, and returns authoritative writer evidence.
+- Idempotent transition success and rejection evidence require the complete
+  world, user, avatar, Zone and runtime scope. HTTP endpoints never replace a
+  filtered transition result with an unscoped raw writer lookup.
+- Writer transitions are ephemeral transport authority only. They create no
+  Triple, Rule result, durable event, movement permission, or Unity transform.
+
+## 103. Deterministic Authority UDP fault boundaries
+
+- Authenticated UDP motion fault tests exercise the complete server path from
+  datagram authentication and replay admission through the bounded consumer,
+  canonical motion admission, and the shared intent registry. Packet loss does
+  not invent input, bounded reordering cannot rewind sequence, replay and
+  too-old packets are rejected, and a packet queued before HTTP fallback cannot
+  commit afterward.
+- The consumer exposes one bounded deterministic drain seam used by both its
+  hosted loop and tests. This seam does not create another writer or gameplay
+  path; it only makes the existing production admission path controllable
+  without wall-clock sleeps.
+- Redis ticket expiry has one explicit cross-backend contract: the first
+  expired redemption atomically consumes the ticket and returns `Expired`, and
+  every later replay returns `AlreadyRedeemed`. Expired credentials never
+  return a datagram authentication key.
+- Redis connected-generation checks use bounded Lua chunks rather than
+  sequential per-peer hash reads or one unbounded KEYS/ARGV call. The chunk cap
+  is configured by `Realtime:UdpMaximumGenerationBatchSize` and defaults to the
+  generation-lookup concurrency cap. Every result still compares the complete
+  world, user, avatar, Zone, runtime session, transport session, generation,
+  and protocol binding; a failed or malformed chunk fails closed without
+  discarding independent completed chunks.
+- Redis integration tests are opt-in through
+  `TORMIA_TEST_REDIS_CONNECTION`. The connection must explicitly select an
+  isolated non-default database (`defaultDatabase=1` or greater). Tests use two
+  independent multiplexers, GUID-scoped data, and exact-key cleanup only; they
+  never use `FLUSHDB`. Concurrent duplicate redemption, reissue versus
+  promotion, and submit versus fallback races prove that stale generations and
+  stale UDP writers cannot commit shared motion after the canonical transition.
+- UDP diagnostics preserve `writer_mismatch` and `connected_presence` as
+  bounded reason labels so transport rollout failures are distinguishable
+  without logging identity or world scope. Generation-fence batch count, size,
+  and bounded outcome labels expose capacity, timeout, malformed-result, and
+  failure states without per-world cardinality.
+
+## 104. Linux x64 UDP container readiness
+
+- The World Authority image restores and publishes explicitly for `linux-x64`
+  and runs as the ASP.NET base image's non-root application user. TCP 8080 and
+  UDP 5273 are image metadata; only TCP is mapped during Stage 13 validation.
+- The image health check uses the local TCP `/health` endpoint and does not
+  depend on curl or another added native package. `/health/realtime` reports
+  the reliable backplane, UDP ticket gate, listener gate, listener port, and
+  ticket-store backend without exposing credentials.
+- Both UDP gates remain default-off. Outside explicit single-instance
+  Development, enabled UDP requires Redis, a valid credential protector, and a
+  non-privileged port; an incomplete configuration fails before serving.
+- Linux Production DI validation found and removed Windows-only constructor
+  visibility assumptions in UDP diagnostics and snapshot publication.
+- Stage 13 changes no Compose, cloud, firewall, DNS, or AWS state. Stage 14 must
+  map UDP deliberately and configure exact `Realtime:TrustedProxyAddresses`
+  for the public HTTPS proxy; broad proxy trust is not allowed.
+
+## 105. Isolated remote UDP rollout preparation
+
+- The current test Authority is one Docker container behind same-host Nginx:
+  only `127.0.0.1:5272 -> 8080/tcp` is published. The Docker bridge gateway is
+  `172.17.0.1`, UDP 5273 is absent, and the pre-cutover public health endpoints
+  are healthy.
+- The opt-in rollout derives that exact gateway for forwarded HTTPS trust,
+  creates one stable mode-0600 credential-protection secret, validates a
+  no-host-UDP candidate on loopback TCP 5274, and retains the old container for
+  automatic and manual rollback.
+- Final promotion is limited to the isolated Authority and maps loopback TCP
+  5272 plus UDP 5273. Unity UDP remains default-off until public HTTPS metadata,
+  an external authenticated UDP client, and reliable fallback all pass.
+- AWS credentials were unavailable to audit or narrow the security group. The
+  repository note says all traffic is open, but only an external UDP probe can
+  establish current reachability. No narrowed-rule claim may be made without
+  authoritative AWS evidence.
+- The immutable candidate archive is prepared locally, but remote artifact
+  upload and cutover remain pending explicit approval for that external
+  transfer.

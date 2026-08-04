@@ -130,7 +130,8 @@ namespace Tormia.Ontology.Core
             if (!restoredPoseConfirmationPending ||
                 avatarIdentity == null ||
                 authorityClient == null ||
-                !authorityClient.IsWorldRuntimeReady)
+                !avatarIdentity.TryGetGuid(out var avatarId) ||
+                !HasCheckpointAuthority(avatarId))
             {
                 completed?.Invoke(false);
                 yield break;
@@ -321,6 +322,16 @@ namespace Tormia.Ontology.Core
                 position,
                 rotation,
                 value => accepted = value);
+            if (accepted &&
+                avatarIdentity.TryGetGuid(out var avatarId))
+            {
+                var activated = false;
+                yield return authorityClient.ActivatePlayerRuntimeRoutine(
+                    avatarId,
+                    authorityClient.CurrentProjectionZoneKey,
+                    value => activated = value);
+                accepted = activated;
+            }
             motionReconciler?.CompleteCheckpointReseed(
                 accepted,
                 position);
@@ -357,8 +368,9 @@ namespace Tormia.Ontology.Core
             Action<bool> completed)
         {
             ResolveDependencies();
-            if (authorityClient == null || !authorityClient.IsWorldRuntimeReady ||
-                avatarIdentity == null || !avatarIdentity.TryGetGuid(out var avatarId))
+            if (authorityClient == null || avatarIdentity == null ||
+                !avatarIdentity.TryGetGuid(out var avatarId) ||
+                !HasCheckpointAuthority(avatarId))
             {
                 completed?.Invoke(false);
                 yield break;
@@ -396,6 +408,11 @@ namespace Tormia.Ontology.Core
             saveInProgress = false;
             completed?.Invoke(accepted);
         }
+
+        private bool HasCheckpointAuthority(Guid avatarId) =>
+            authorityClient != null &&
+            (authorityClient.IsWorldRuntimeReady ||
+             authorityClient.IsPlayerRuntimeActiveFor(avatarId));
 
         private OntologyWorldCommand CreateCheckpointCommand(
             Guid avatarId,

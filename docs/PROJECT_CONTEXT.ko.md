@@ -1,5 +1,55 @@
 # TOV 프로젝트 컨텍스트
 
+## 93. 순서가 보장되는 원격 아바타 이동 전송
+
+- Authority 플레이어 이동은 고정 Tick에서 계산되는 일시적 결과로 유지한다.
+  Zone Tick에서 아바타 상태가 변경되면 서버는 평가된 세션 ID, 서버 Tick/시간,
+  위치, 속도, 접지 상태, 이동 상태를 포함한 `zoneMotionFrame`을 묶어서 보낸다.
+  기존 HTTP Zone 스냅샷은 입장, 재연결, 존재 상태 복구에만 사용한다.
+- Unity 원격 아바타는 Authority 시간보다 약 100~150ms 늦은 세션별 정렬
+  스냅샷 타임라인을 표시한다. 승인된 두 샘플 사이를 보간하고 짧은 속도 제한
+  외삽만 허용하며, 오래되거나 순서가 뒤바뀐 Tick은 거절한다. 세션 변경이나 긴
+  단절 뒤에는 새 기준점을 만든다. 입력 목적지나 Unity가 임의로 정한 속도로 최신
+  위치를 추격해서는 안 된다.
+- SignalR 연결 소유권은 연결 세대별로 구분한다. 프로토콜 handshake 응답 뒤에만
+  연결 완료로 처리하며, 이전 소켓 세대의 메시지는 현재 연결을 끊거나 시간을
+  되돌릴 수 없다. 재연결은 상한이 있는 지수 백오프와 jitter를 사용한다.
+- 모션 프레임은 변경분이며 전체 접속자 목록이 아니다. 아바타 제거는 인증된 전체
+  복구 스냅샷과 grace 정책으로만 결정한다. 이 전송은 이미 평가된 Authority 결과의
+  Unity 표현이므로 새 게임 규칙 블록이나 영속 Fact를 만들지 않는다.
+
+> canonical 규칙 정의는 규칙 ID와 정의 버전으로 식별되는 전역 불변
+> 콘텐츠입니다. 월드 패키지는 액션과 콘텐츠를 활성화하지만, 배정된 규칙
+> 블록은 이 전역 식별자로 발행 정의를 해석합니다. 규칙이 처음 발행된 패키지
+> 버전과 월드의 현재 패키지 버전이 다르다는 이유로 실행을 거절하면 안 됩니다.
+
+## 81. 데이터 작성형 전투 표현 경계
+
+- 장착 입력은 공용 Unity Input Action 자산에 작성합니다. 입력은 상호작용
+  트리거만 발행하며, `equip_action` / `unequip_action`과 할당된 규칙 블록이
+  권한과 상태 전환을 계속 소유합니다.
+- Damageable 표현에는 `collision_proxy_shape`, `collision_radius`,
+  `collision_height`로 구성된 충돌 프록시 계약이 필요합니다. Unity는 이
+  트리플로 쿼리 전용 피격 형상을 만들며 계약이 없거나 모호하면 실패
+  폐쇄합니다. 임의 렌더러나 자식 Collider를 추측해 선택하지 않습니다.
+- 무기 접촉 쿼리는 비할당 빠른 경로를 사용하지만 버퍼가 가득 차면 고정
+  용량 때문에 접촉을 누락하지 않도록 완전 쿼리로 재시도합니다. 쿼리
+  용량이 Authority 승인 대상의 접촉 여부를 결정해서는 안 됩니다.
+- 장착 이동 표현은 장착 엔티티에 투영된 `idle_animation_intent`와
+  `move_animation_intent` Fact로 선택합니다. 템플릿 ID와 시각 카탈로그는
+  자산 위치를 찾을 수 있지만 의미 권한이나 애니메이션 의도의 대체 경로가
+  아닙니다.
+
+## 81. Authority 투영 기반 액터 체력 피드백
+
+- 플레이어와 몬스터 머리 위 숫자는 Authority 투영의 표준
+  `current_health` 변화만 표현합니다.
+- 최초 값은 기준값으로만 저장합니다. 이후 감소는 피해, 증가는 회복으로
+  표시하며 Unity는 체력을 예측하거나 변경하지 않습니다.
+- 프리팹이나 오브젝트 이름이 아니라 영속 엔티티 GUID와 시각 경계에
+  연결합니다. 값이 없거나 중복이면 표시하지 않고, 사라진 엔티티의
+  기준값도 제거합니다.
+
 > **언어 정책**: 영문 원본은 [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md)입니다.
 > 두 문서는 같은 변경에서 함께 갱신합니다. 구현 식별자·API·코드명은 영문
 > canonical ID를 그대로 유지하고, 제품 정책과 설명은 이 한국어 문서에서도
@@ -818,21 +868,27 @@ SignedOut -> Authenticated -> CharacterSelected -> WorldSelected
   지지면 법선 방향 접지는 평면 성분이 역방향 경사 미끄러짐을 만들기 때문에
   사용하지 않습니다.
 
-## 31. 지속형 Unity MCP 개발 전송
+## 31. Unity 공식 MCP 개발 전송
 
-- 로컬 Codex/Unity 개발은 `http://127.0.0.1:8080/mcp`의 단일 Streamable HTTP
-  MCP 엔드포인트를 사용합니다. Unity 어셈블리 리로드가 에디터 소유 TCP
-  리스너를 잠시 닫아 포트 탐색·프레이밍 핸드셰이크와 경합할 수 있으므로 작업별
-  stdio 서버를 프로젝트 기본값으로 사용하지 않습니다.
-- MCP for Unity의 로컬 HTTP 서버는 Unity 에디터 도메인과 독립적으로 실행합니다.
-  Unity는 `Auto-Start on Editor Load`가 활성화된 HTTP/WebSocket 브리지로
-  접속합니다. 어셈블리 리로드 중 Unity 인스턴스가 잠시 사라질 수 있지만
-  수동으로 Start Session을 누르지 않아도 자동으로 다시 연결되어야 합니다.
-- `scripts/verify-unity-mcp.ps1`은 서버 상태, 예상 Unity 프로젝트 연결, Codex
-  HTTP 설정을 검증합니다. Unity 에디터가 실행 중이어야 하는 검증에서는
+- 로컬 Codex/Unity 개발은 Unity `com.unity.ai.assistant` 패키지에 포함된 MCP
+  서버를 사용합니다. Codex는
+  `%USERPROFILE%\.unity\relay\relay_win.exe --mcp`를 실행하고
+  `--project-path <TOV 프로젝트 절대 경로>`로 대상을 고정하여 열려 있는 다른
+  Unity 에디터를 잘못 선택하지 않게 합니다.
+- 공식 Relay는 플랫폼 IPC(Windows에서는 named pipe)를 통해 Unity 에디터
+  Bridge와 통신합니다. Bridge는 에디터와 함께 시작되고 승인된 클라이언트를
+  기억하며 일반적인 클라이언트 세션 사이의 재연결을 담당합니다. 별도로
+  유지하던 MCP for Unity HTTP 서버를 기본 전송 방식에서 대체합니다.
+- 전환 기간에는 `http://127.0.0.1:8080/mcp`를 임시 fallback으로만 유지할 수
+  있습니다. 공식 Relay가 재시작, 어셈블리 리로드, 콘솔, 씬, GameObject, 저장,
+  컴파일, 테스트 검증을 통과하면 fallback과 `com.coplaydev.unity-mcp`를
+  제거합니다. 두 MCP 구현을 영구 구조로 유지하지 않습니다.
+- `scripts/verify-unity-mcp.ps1`은 실행할 때마다 새 승인 요청을 만들지 않고 공식
+  Relay, Assistant 패키지, 프로젝트 경로가 고정된 Codex 설정, 실행 중인 에디터,
+  연결 레코드와 named pipe를 검증합니다. Unity 승인은 클라이언트 단위이므로
+  `-LiveToolProbe`는 승인된 대화형 클라이언트 세션에서만 사용합니다. 선택적으로
+  기존 fallback 상태도 보고할 수 있습니다. 예상 Unity 에디터가 열린 상태에서
   `scripts/verify-development.ps1 -RequireUnityMcp`를 실행합니다.
-- `com.unity.ai.assistant`의 9001/9002 릴레이 로그는 별도 Unity AI 서비스이며
-  Unity MCP 연결 해제의 증거가 아닙니다.
 - 이 결정은 개발 인프라에만 적용됩니다. 계정 데이터, 월드 Fact, Rule Block,
   물리 의미, 런타임 게임플레이 권한을 소유하지 않습니다.
 
@@ -1871,3 +1927,542 @@ SignedOut -> Authenticated -> CharacterSelected -> WorldSelected
 - 레퍼토리 제거도 그대로 권위적입니다. 동기화는 이전 ActorProfile 기여분을
   먼저 철회하므로 Manifest/프로필 배정을 제거하면 오래된 클립을 남기지 않고
   해당 런타임 애니메이션 경로를 제거합니다.
+## 규칙 블록과 의미 패키지 수명주기
+
+- 할당된 규칙 블록의 식별자는 규칙 이름이나 바인딩 변수가 아니라 Authority의 `bindingId`이다.
+- 온라인 편집은 Authority 우선 방식이다. Unity는 명령 대기 중 기존 프로젝션을 유지하고, 승인된 리비전을 받은 뒤에만 화면을 갱신한다.
+- 의미 패키지의 트리플·규칙 바인딩 소유권은 정규화되고 리비전 이력을 가진다. 한 바인딩을 제거하면 그 바인딩과 `RuleBound` 결과만 철회하고, 마지막 소유 바인딩을 제거하면 행동 패키지를 닫아 패키지 소유 정규·타입 트리플을 철회하되 독립 기여는 보존한다.
+- 행동 패키지는 `requiresOwnedBinding`을 선언한다. Authority는 소유 규칙 블록 없이 행동 트리플만 추가하는 패키지를 거부하며, 데이터 전용 패키지만 명시적으로 예외를 선언할 수 있다.
+- 편집기의 결과 화면은 프로젝션된 트리플 출처를 표시하여 패키지 소유·직접 작성·시스템·규칙 결과를 Unity의 추측 없이 구분한다.
+- 기존 카탈로그 기여를 채택할 때는 정확히 일치하는 목표 트리플을 교체 대상 철회 전에 소유한다. 채택된 행은 displaced 기준 원장에 들어가거나 마지막 규칙 블록 삭제 후 독립 데이터로 다시 나타나면 안 된다.
+## 74. Unity가 소유하는 로컬 충돌 표현
+
+- 온톨로지 데이터와 Physical Meaning은 Unity 물리 설정을 제공하며 대체 충돌 좌표를 계산하지 않는다. LocalCharacterController 프로필은 작성된 최대 단차, 경사 제한, 스킨 폭, 최소 이동 거리 값을 Unity `CharacterController`에 매핑한다.
+- 로컬 플레이어의 런타임 충돌·경사·단차 해결은 단일 `CharacterController.Move`가 소유한다. 기존 CapsuleCast·Raycast·Overlap 기반 자체 단차 계산기는 폐기했으며 위쪽 변위를 직접 주입하지 않는다.
+- `OntologyCharacterSupportProbe`는 Unity Cast로 주변 `WalkableSupport`를 관측하고 의미를 분류할 뿐이다. 이 결과는 임시 관측 증거이며 Transform을 이동시키거나 Unity 접촉 없이 접지 상태를 만들 수 없다.
+- CharacterController는 Rigidbody 중력을 자동으로 받지 않으므로 데이터에서 받은 중력값의 속도 적분은 유지한다. Rigidbody 엔티티는 Physical Profile 어댑터가 설정한 Unity 중력·충돌·감쇠·제약·Physic Material을 사용한다.
+- 입력을 열기 전에 수행하는 제한된 1회 월드 입장 접지 정렬은 준비 초기화이며 두 번째 런타임 이동 소유자가 아니다.
+휴머노이드 발 접지는 표현 전용이다. 활성 Physical Profile이 탐색·블렌딩
+설정값을 제공하고 Unity Physics가 발 접촉점을 제공하며 Animator IK가 보이는
+발을 정렬한다. 이 처리는 Actor 루트를 이동하거나 Authority 위치, 접지 상태,
+충돌 해결 결과를 변경하지 않는다.
+
+## 75. 재사용 가능한 UGC 근접 무기 의미
+
+- `melee_weapon` 규칙 블록 빠른 설정은 Weapon/Carryable 개념,
+  장착·해제·휘두르기·공격 바인딩, 전투 조정 트리플,
+  `HandheldWeapon` 물리 의미와 부착 데이터를 하나의 Authority 의미
+  패키지로 작성한다.
+- `Weapon` 개념과 `attack_contact_mode=WeaponContactWindow`이 투영되면
+  Unity는 의미 데이터에서 접촉 조회 프리젠터를 구성한다. 기존 무기
+  프리팩은 보정된 접촉 영역을 유지하고, 임의 UGC 오브젝트는 렌더러
+  경계로 보수적 접촉 영역을 만든다.
+- 자동 생성 접촉 영역은 표현 관찰 증거일 뿐이다. 공격 권한이나 피해를
+  직접 만들지 않으며 무기 의미가 제거되면 함께 비활성화된다.
+
+## 76. Authority 투영 기반 플레이어 피격 반응
+
+- PlayerProfile이 `hit_animation_intent=HitReaction`을 작성하고, 프로젝트 소유
+  `Standing React Large From Front.fbx`를 Manifest -> Database -> PlayerProfile
+  생산 라인을 통해 `Anim_Player_HitReaction_Front`로 등록한다.
+- Damageable 프리젠터는 첫 Authority 체력 투영을 기준값으로 삼고, 더
+  새로운 Authority 리비전에서 체력이 감소했을 때만 작성된 일시 피격
+  의도를 표현한다. 같은 투영 재생, 회복, 사망 전환은 일반 피격 반응을
+  추가로 만들지 않는다.
+- CharacterController가 플레이어 이동의 단일 소유자이므로 Root Motion을
+  비활성화한다. 로컬 접촉 완료 경로는 타격 VFX만 표현하여 Authority
+  투영이 소유한 애니메이션을 중복 재생하지 않는다.
+
+## 77. Authority 소유 자율 공격 발생
+
+- 자율 공격 미리 평가는 몬스터에 배정된 Rule Block을 실행하며, 승인되면 스케줄러 틱마다 즉시 피해를 주는 대신 하나의 일시적 `AttackOccurrence`를 만듭니다.
+- 작성된 `attack_windup_seconds`, `attack_recovery_seconds` 트리플에 따라 준비, 한 번의 접촉, 회복 단계를 진행합니다. 접촉 시 같은 액션과 Rule Block 경로를 다시 실행해 현재 생존, 적대 관계, 실시간 거리, 재사용 대기시간을 검증한 뒤 영속 피해를 한 번만 적용합니다.
+- 승인된 접촉 revision은 즉시 전달됩니다. Unity는 투영된 공격 의도와 체력·사망 결과만 표현하며 접촉 권한이나 피해를 소유하지 않습니다. Rule Block을 제거하면 공격 동작도 제거됩니다.
+- revision 알림은 확정 이벤트 ID, 대상 엔티티 ID, 규칙 평가가 만든 피해
+  결과 여부를 함께 전달합니다. 일치하는 Damageable 표현기는 이 일시 발생
+  건을 한 번만 소비해 작성된 피격 의도를 즉시 재생하며, 체력과 사망 상태의
+  최종 기준은 이후 Authority 투영입니다.
+- 휴머노이드 사망 클립은 Root Motion을 끈 채 수직/XZ 루트 이동을 포즈에
+  굽힙니다. 따라서 CharacterController가 계속 유일한 위치 소유자로 남고
+  사망 자세가 공중으로 이동하지 않습니다.
+
+## 78. 생명주기로 제한되는 자율 근접 접촉
+
+- 매 틱 조회하는 Authority 대상 투영이 생명주기의 기준입니다. 이전 설정이
+  캐시에 남아 있어도 현재 `is_alive=true` 투영에서 빠진 행위자는 임시 자율
+  이동과 진행 중 공격에서 즉시 제거됩니다.
+- 자율 근접 접촉은 프리팹 모양이나 넓은 행동 `attack_range`로 추측하지
+  않습니다. 몬스터가 `collision_radius`, `collision_height`,
+  `attack_contact_reach`를 작성하고 Authority가 공격 시작과 실제 접촉 시점
+  모두에서 수직 겹침과 캡슐 표면 도달 여부를 검사합니다.
+- 접촉 시 배정된 공격 Rule Block을 다시 평가합니다. 대상이 죽었거나
+  사라졌거나 실시간 위치·충돌 의미가 없거나 접촉에서 벗어나면 실패로
+  닫힙니다. 사망 결과가 커밋되면 대상의 임시 이동 상태도 즉시 폐기됩니다.
+- 가변 `current_health`, `is_alive` 값은 의미 기준선 소유가 아니라 배치 초기화와
+  생명주기 상태입니다. 계약 마이그레이션은 이 값을 보존한 채 불변 의미만
+  교체하고, Rule 결과가 이미 있으면 덮어쓰지 않으며, 중복 작성본은 제거하고
+  행동 규칙이 만든 영속 생명주기 결과를 우선합니다.
+
+## 79. Authority가 소유하는 플레이어 근접 접촉
+
+- 왼쪽 클릭은 의도만 발행하고 일시적인 플레이어 `AttackOccurrence` 하나를 요청합니다. Unity가 직접 영속 피해를 실행하지 않습니다.
+- 불변 공격 액션은 Authority 공격 발생을 명시적으로 요구합니다. 접촉 해결이 끝난 동일 발생 ID가 없는 일반 액션 요청은 실패하므로 Unity 접촉, 애니메이션 시각 또는 변조된 명령이 배정 Rule Block을 우회할 수 없습니다.
+- 무기 트리플은 접촉 시작 시각, 접촉 창 길이, 도달 거리, 피해, 사거리, 재사용 시간을 작성합니다. 해당 창에서 Unity는 투영된 대상 후보만 보고하며 Authority가 현재 행위자·도구·대상 ID, 장착, 진영 관계, 생명주기, 실시간 위치와 작성된 캡슐 접촉을 다시 검증한 뒤 발생을 정확히 한 번 소비합니다.
+- 현재 계약의 영속 피해는 정수 체력 포인트 Rule 결과입니다. 소수 또는 모호한 수치 조정은 Unity나 전송 코드에서 반올림하지 않고 검증에 실패합니다.
+- 공격 Rule Block, 발생 요구, 접촉 트리플, 명시적 접촉 프록시, 살아 있는 대상 자격 또는 진영 관계 중 하나를 제거하면 렌더러·프리팹·이름 기반 fallback 없이 공격 결과도 제거됩니다.
+
+## 80. Authority가 평가하는 공격 재생 속도
+
+- 무기는 숫자 Triple `attack_playback_speed`를 작성하고, 배정된 휘두르기 Rule Block이 이 Triple을 표현 속도 출처로 선언합니다. Authority가 블록을 평가한 뒤 승인된 속도를 `AttackLight`와 함께 전달합니다.
+- Animation Manifest는 중립적인 `1.0x` 기본 속도와 정규화된 접촉 구간만 유지합니다. Unity는 무기 Triple을 직접 읽지 않고 Authority가 승인한 값만 선택된 클립 Playable에 곱합니다.
+- 휘두르기 Rule Block이나 필수 속도 Triple을 제거하면 이름 기반 대체 없이 가속 공격도 제거됩니다.
+# 82. Authority 재시작 뒤 임시 아바타 복구
+
+- 영속 월드 입장은 유효하지만 Authority 또는 Redis 재시작으로 플레이어의
+  임시 런타임 아바타만 사라질 수 있습니다. 이때 장비 거리 판정, 몬스터 타깃
+  선택, 근접 접촉 판정은 복구 전까지 fail-closed 상태를 유지합니다.
+- 클라이언트는 완료된 입장 흐름이 활성화한 아바타와 Zone만 기억하며, 세션
+  하트비트나 런타임 위치 조회 시 아바타가 없을 때만 영속 체크포인트에서
+  재활성화합니다. 정상 아바타를 반복 초기화하지 않습니다.
+- 이 복구는 작성 Triple을 만들지 않으며 Rule Block, 거리, 생명주기, 접촉
+  검증을 우회하지 않습니다.
+
+## 83. 결정적인 런타임 정의 선택과 전투 생명주기 투영
+
+- 발행된 불변 정의의 과거 이력은 보존하지만, 월드 런타임은 하나의 활성
+  패키지 안에서 액션별 가장 높은 발행 정의 버전 하나만 선택합니다. 과거
+  버전이 스케줄러 후보를 증식시키면 안 되며, 한 액터에 완전한 활성 패키지가
+  둘 이상이면 계속 모호성으로 보고 fail-closed 처리합니다.
+- 자율 액터 자격은 현재 Triple, 배정 Rule Block, 활성 패키지, Physical
+  Meaning, 활성 생명주기 투영으로 다시 구성합니다. 죽었거나 계약이 불완전한
+  액터는 일시적인 이동·공격 occurrence를 잃습니다.
+- Unity 포인터 대상 선택은 현재 투영에서 살아 있는 대상만 순회합니다. 죽은
+  표현 객체는 자신이 소유한 충돌체를 모두 비활성화하여 이후 전투 입력을
+  가로막지 않으며, 생명과 피해 상태는 계속 Authority가 소유합니다.
+- 장착 표현은 투영된 `equipped_by` 관계를 따릅니다. 작성된 슬롯이 차 있으면
+  Unity는 그 투영 아이템에 활성화된 장착 해제 액션을 표시하며 암묵적인 교체
+  규칙을 만들지 않습니다.
+- 충돌 해결 위치 관찰은 승인된 활성 이동 Intent가 존재할 때만 전송합니다.
+  정지 또는 만료 Intent에는 이후 pose 표본을 보내지 않아 거절된 관찰과 오래된
+  전투 접촉 근거가 남지 않게 합니다.
+## 84. 자율 몬스터의 플레이어 접촉은 최신 이중 위치 증거를 요구한다
+
+- 플레이어가 정지 중이어도 설정된 주기로 임시 이동 lease를 갱신하여
+  Authority 이동 상태와 충돌 해결 위치 관찰이 만료되지 않게 한다.
+- 플레이어 이동 설정도 자율 전투 설정과 같이 하나의 활성 패키지 안에서
+  가장 높은 발행 locomotion Action 버전을 선택한다. 불변 이력 때문에
+  활성 아바타가 시뮬레이션에서 빠져서는 안 된다.
+- 자율 근접 공격이 플레이어에게 피해를 확정하려면 occurrence의 접촉
+  시점에 Authority 이동 캡슐과 최신 Unity 충돌 해결 위치 관찰이 모두
+  접촉 범위 안이어야 한다.
+- Unity 위치 관찰은 권한 위치가 아니다. 오래됐거나 떨어진 접촉을
+  거절할 수만 있으며 Authority 이동 상태나 영속 데이터를 덮어쓰지
+  않는다.
+
+## 85. 온톨로지 런타임 성능 증거 경계
+
+- 런타임 최적화는 의미 우회가 아니라 측정 지표에서 시작한다. 규칙 평가는
+  결과를 바꾸지 않고 평가·건너뜀 규칙 수, 반복 수, 소요 시간을 기록한다.
+- Headless Zone 런타임은 입력 엔티티·Fact·바인딩·컴파일·반복 수를 기록한다.
+  active와 reduced Zone은 각각 작성된 1초·5초 주기를 실제로 지키며 reduced
+  모드가 암묵적으로 매초 평가되면 안 된다.
+- Authority Projection 행은 수신 Projection마다 엔티티와 subject 기준으로
+  한 번 인덱싱한다. 이 조회 인덱스는 capability를 추론하거나 빠진 Rule
+  Block을 보완하지 않으며 재구축 시 이전 Projection 행을 철회한다.
+- 현재 장비에서 엔티티 1,000개, 규칙 100개, 작성 Fact 100,100개의 대표
+  측정은 인덱싱된 규칙 평가 내부 0.426 ms, 전체 테스트 286 ms였다. 따라서
+  다음 조사는 안정화 단계 평가기가 아니라 월드·snapshot 구성, 규칙
+  역직렬화·컴파일, Projection 동기화 범위로 제한한다.
+- 지속 런타임 계약 캐시는 아직 이 증거만으로 승인하지 않는다. 다음 진입
+  조건은 서버 snapshot 조회 시간, 정의 컴파일 시간, cache hit/miss,
+  revision·package 무효화의 실측이다.
+
+## 86. 요청 범위 Authority 평가 Snapshot
+
+- Action 성능 지표는 제한된 `call.kind`와 고정된
+  `prepare_action_evaluation` 범위만 사용한다. 원본 UGC Action ID는 무제한
+  시계열과 telemetry DoS 위험이 있으므로 metric tag로 사용하지 않는다.
+- 엔티티 1,000개, Fact 100,000개, 규칙 100개, 동시 Action 20개의 기존
+  배치는 8,495 ms였고 Action 평가 p95는 6,383 ms였다. transport와 invoked
+  Rule이 요청 범위 읽기 전용 평가 Snapshot 하나를 재사용한 뒤 배치는
+  6,236 ms, 순수 평가 p95는 27.998 ms로 감소했다.
+- Snapshot은 `PrepareActionEvaluation` 요청마다 한 번 만들고 월드 revision
+  사이에 공유하지 않는다. 승인이나 mutation 결과를 캐시하지 않으며 호출별
+  effect overlay와 임시 canonical intent는 평가 뒤 제거된다. Rule 제거 뒤
+  새로 만든 Snapshot은 fail-closed 처리된다.
+- 남은 실측 병목은 요청마다 Fact 100,000개의 전체 Snapshot을 컴파일하는
+  단계이며 p50은 약 3,498 ms다. matcher가 비변경 intent overlay를 사용하고
+  Authority 게시가 PostgreSQL revision 기반 다중 인스턴스 fence를 갖추기
+  전에는 revision 범위 지속 캐시를 도입하지 않는다.
+- Headless Zone 입력은 하나의 Repeatable Read transaction에서 월드 revision과
+  불변 binding identity를 함께 복사한다. transaction 종료 후 평가하며 revision이
+  바뀌면 추론 결과를 폐기하고 마지막 완료 Snapshot을 유지한다.
+- 엔티티 1,000개, Fact 100,000개, binding 100개의 Projection 인덱스 구성은
+  79.306 ms였다. 현재 Unity Editor에서 thread allocation 값이 0을 반환했으므로
+  allocation은 최적화 성과가 아니라 명시적인 측정 공백으로 남긴다.
+
+## 87. 불변 평가 오버레이와 발행 펜스
+
+- 정규 입력 Intent는 요청 로컬 오버레이로 매칭하며 공유 월드 Snapshot에
+  추가하거나 제거하지 않는다. 동시 Action 평가 간 Intent가 누출되지 않고
+  전역 matcher 잠금도 필요하지 않다.
+- 하나의 명령 범위 provenance 보존 오버레이가 성공한 주 효과와 후속 Rule
+  변이를 순서대로 전달한다. Assert, Retract, Set, Adjust, 역방향 효과에서 원시
+  기여 개수, 원본 Rule Binding, 결과 수명을 유지한다.
+- 후속 Rule 평가는 더 이상 전체 Authority Snapshot을 다시 읽지 않는다. Fact
+  100,000개에서 후속 Rule 0개, 1개, 4개 모두 준비 Snapshot 1회, 후속 재로딩
+  0회였다. 워밍업 후 Snapshot 컴파일은 각각 610.753ms, 422.798ms,
+  562.736ms였고 4개 Rule 체인은 0.210ms였다.
+- Headless Zone 발행은 월드 revision, 평가 완료 시각, 관측 시각 순서의 원자적
+  compare-and-set 펜스를 사용한다. 발행 직전에 PostgreSQL revision을 다시
+  확인하므로 오래된 평가기가 더 최신의 완료 Snapshot을 덮을 수 없다.
+- 필수 후속 Rule 실패는 쿨다운 획득 전에 처리되고 영속 변이를 롤백한다.
+  다만 쿨다운 획득 후 최종 commit 전에 발생하는 극단적 실패는 registry에
+  예약 취소 API가 없어 외부 lease가 TTL까지 남을 수 있다.
+- 명령마다 수행하는 전체 Snapshot 컴파일이 여전히 지배 비용이다. 다음 후보는
+  revision 범위 불변 계약 캐시이지만 월드 revision과 패키지 ID로 무효화하고
+  Rule 제거 시에도 fail-closed해야 한다.
+
+## 88. 정확한 revision 컴파일 계약과 명령 delta
+
+- Authority는 불변 컴파일 평가 Base만 캐시한다. 정확한 키에는 월드 ID, 월드
+  revision, 평가기 schema version, 활성 패키지 전체와 발행 정의 checksum을
+  canonical하게 구성한 SHA-256 ID가 포함된다. 이전 revision이나 호환 패키지로
+  fallback하지 않는다.
+- cache miss 빌드는 독립 connection과 Repeatable Read transaction에서 수행한다.
+  키와 Fact 행은 같은 DB Snapshot에서 읽는다. 호출자가 관측한 키와 완료된
+  빌드는 다시 일치해야 하며, waiter 하나의 취소는 공유 single-flight 빌드를
+  취소하거나 제거하지 않는다.
+- 바인딩된 Rule 조회는 바인딩에 기록된 정확한 활성 package ID/version에 속한
+  Rule 정의만 허용한다. 비활성 또는 무관한 패키지의 발행 Rule은 게임 계약을
+  충족할 수 없다.
+- 명령은 캐시 Base를 변경하거나 복제하지 않는다. 변경된 subject-predicate 키의
+  raw row와 semantic addition/tombstone만 보관한다. 주 효과와 순서화된 후속
+  Rule은 같은 명령 로컬 delta를 읽으며 provenance, raw cardinality, 결과 수명,
+  Rule Binding projection을 유지한다. rollback 시 delta 전체를 폐기한다.
+- 프로세스 로컬 캐시는 single-flight이며 항목 수와 보수적 추정 보존 byte로
+  제한된다. overflow key도 별도의 제한된 single-flight 표를 사용하고 전체
+  빌드 파이프라인은 프로세스 단위 동시성 상한을 갖는다. pending key 상한을
+  넘으면 무제한 DB 대기열을 만들지 않고 `action_evaluation_backpressure`로
+  fail-closed한다. metric은 고정 이름만 사용하며 월드·패키지·Action ID를
+  tag로 쓰지 않는다.
+- Fact 100,000개에서 cold compile 464.556ms, 정확한 키 read hit 15.742ms,
+  delta를 통한 첫 committed mutation 4.902ms로 측정됐다. 이전 약 762ms의 전체
+  copy-on-write 재구축은 제거됐다.
+
+## 89. 컴파일 계약 운영 수명과 메모리 경계
+
+- 공유 계약 빌드는 개별 요청이 아니라 서비스가 소유한다. 호출자 취소는 해당
+  waiter만 중단한다. Application stopping은 별도의 종료 의미로 공유 owner를
+  취소하고, 설정 가능한 빌드 timeout은 기본 30초이며 Action을
+  `action_evaluation_timeout`으로 거절한다.
+- 취소는 DB 읽기, source 복사, 월드 compile, retained-memory 추정까지 전달된다.
+  큰 반복문은 owner token을 주기적으로 확인하므로 100,000 Fact 전체 compile이
+  끝날 때까지 기다리지 않고 timeout과 종료 정리를 시작할 수 있다.
+- retained-memory 추정에는 source record/string, raw provenance row의
+  dictionary/list/array, 컴파일 월드의 entity, Fact, origin, predicate,
+  changed-predicate, concept 인덱스가 포함된다. 악의적 입력에서도 overflow하지
+  않도록 포화 연산하며 compile 중 한 번만 계산한다.
+- 단일 계약이 캐시 byte 한도를 넘으면 현재 waiter에는 결과를 반환하지만
+  resident로 보존하지 않는다. resident count/bytes는 0으로 돌아가고 oversized
+  bypass로 기록된다. overflow pending-key metric은 실제 의미가 이름에 명시되며
+  MeterListener 테스트가 resident, byte, pending, oversized 계측 균형을 검증한다.
+- 종료, timeout, 실패, overflow, oversized admission, 빌드 정리 중 Dispose
+  경로 모두 single-flight identity를 유지하고 pending key와 동시성 permit을
+  반환한다.
+
+## 90. 활성화 세션 단위 플레이어 이동 보정
+
+- 플레이어 런타임을 활성화할 때마다 서버가 불투명한 `RuntimeSessionId`를 새로
+  생성한다. 이동 상태, 이동 Intent, 런타임 Action Intent, 충돌 해결 위치 관찰은
+  모두 같은 세션 식별자를 가진다.
+- 입력 sequence는 한 런타임 세션 안에서만 단조 증가한다. Unity는 Snapshot 세션이
+  현재 세션과 같고 `LastProcessedIntentSequence`가 마지막 승인 입력까지 처리된
+  경우에만 위치를 보정한다. server Tick만 새롭다는 이유로 보정하지 않는다.
+- 새 입력이 승인되면 이전 입력을 기준으로 남아 있던 평면 위치 보정을 즉시
+  폐기한다. 따라서 정지한 뒤 늦게 도착한 이동 상태가 플레이어를 뒤로 끌지 못한다.
+- Authority 이동 발행은 런타임 세션과 server Tick을 함께 비교하는 CAS를 사용한다.
+  이전 활성화의 실행 중 Tick은 새 활성화 상태를 덮어쓸 수 없다.
+- 일반 영속 체크포인트 저장은 실행 중인 이동을 재시작하지 않는다. 리스폰·복구처럼
+  런타임 위치를 다시 심을 때만 새 활성화를 수행하고 Unity 보정 경계를 초기화한다.
+
+## 91. 콘텐츠 릴리스·월드 준비·입장 단계 분리
+
+- 불변 Rule과 Action 정의는 하나의 원자적 콘텐츠 릴리스로 함께 발행한다. 충돌하면
+  릴리스 전체를 롤백한다. 실제 월드 입장은 작성 콘텐츠를 발행하거나 활성화하지 않는다.
+- 입장은 활성 패키지와 로컬 Rule/Action의 canonical payload, 아바타 의미 계약
+  manifest를 읽기 전용으로 검사하는 단계에서 시작한다. canonical payload가 다르면
+  같은 패키지·정의 ID만으로 준비 완료로 인정하지 않는다.
+- 월드 생성 또는 소유자의 명시적 준비 작업이 Zone 기반을 작성하고,
+  `prepare_player_avatar` 명령 하나로 아바타 엔티티 생성·소유권 등록·의미 계약 적용을
+  하나의 revisioned·멱등 Authority 트랜잭션에서 처리한다.
+- 프로필 최종 확인의 실행 오케스트레이터는 편집 가능한 기존 월드에 대해 이 명시적
+  멱등 준비를 먼저 수행한 뒤 입장을 호출한다. 이 준비는 `EnterRoutineCore` 밖에
+  유지하며, 읽기 전용 방문자에게 실행 과정에서 월드 작성 권한을 부여하지 않는다.
+- 기존 월드 아바타 ID는 Authority 계정 대시보드의 사용자·월드 등록 관계에서 가져온다.
+  Unity는 계정 캐릭터 ID, 씬 GUID, 프리팹 또는 다른 월드에서 캐시한 ID로 이를 추론하거나
+  교체하지 않는다. 선택한 월드에 등록된 아바타가 아직 없으면 불변 씬 seed와 월드 ID로
+  결정론적인 월드 범위 ID를 생성한다.
+- 의미 계약 준비 완료는 정확한 활성 Application·Slot·Contract와 모든 소유 Fact 및
+  Rule Binding의 해제되지 않은 ownership 행을 요구한다. 독립적으로 같은 기여가
+  존재하는 것만으로 준비 완료를 가장할 수 없다.
+- 일반 입장에서는 콘텐츠 발행, Zone·엔티티 생성, 레거시 마이그레이션, 의미 계약
+  복구를 수행하지 않는다. 보류 명령 복구는 별도 복구 경계이며, 리스폰 Rule 평가와
+  충돌 보정 체크포인트 확인은 명시적인 입장 소유 게임 동작으로 유지한다.
+- 런타임 활성화는 일시적이고 세션 단위이다. 이후 입장에 실패하면 그 입장이 만든
+  정확한 세션만 해제한다. 영속 `/entry` 바인딩은 모든 준비가 성공한 뒤에만 확정한다.
+- 입장 전 생명·리스폰 검사, 무이동 이동 계약 handshake, 충돌 보정 체크포인트 확인은
+  해당 아바타의 정확한 임시 런타임 세션 활성화를 요구한다. 영속 입장 바인딩까지
+  확정됐다는 뜻의 `IsWorldRuntimeReady`를 더 앞선 입장 검사 조건으로 사용하지 않는다.
+- 개발 검증은 서비스 기반 실행 전에 불변 릴리스 manifest, 입장 경로의 작성 명령
+  부재, DB 마이그레이션 전체 적용 상태를 확인한다.
+- 서비스 기반 검증은 현재 World Authority 이미지를 실제로 배포하고 입장 사전검증
+  경로까지 확인한다. 상태 확인만 성공하는 오래된 컨테이너는 콘텐츠 불일치가 아니라
+  배포 계약 실패이며, 이전 API로 우회하거나 입장을 허용하지 않는다.
+
+## 92. 분리된 원격 멀티플레이 테스트 배포
+
+- 최초 원격 멀티플레이 검증은 전용 `tormia_test` PostgreSQL 데이터베이스와
+  최소 권한의 `tormia_test_app` 계정을 사용한다. 기존 서비스의 데이터베이스,
+  프로세스, Nginx 가상 호스트는 이 배포 경계 밖에 둔다.
+- World Authority 컨테이너는 `127.0.0.1:5272`에만 바인딩한다. 외부 요청은
+  독립된 `tov-api.punkarena.app` Nginx 가상 호스트를 통해서만 들어온다.
+- RDS 관리자 자격 증명은 초기 생성 단계에서만 사용한다. 데이터베이스 생성과
+  마이그레이션 후 원격 임시 파일을 삭제하고, 실행 서비스에는 앱 계정 정보만 남긴다.
+- Unity는 로컬과 원격 Authority 주소를 모두 유지한다. 설정 자산의 에디터 전환값으로
+  플레이 모드와 콘텐츠 작성 도구가 HTTPS 테스트 Authority를 사용하게 할 수 있으며,
+  Android는 항상 원격 테스트 주소를 선택한다. DB나 Redis 자격 증명은 포함하지 않는다.
+- Android 외부 테스트 전에는 테스트 호스트의 DNS 연결과 신뢰 가능한 TLS 인증서
+  설치가 완료되어야 한다.
+- 초대 월드 입장은 선택한 월드의 명시적인 활성 콘텐츠 패키지를 사용한다. 최초
+  입장 시 아바타 시드, 월드, 인증 사용자를 함께 반영한 ID로 Authority에 멤버
+  아바타 생성을 요청하며 기존 아바타 ID는 보존한다.
+- 원격 멀티플레이는 Nginx의 일반 REST와 SignalR 프록시 경로를 분리하고, 연속된
+  Zone 알림을 합친 뒤 아바타 스냅샷을 읽는다. 하나의 아바타는 하나의 활성 조작
+  세션만 가지므로 여러 장치 테스트에는 서로 다른 계정을 사용한다.
+# 94. 하이브리드 실시간 전송 기준선
+
+- HTTPS와 SignalR은 신뢰성 있는 제어·복구 경로로 유지한다. UDP는 고빈도 이동
+  intent와 Authority motion snapshot만을 위한 교체 가능한 후속 경로다.
+- 전송은 게임 권한을 소유하지 않는다. 모든 이동 패킷은 활성 런타임 세션과
+  평가된 이동 계약 범위 안에서만 처리된다.
+- UDP를 활성화하기 전에 현재 기준선을 계측한다. Authority는 플레이어 이동
+  Tick 시간·초과·활성 아바타·프레임 항목과 SignalR 발행 횟수·항목·시간·실패를
+  기록한다. Unity는 재접속, 프레임 수신, stale·역순 snapshot, snapshot age,
+  보간 underrun과 제한 외삽 발생을 기록한다.
+- 특정 기술 가정이 아니라 측정 증거가 단계 전환을 결정한다. SignalR과 HTTP는
+  fallback 및 complete recovery 경로로 유지한다.
+
+## 95. 하이브리드 UDP 전송 기술 선정
+
+- Unity와 .NET 8 Authority의 첫 UDP 이동 수직 슬라이스는 LiteNetLib
+  2.1.4를 정확한 버전으로 고정한다.
+- LiteNetLib는 신원, 규칙, 게임 결과, 영속 상태, 복구 경로를 소유하지
+  않는다. HTTPS가 전송 입장을 발급하고 SignalR은 완전한 fallback으로 남는다.
+- Unity Editor, Android IL2CPP, Linux .NET 8, 인증, 재전송 방지, 손실, 역순,
+  재연결, fallback, 분리 배포 증거가 통과해야 UDP를 활성화한다.
+
+## 96. Authority 소유 UDP 전송 입장
+
+- 인증된 HTTPS는 계정 소유 아바타의 정확한 활성 런타임 세션에 짧은 수명의
+  UDP ticket 하나를 발급한다. generation은 Authority가 배정한다.
+- 사용 시 nonce 결합 HMAC 증명이 필요하다. Redis는 런타임 세션과 Zone을 다시
+  확인하고 ticket을 한 번만 소모하며 짧은 인증 전송 handshake를 원자적으로
+  승격한다. 키 데이터는 AES-GCM으로 보호한다.
+- UDP는 기본 비활성이며 Redis, 키 보호, 신뢰 프록시 HTTPS, 멀티인스턴스 지원이
+  없으면 실패 폐쇄된다. 런타임 비활성화는 일시 전송 범위를 모두 철회한다.
+- ticket 입장은 게임 권한이나 영속 온톨로지 상태를 만들지 않는다. 수신기,
+  재전송 방지 window, 단일 writer fence는 아직 활성화 조건으로 남는다.
+
+## 97. Authority UDP 리스너 보안 경계
+
+- LiteNetLib Authority 리스너는 기본 비활성이며 정확한 고정 부트스트랩과
+  인증된 `Unreliable` 채널 0 이동 데이터그램만 받는다. 이 단계에서는 Docker나
+  운영 서버의 UDP 포트를 노출하지 않는다.
+- 패킷은 제한된 구조 검증, 활성 세션과 정확한 세대 확인, 상수 시간 HMAC,
+  원자적 재전송 창 소비, 페이로드 해석과 결합 확인, 전달 직전 두 번째 세대
+  확인 순서로 처리한다.
+- 인증된 이동 의도는 격리된 제한 큐에만 들어간다. 아직
+  `PlayerIntentRegistry`, 규칙 평가, 게임 상태, 영속 저장에는 연결하지 않는다.
+- 주소, 대기 핸드셰이크, 교환, 조회, 큐 용량은 초과 시 닫힌 상태로 실패한다.
+  종료, 런타임 비활성화, 티켓 재발급, 오래된 세대는 전송 권한을 철회하고
+  보관 중인 비밀값을 지운다.
+- HTTPS와 SignalR은 제어, 대체 경로, 완전 복구 경로로 유지한다.
+
+## 98. Unity UDP 이동 송신 준비
+
+- Unity는 인증 HTTPS로 Authority UDP 티켓을 요청하고 정확한 고정 부트스트랩과
+  인증 이동 데이터그램 계약을 만들 수 있다.
+- 어댑터는 기본 비활성이다. `IPlayerMotionIntentTransport` 진입점은 아직 HTTP로
+  위임하므로 Authority 소비와 승인 응답을 통합하기 전까지 활성 게임 Writer는
+  정확히 하나다.
+- 입장은 컴포넌트 수명과 정확한 런타임 세션, 월드, 아바타, Zone 결합으로
+  차단한다. 비활성화, 재입장, 시간 초과, 연결 해제, 결합 변경은 작업을 무효화하고
+  보관한 바이트 배열 비밀값을 지운다.
+- Unity 어셈블리는 LiteNetLib 참조를 명시적으로 고정한다. Android IL2CPP,
+  외부망, 할당량 증거는 이후 활성화 조건으로 남는다.
+
+## 99. 공용 Authority 이동 입장
+
+- HTTP와 인증 UDP 이동 후보는 하나의 Authority 입장 서비스와 하나의 고정 Tick
+  intent 레지스트리로 들어간다. 전송 계층은 이동 규칙을 선택하거나 소유하지 않는다.
+- 입장은 소유권, 정확한 런타임 세션과 Zone, 완전한 작성 이동 의미, 유일한 활성
+  action과 Rule binding, 영속 변경이 없는 Rule 미리보기, 현재 월드 revision,
+  단조 증가 sequence를 검증한다.
+- 런타임 세션, UDP 세대, revision pending/exact 상태, 활성 Writer는 intent 저장과
+  원자적으로 확인한다. UDP 승계 후에는 이후 명시적 fallback 전환 전까지 HTTP와
+  이전 세대를 차단한다.
+- Rule 변경은 영속 커밋 전에 pending을 기록하고 정확한 커밋 revision 확인 뒤에만
+  해제하는 2단계 fence를 사용한다. 장애 구간 복구는 실패 폐쇄, 월드별 단일 조회,
+  제한된 대기자와 backoff를 사용한다.
+- 컴파일된 입장 계약은 용량 제한과 revision 키를 사용한다. Rule Block 제거 뒤
+  이전 캐시 승인은 사용할 수 없다. UDP snapshot과 Unity Writer 활성화는 이후
+  단계로 남는다.
+
+## 100. Authority UDP Zone 이동 스냅샷
+
+- UDP 이동 스냅샷은 이미 승인된 Authority 고정 Tick Zone 프레임에서만 파생되는
+  교체 가능한 표현 분기다. Rule을 평가하거나 게임 상태를 변경하지 않으며 기존
+  SignalR 발행을 대체하지 않는다.
+- SignalR과 UDP는 복합 발행 경계에서 한 번 생성한 동일한
+  `FrameOccurrenceId`를 받는다. Redis는 UDP fan-out backplane일 뿐이며 원본
+  프레임 식별자나 Tick을 다시 쓰지 않는다. Redis 또는 backplane 장애는 UDP
+  작업만 버리거나 재시도하며 Authority 시뮬레이션, HTTP, SignalR은 독립적으로
+  계속 동작한다.
+- 프레임은 엔티티 수, 보관 바이트, 실제 1000바이트 데이터그램 한도로 제한한다.
+  프로토콜 v2는 occurrence ID, 페이지 번호와 수, 전체 항목 수, actor별 서버
+  Tick을 인증한다. 고정 Tick 프레임은 변경된 actor의 delta만 포함할 수 있으므로
+  제한된 입력 큐는 승인한 occurrence를 도착 순서대로 보존하고, 포화 시 가장 새로
+  들어온 occurrence를 버린다. 같은 Zone의 앞선 대기 delta를 덮어쓰지 않는다.
+- 수신자는 제한된 일괄 조회로 정확한 현재 전송 세대를 다시 검증하고, 로컬 peer와
+  세션을 한 번 더 확인한 뒤 peer별 HMAC과 서버 소유 packet sequence를 Unreliable
+  채널 0으로 보낸다. 취소할 수 없는 세대 조회가 시간 초과되면 실제 작업이 끝날
+  때까지 용량 lease를 유지한다.
+- 이 단계에서는 Unity 스냅샷 소비자를 활성화하지 않는다. 클라이언트 검증이 끝날
+  때까지 HTTPS와 SignalR이 완전한 대체·복구 경로다.
+
+## 101. Unity UDP 이동 스냅샷 수신
+
+- UDP 스냅샷 수신은 UDP 입력 송신과 별도 플래그로 제어한다. 둘 다 기본
+  비활성이며 수신 준비를 켜도 두 번째 이동 intent Writer가 생기지 않는다.
+- 입장 부트스트랩은 outer frame 버전 1을 유지하고 ticket과 realtime wire는
+  프로토콜 v2를 협상한다. Unity는 채널, 전송 방식, 구조, 정확한 전송 세션과
+  세대, HMAC, 64-packet replay window, 월드, Zone, 현재 Authority 런타임 결합
+  순서로 검증한다.
+- 페이지는 occurrence 수, 페이지·항목 상한, 보관 바이트, 수명으로 제한한다.
+  역순 페이지는 완성될 수 있지만 누락·중복·불일치·오래됨·잘못된 페이지 집합은
+  표현 계층에 전달하지 않는다.
+- 완전히 조립되고 인증된 occurrence만 전송 중립 이동 feed로 들어간다. feed는
+  `FrameOccurrenceId`로 SignalR과 UDP 중복을 제거하고 actor별 런타임 세션과
+  서버 Tick으로 순서를 정한다. Transform을 직접 변경하거나 게임 권한을 추론하지
+  않는다.
+- 신뢰 가능한 SignalR 또는 정확한 HTTP 복구만 actor 런타임 세션 장벽을 만들거나
+  교체할 수 있다. Zone 전체 복구는 누락 actor를 제거하며, 캡처한 scope, reliable
+  epoch, 서버 Tick, 갱신 시간이 늦은 HTTP 응답의 최신 세션 되감기를 막는다. UDP는
+  신뢰 경로가 이미 확인한 장벽만 전진시킬 수 있다.
+- Unity 컴파일에는 새로운 C# 오류가 없다. 공식 MCP 테스트 실행기가 이전의
+  진행률 0인 `tests_running` 작업을 계속 보관하고 있어 자동 PlayMode 실행은
+  보류 상태이며, 추가한 테스트를 실행 완료 증거로 주장하지 않는다.
+
+## 102. 명시적 Authority 이동 writer 전환
+
+- 런타임 활성화는 Authority 소유 HTTP writer를 만들고 mode, epoch, 정확한
+  월드 revision을 반환한다. UDP가 꺼져 있거나 티켓을 요청하지 않아도 HTTP
+  이동은 사용할 수 있다.
+- 티켓 발급·교환·peer 연결은 전송 신원만 준비하며 게임 입력 writer를
+  승격하지 않는다. 인증된 HTTPS `udp/promote` 전환만 HTTP writer를 정확히
+  교환된 UDP session과 generation으로 변경할 수 있다.
+- HTTP intent는 Authority가 발급한 writer epoch를 포함한다. UDP intent의
+  epoch는 정확한 활성 transport session과 generation에서 조회한다. 최종
+  registry commit은 runtime session, Zone, 사용자·아바타 범위, revision,
+  writer mode·epoch, UDP 결합을 원자적으로 다시 검증한다.
+- UDP가 활성 writer인 동안 티켓 발급은 `udp_rekey_requires_fallback`으로
+  거절한다. 따라서 재키는 UDP에서 HTTP로 명시적 fallback한 뒤 새 티켓을
+  발급해야 하며, 11단계 계약은 UDP-to-UDP writer 교체를 허용하지 않는다.
+- 교환된 handshake 기록과 정확한 연결 peer presence는 서로 다른 일시적
+  기록이다. datagram과 snapshot 승인은 연결 기록을 요구하며, 연결 종료는
+  presence만 제거해 정확한 현재 UDP writer의 신뢰성 있는 fallback은 유지한다.
+- 인증된 HTTPS `http/fallback` 전환은 UDP intent lease, 승격 결합, 미사용
+  후보를 원자적으로 철회하고 generation fence를 전진시킨 뒤 더 새 HTTP
+  writer epoch를 만든다. ACK 재시도는 멱등이며 오래된 session, generation,
+  epoch, revision은 실패 폐쇄된다. 승인된 intent commit은 epoch를 바꾸지 않고
+  writer가 관측한 월드 revision을 갱신하며 Authority pending/current revision
+  fence는 계속 적용된다.
+- fallback은 티켓 발급 당시 revision이 아니라 현재 Authority revision에 맞춰
+  조정한다. 따라서 정확한 현재 UDP 결합은 이후 월드 편집이 있어도 HTTP로
+  복귀할 수 있으며 오래된 session, binding, writer epoch는 계속 실패 폐쇄된다.
+  승격이 실패해 HTTP가 여전히 정확한 현재 writer이면 fallback은 epoch를
+  유지하고 후보 전송 상태를 정리하며 Authority writer 증거를 반환하는 멱등
+  복구로 동작한다.
+- 멱등 전환 성공과 거절 증거는 world, user, avatar, Zone, runtime 전체 범위가
+  일치해야 한다. HTTP endpoint는 필터링된 전환 결과를 범위 확인 없는 raw
+  writer 조회로 덮어쓰지 않는다.
+- writer 전환은 일시적 전송 권한일 뿐이다. Triple, Rule 결과, 영속 이벤트,
+  이동 허용 또는 Unity Transform을 만들지 않는다.
+
+## 103. 결정론적 Authority UDP 장애 경계
+
+- 인증된 UDP 이동 장애 테스트는 데이터그램 인증과 replay 승인부터 제한된
+  consumer, canonical 이동 승인, 공용 intent registry까지 서버 전체 경로를
+  실행한다. 패킷 손실은 없는 입력을 만들지 않고 제한 범위 역순 도착은 sequence를
+  되감지 않으며 replay·너무 오래된 패킷과 HTTP fallback 전에 대기하던 패킷은
+  이후 commit되지 않는다.
+- consumer는 호스팅 루프와 테스트가 함께 사용하는 제한된 결정론적 drain 경계를
+  제공한다. 이 경계는 두 번째 writer나 게임 동작을 만들지 않으며 기존 production
+  승인 경로를 wall-clock 대기 없이 제어할 수 있게만 한다.
+- Redis 티켓 만료는 backend 공통 계약 하나를 사용한다. 만료 뒤 첫 교환은 티켓을
+  원자적으로 소비하고 `Expired`를 반환하며 이후 replay는 모두
+  `AlreadyRedeemed`를 반환한다. 만료된 자격 증명은 데이터그램 인증 키를 절대
+  반환하지 않는다.
+- Redis 연결 세대 확인은 peer별 순차 hash 조회나 KEYS/ARGV가 무제한 커지는
+  단일 호출 대신 제한된 Lua chunk를 사용한다. chunk 상한은
+  `Realtime:UdpMaximumGenerationBatchSize`로 설정하며 기본값은 generation 조회
+  동시성 상한과 같다. 각 결과는 world, user, avatar, Zone, runtime session,
+  transport session, generation, protocol 전체 결합을 계속 비교하고 실패하거나
+  잘못된 chunk는 독립적으로 완료된 다른 chunk를 버리지 않은 채 실패 폐쇄한다.
+- Redis 통합 테스트는 `TORMIA_TEST_REDIS_CONNECTION`을 지정한 경우에만
+  실행한다. 연결 문자열은 격리된 비기본 데이터베이스를
+  `defaultDatabase=1` 이상으로 명시해야 한다. 서로 다른 multiplexer 두 개와
+  GUID 범위 데이터, 정확한 키 정리만 사용하며 `FLUSHDB`는 사용하지 않는다.
+  동시 중복 교환, 재발급 대 승격, 제출 대 HTTP fallback 경쟁 테스트로 오래된
+  generation과 오래된 UDP writer가 전환 뒤 공유 이동을 기록하지 못함을 검증한다.
+- UDP 진단은 `writer_mismatch`와 `connected_presence`를 제한된 reason label로
+  보존해 신원이나 월드 범위를 로그로 남기지 않고도 전송 배포 장애를 구분한다.
+  generation fence batch 횟수·크기와 제한된 outcome label은 월드별 카디널리티
+  없이 capacity, timeout, 잘못된 결과, 실패 상태를 보여준다.
+
+## 104. Linux x64 UDP 컨테이너 준비
+
+- World Authority 이미지는 `linux-x64` 대상으로 명시적으로 복원·게시하며
+  ASP.NET 기반 이미지의 비루트 애플리케이션 사용자로 실행한다. TCP 8080과
+  UDP 5273은 이미지 메타데이터이고, 13단계 검증에서는 TCP만 호스트에
+  매핑한다.
+- 이미지 health check는 추가 네이티브 패키지 없이 로컬 TCP `/health`를
+  사용한다. `/health/realtime`은 자격 증명을 노출하지 않고 신뢰성 backplane,
+  UDP ticket·listener gate, listener port, ticket-store backend를 보고한다.
+- 두 UDP gate의 기본값은 비활성이다. 명시적인 단일 인스턴스 Development가
+  아니면 Redis, 유효한 자격 증명 보호기, 비특권 포트가 모두 있어야 하며
+  불완전한 설정은 서비스 시작 전에 실패 폐쇄된다.
+- Linux Production DI 검증으로 UDP 진단과 snapshot 발행기의 Windows 전용
+  생성자 가시성 가정을 제거했다.
+- 13단계는 Compose, 클라우드, 방화벽, DNS, AWS 상태를 바꾸지 않는다.
+  14단계에서 UDP를 의도적으로 매핑하고 공개 HTTPS 프록시의 정확한 주소를
+  `Realtime:TrustedProxyAddresses`에 설정해야 하며 광범위 신뢰는 금지한다.
+
+## 105. 분리된 원격 UDP 롤아웃 준비
+
+- 현재 테스트 Authority는 같은 호스트의 Nginx 뒤에 Docker 컨테이너 하나로
+  실행되며 `127.0.0.1:5272 -> 8080/tcp`만 공개한다. Docker bridge gateway는
+  `172.17.0.1`이고 UDP 5273은 없으며 전환 전 공개 health endpoint는 정상이다.
+- opt-in 롤아웃은 forwarded HTTPS 신뢰를 위해 정확한 gateway를 계산하고,
+  mode 0600의 안정적인 자격 증명 보호 secret을 만들며, host UDP 매핑이 없는
+  후보를 loopback TCP 5274에서 검증하고, 이전 컨테이너를 자동·수동 rollback용으로
+  보존한다.
+- 최종 승격 범위는 분리된 Authority 하나이며 loopback TCP 5272와 UDP 5273만
+  매핑한다. 공개 HTTPS 메타데이터, 외부 인증 UDP 클라이언트, 신뢰 경로 fallback이
+  모두 통과할 때까지 Unity UDP는 기본 비활성으로 유지한다.
+- AWS 자격 증명이 없어 보안 그룹을 권한 있게 감사하거나 좁힐 수 없었다. 저장소
+  메모에는 모든 트래픽 허용이라고 적혀 있지만 현재 도달성은 외부 UDP probe로만
+  확인할 수 있으며, AWS 증거 없이 규칙이 좁혀졌다고 주장하지 않는다.
+- 불변 후보 archive는 로컬에 준비했지만 외부 전송에 대한 명시적 승인 전까지
+  원격 artifact 업로드와 전환은 보류한다.

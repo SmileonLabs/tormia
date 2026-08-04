@@ -26,7 +26,8 @@ namespace Tormia.Ontology.Core
             string baseFastMoveIntent = null,
             uint jumpOccurrence = 0,
             string currentPresentationIntent = null,
-            bool currentPresentationCompleted = false)
+            bool currentPresentationCompleted = false,
+            bool hasLandingPresentation = true)
         {
             IsMoving = isMoving;
             IsRunning = isRunning;
@@ -48,6 +49,7 @@ namespace Tormia.Ontology.Core
                 currentPresentationIntent ?? string.Empty;
             CurrentPresentationCompleted =
                 currentPresentationCompleted;
+            HasLandingPresentation = hasLandingPresentation;
         }
 
         public bool IsMoving { get; }
@@ -62,6 +64,7 @@ namespace Tormia.Ontology.Core
         public uint JumpOccurrence { get; }
         public string CurrentPresentationIntent { get; }
         public bool CurrentPresentationCompleted { get; }
+        public bool HasLandingPresentation { get; }
 
         public bool HasCompletedPresentation(string intent)
         {
@@ -172,7 +175,7 @@ namespace Tormia.Ontology.Core
                 !wasGrounded &&
                 snapshot.VerticalVelocity <= 0f;
             wasGrounded = true;
-            if (justLanded)
+            if (justLanded && snapshot.HasLandingPresentation)
             {
                 phase = OntologyAnimationStateKind.Landing;
             }

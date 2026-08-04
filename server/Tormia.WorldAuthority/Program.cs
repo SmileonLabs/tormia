@@ -1,7 +1,12 @@
 using System.Data;
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.HttpOverrides;
 using Npgsql;
 using NpgsqlTypes;
 using StackExchange.Redis;
@@ -16,7 +21,38 @@ builder.Services.AddSingleton<WorldAuthorityRepository>();
 builder.Services.AddSingleton<PasswordAuthRepository>();
 builder.Services.AddSingleton<ContentCatalogRepository>();
 builder.Services.AddSingleton<HeadlessZoneOntologyEvaluator>();
+builder.Services.AddSingleton<AuthorityActionEvaluationMetrics>();
+builder.Services.AddSingleton<RealtimeTransportMetrics>();
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var lifetime = serviceProvider.GetRequiredService<IHostApplicationLifetime>();
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var timeoutSeconds = configuration.GetValue<double?>(
+        "Authority:CompiledContractBuildTimeoutSeconds") ?? 30d;
+    return new AuthorityCompiledContractCache(
+        buildTimeout: TimeSpan.FromSeconds(timeoutSeconds),
+        hostStoppingToken: lifetime.ApplicationStopping);
+});
 builder.Services.AddHealthChecks();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                               ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    // Never clear KnownProxies/KnownNetworks. TLS forwarding is accepted only
+    // from loopback or explicitly configured reverse-proxy addresses.
+    var configured = builder.Configuration[
+        "Realtime:TrustedProxyAddresses"];
+    if (string.IsNullOrWhiteSpace(configured)) return;
+    foreach (var value in configured.Split(',',
+                 StringSplitOptions.RemoveEmptyEntries |
+                 StringSplitOptions.TrimEntries))
+    {
+        if (IPAddress.TryParse(value, out var address) &&
+            !options.KnownProxies.Contains(address))
+            options.KnownProxies.Add(address);
+    }
+});
 
 // PostgreSQL remains the durable source of truth. Redis only fans an already
 // committed revision notification out to the authority instances holding sockets.
@@ -31,6 +67,8 @@ if (!string.IsNullOrWhiteSpace(realtimeRedis))
     builder.Services.AddSingleton<IWorldZoneRuntimeRegistry, RedisWorldZoneRuntimeRegistry>();
     builder.Services.AddSingleton<IWorldZoneExecutionLeaseRegistry, RedisWorldZoneExecutionLeaseRegistry>();
     builder.Services.AddSingleton<IWorldPlayerIntentRegistry, RedisWorldPlayerIntentRegistry>();
+    builder.Services.AddSingleton<IWorldRevisionRuntimeRegistry,
+        RedisWorldRevisionRuntimeRegistry>();
     builder.Services.AddSingleton<
         IWorldPlayerRuntimeActionIntentRegistry,
         RedisWorldPlayerRuntimeActionIntentRegistry>();
@@ -40,6 +78,7 @@ if (!string.IsNullOrWhiteSpace(realtimeRedis))
     builder.Services.AddSingleton<IWorldPlayerMotionRuntimeRegistry, RedisWorldPlayerMotionRuntimeRegistry>();
     builder.Services.AddSingleton<IWorldAutonomousActorRuntimeRegistry, RedisWorldAutonomousActorRuntimeRegistry>();
     builder.Services.AddSingleton<IWorldActionCooldownRuntimeRegistry, RedisWorldActionCooldownRuntimeRegistry>();
+    builder.Services.AddSingleton<IWorldPlayerAttackOccurrenceRegistry, RedisWorldPlayerAttackOccurrenceRegistry>();
 }
 else
 {
@@ -49,6 +88,8 @@ else
     builder.Services.AddSingleton<IWorldZoneRuntimeRegistry, InMemoryWorldZoneRuntimeRegistry>();
     builder.Services.AddSingleton<IWorldZoneExecutionLeaseRegistry, InMemoryWorldZoneExecutionLeaseRegistry>();
     builder.Services.AddSingleton<IWorldPlayerIntentRegistry, InMemoryWorldPlayerIntentRegistry>();
+    builder.Services.AddSingleton<IWorldRevisionRuntimeRegistry,
+        InMemoryWorldRevisionRuntimeRegistry>();
     builder.Services.AddSingleton<
         IWorldPlayerRuntimeActionIntentRegistry,
         InMemoryWorldPlayerRuntimeActionIntentRegistry>();
@@ -58,15 +99,161 @@ else
     builder.Services.AddSingleton<IWorldPlayerMotionRuntimeRegistry, InMemoryWorldPlayerMotionRuntimeRegistry>();
     builder.Services.AddSingleton<IWorldAutonomousActorRuntimeRegistry, InMemoryWorldAutonomousActorRuntimeRegistry>();
     builder.Services.AddSingleton<IWorldActionCooldownRuntimeRegistry, InMemoryWorldActionCooldownRuntimeRegistry>();
+    builder.Services.AddSingleton<IWorldPlayerAttackOccurrenceRegistry, InMemoryWorldPlayerAttackOccurrenceRegistry>();
 }
+var udpTicketLifetime = TimeSpan.FromSeconds(
+    builder.Configuration.GetValue<double?>(
+        "Realtime:UdpTicketLifetimeSeconds") ??
+    InMemoryUdpTransportTicketStore.DefaultLifetime.TotalSeconds);
+var udpMaximumGenerationBatchSize = builder.Configuration.GetValue<int?>(
+    "Realtime:UdpMaximumGenerationBatchSize") ??
+    builder.Configuration.GetValue<int?>(
+        "Realtime:UdpMaximumOutstandingGenerationLookups") ?? 64;
+var udpOptions = new UdpTransportOptions(
+    Enabled: builder.Configuration.GetValue<bool?>("Realtime:UdpEnabled") ?? false,
+    RequireHttps: builder.Configuration.GetValue<bool?>("Realtime:UdpRequireHttps") ?? true,
+    AllowSingleInstanceDevelopment: builder.Configuration.GetValue<bool?>(
+        "Realtime:UdpAllowSingleInstanceDevelopment") ?? false,
+    TicketLifetime: udpTicketLifetime);
+builder.Services.AddSingleton(udpOptions);
+var udpProtectionKeyText = builder.Configuration["Realtime:UdpCredentialProtectionKeyBase64"];
+var udpProtectionKeyId = builder.Configuration["Realtime:UdpCredentialProtectionKeyId"];
+byte[]? udpProtectionKey = null;
+try
+{
+    if (!string.IsNullOrWhiteSpace(udpProtectionKeyText))
+        udpProtectionKey = Convert.FromBase64String(udpProtectionKeyText);
+}
+catch (FormatException)
+{
+    // The feature gate below remains fail-closed on an invalid key.
+}
+var hasUdpCredentialProtector =
+    !string.IsNullOrWhiteSpace(realtimeRedis) &&
+    udpProtectionKey is { Length: 32 } &&
+    !string.IsNullOrWhiteSpace(udpProtectionKeyId);
+if (hasUdpCredentialProtector)
+{
+    builder.Services.AddSingleton<IUdpTicketCredentialProtector>(
+        new AesGcmUdpTicketCredentialProtector(
+            udpProtectionKeyId!,
+            udpProtectionKey!));
+    builder.Services.AddSingleton<IUdpTransportTicketStore>(serviceProvider =>
+        new RedisUdpTransportTicketStore(
+            serviceProvider.GetRequiredService<IConnectionMultiplexer>(),
+            serviceProvider.GetRequiredService<IUdpTicketCredentialProtector>(),
+            lifetime: udpTicketLifetime,
+            maximumGenerationBatchSize: udpMaximumGenerationBatchSize));
+}
+else
+{
+    builder.Services.AddSingleton<IUdpTransportTicketStore>(
+        new InMemoryUdpTransportTicketStore(lifetime: udpTicketLifetime));
+}
+if (udpProtectionKey is not null)
+    CryptographicOperations.ZeroMemory(udpProtectionKey);
+builder.Services.AddSingleton<IUdpTransportRuntimeSessionValidator,
+    AuthorityUdpTransportRuntimeSessionValidator>();
+// The socket listener has its own explicit feature flag. Ticket issuance may
+// be exercised while the UDP data plane remains closed. No container or host
+// UDP port is exposed by this registration.
+var udpListenerOptions = new AuthorityUdpListenerOptions(
+    Enabled: builder.Configuration.GetValue<bool?>(
+        "Realtime:UdpListenerEnabled") ?? false,
+    Port: builder.Configuration.GetValue<int?>(
+        "Realtime:UdpListenerPort") ?? 5273,
+    PendingHandshakeCapacity: builder.Configuration.GetValue<int?>(
+        "Realtime:UdpPendingHandshakeCapacity") ?? 128,
+    DatagramProcessingCapacity: builder.Configuration.GetValue<int?>(
+        "Realtime:UdpDatagramProcessingCapacity") ?? 2048,
+    AuthenticatedIntentCapacity: builder.Configuration.GetValue<int?>(
+        "Realtime:UdpAuthenticatedIntentCapacity") ?? 2048,
+    OutboundSnapshotCapacity: builder.Configuration.GetValue<int?>(
+        "Realtime:UdpOutboundSnapshotCapacity") ?? 64,
+    OutboundSnapshotByteCapacity: builder.Configuration.GetValue<int?>(
+        "Realtime:UdpOutboundSnapshotByteCapacity") ?? 4 * 1024 * 1024,
+    MaximumSnapshotFrameItems: builder.Configuration.GetValue<int?>(
+        "Realtime:UdpMaximumSnapshotFrameItems") ?? 512,
+    MaximumSnapshotBackplaneEnvelopeBytes: builder.Configuration.GetValue<int?>(
+        "Realtime:UdpMaximumSnapshotBackplaneEnvelopeBytes") ?? 256 * 1024,
+    MaximumOutstandingHandshakeRedemptions: builder.Configuration.GetValue<int?>(
+        "Realtime:UdpMaximumOutstandingHandshakeRedemptions") ?? 16,
+    MaximumOutstandingGenerationLookups: builder.Configuration.GetValue<int?>(
+        "Realtime:UdpMaximumOutstandingGenerationLookups") ?? 64,
+    HandshakeTimeout: TimeSpan.FromMilliseconds(
+        builder.Configuration.GetValue<double?>(
+            "Realtime:UdpHandshakeTimeoutMilliseconds") ?? 2000d),
+    GenerationFenceTimeout: TimeSpan.FromMilliseconds(
+        builder.Configuration.GetValue<double?>(
+            "Realtime:UdpGenerationFenceTimeoutMilliseconds") ?? 250d),
+    Admission: new AuthorityUdpHandshakeAdmissionOptions(
+        MaximumPending: builder.Configuration.GetValue<int?>(
+            "Realtime:UdpMaximumPendingHandshakes") ?? 128,
+        MaximumPendingPerAddress: builder.Configuration.GetValue<int?>(
+            "Realtime:UdpMaximumPendingPerAddress") ?? 4,
+        MaximumAttemptsPerAddressPerWindow: builder.Configuration.GetValue<int?>(
+            "Realtime:UdpMaximumAttemptsPerAddressPerWindow") ?? 12,
+        AttemptWindow: TimeSpan.FromMilliseconds(
+            builder.Configuration.GetValue<double?>(
+                "Realtime:UdpAttemptWindowMilliseconds") ?? 10000d),
+        MaximumTrackedAddresses: builder.Configuration.GetValue<int?>(
+            "Realtime:UdpMaximumTrackedAddresses") ?? 1024));
+UdpTransportConfigurationPolicy.Validate(
+    udpOptions,
+    udpListenerOptions,
+    hasRedis: !string.IsNullOrWhiteSpace(realtimeRedis),
+    hasCredentialProtector: hasUdpCredentialProtector,
+    isDevelopment: builder.Environment.IsDevelopment());
+builder.Services.AddSingleton(udpListenerOptions);
+builder.Services.AddSingleton<AuthorityUdpListenerDiagnostics>();
+builder.Services.AddSingleton<AuthorityUdpPeerSessionRegistry>();
+builder.Services.AddSingleton(serviceProvider =>
+    new UdpAuthenticatedMotionIntentChannel(
+        udpListenerOptions.AuthenticatedIntentCapacity));
+builder.Services.AddSingleton<IUdpAuthenticatedMotionIntentSink>(serviceProvider =>
+    serviceProvider.GetRequiredService<UdpAuthenticatedMotionIntentChannel>());
+builder.Services.AddSingleton(serviceProvider =>
+    new AuthorityUdpOutboundSnapshotChannel(
+        udpListenerOptions.OutboundSnapshotCapacity,
+        udpListenerOptions.OutboundSnapshotByteCapacity));
+if (!string.IsNullOrWhiteSpace(realtimeRedis))
+{
+    builder.Services.AddSingleton<IAuthorityUdpMotionFrameBackplane>(
+        serviceProvider => new RedisAuthorityUdpMotionFrameBackplane(
+            serviceProvider.GetRequiredService<IConnectionMultiplexer>(),
+            serviceProvider.GetRequiredService<AuthorityUdpListenerDiagnostics>(),
+            udpListenerOptions));
+}
+else
+{
+    builder.Services.AddSingleton<IAuthorityUdpMotionFrameBackplane>(
+        new InMemoryAuthorityUdpMotionFrameBackplane(udpListenerOptions));
+}
+builder.Services.AddSingleton<AuthorityUdpTransportGenerationFence>();
+builder.Services.AddSingleton<AuthorityUdpDatagramProcessor>();
+builder.Services.AddSingleton<AuthorityUdpMotionSnapshotPublisher>();
+builder.Services.AddSingleton<IPlayerMotionIntentAuthorityGateway,
+    WorldAuthorityPlayerMotionIntentGateway>();
+builder.Services.AddSingleton<PlayerMotionIntentAdmissionService>();
+builder.Services.AddHostedService<AuthorityUdpRealtimeListener>();
+builder.Services.AddHostedService<AuthorityUdpMotionIntentConsumer>();
+builder.Services.AddHostedService(serviceProvider =>
+    serviceProvider.GetRequiredService<AuthorityUdpMotionSnapshotPublisher>());
 builder.Services.AddHostedService<WorldZoneSimulationScheduler>();
 // Runtime notifications are transport hints only. They never author Facts or
 // transforms and Unity still reads the current snapshot from the authority API.
-builder.Services.AddSingleton<IWorldZoneRuntimeNotificationPublisher, SignalRWorldZoneRuntimeNotificationPublisher>();
+builder.Services.AddSingleton<SignalRWorldZoneRuntimeNotificationPublisher>();
+builder.Services.AddSingleton<IWorldZoneRuntimeNotificationPublisher,
+    CompositeWorldZoneRuntimeNotificationPublisher>();
+builder.Services.AddSingleton<IWorldRevisionNotificationPublisher, SignalRWorldRevisionNotificationPublisher>();
 builder.Services.AddHostedService<WorldPlayerMotionSimulationScheduler>();
 builder.Services.AddHostedService<WorldAutonomousActorSimulationScheduler>();
 
 var app = builder.Build();
+
+// Must run before authentication and ticket endpoint scheme checks. Only the
+// restricted proxies configured above may supply X-Forwarded-Proto.
+app.UseForwardedHeaders();
 
 app.Use(async (context, next) =>
 {
@@ -109,11 +296,15 @@ app.MapPost("/v1/auth/logout", async (HttpRequest request, PasswordAuthRepositor
     return Results.NoContent();
 });
 
-app.MapGet("/health/realtime", () => Results.Ok(new
+app.MapGet("/health/realtime", (IUdpTransportTicketStore tickets) => Results.Ok(new
 {
     status = "healthy",
     transport = "signalr",
-    backplane = string.IsNullOrWhiteSpace(realtimeRedis) ? "in_memory_development" : "redis"
+    backplane = string.IsNullOrWhiteSpace(realtimeRedis) ? "in_memory_development" : "redis",
+    udpTicketEnabled = udpOptions.Enabled,
+    udpListenerEnabled = udpListenerOptions.Enabled,
+    udpListenerPort = udpListenerOptions.Port,
+    udpTicketBackend = tickets.BackendName
 }));
 
 app.MapGet("/health/sessions", (IWorldZoneSessionRegistry sessions) => Results.Ok(new
@@ -225,6 +416,55 @@ app.MapGet("/v1/content/packages/{packageId}/actions", async (
     if (!TryGetActorUserId(httpRequest, out var actorUserId)) return Results.Unauthorized();
     var result = await catalog.GetPublishedActionEffects(packageId, actorUserId, cancellationToken);
     return result.RejectionCode is null ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapPost("/v1/content/packages/{packageId}/releases", async (
+    string packageId,
+    HttpRequest httpRequest,
+    ContentReleasePublishRequest request,
+    ContentCatalogRepository catalog,
+    CancellationToken cancellationToken) =>
+{
+    if (!TryGetActorUserId(httpRequest, out var actorUserId))
+        return Results.Unauthorized();
+    var result = await catalog.PublishRelease(
+        packageId, actorUserId, request, cancellationToken);
+    if (result.Accepted) return Results.Ok(result);
+    return result.RejectionCode switch
+    {
+        "content_package_forbidden" =>
+            Results.StatusCode(StatusCodes.Status403Forbidden),
+        _ => Results.BadRequest(result)
+    };
+});
+
+// A structured, read-only query used by world entry. Runtime clients verify an
+// already-published release here; they never need to publish authoring content
+// merely to enter a world.
+app.MapPost("/v1/worlds/{worldId:guid}/content/preflight", async (
+    Guid worldId,
+    HttpRequest httpRequest,
+    ContentPackagePreflightRequest request,
+    ContentCatalogRepository catalog,
+    CancellationToken cancellationToken) =>
+{
+    if (!TryGetActorUserId(httpRequest, out var actorUserId))
+    {
+        return Results.Unauthorized();
+    }
+
+    var result = await catalog.PreflightWorldPackage(
+        worldId,
+        actorUserId,
+        request,
+        cancellationToken);
+    return result.RejectionCode switch
+    {
+        "world_not_found" => Results.NotFound(result),
+        "forbidden" => Results.StatusCode(StatusCodes.Status403Forbidden),
+        "invalid_content_preflight_request" => Results.BadRequest(result),
+        _ => Results.Ok(result)
+    };
 });
 
 app.MapGet("/v1/account", async (
@@ -541,61 +781,49 @@ app.MapPost("/v1/worlds/{worldId:guid}/runtime/intents", async (
     Guid worldId,
     HttpRequest httpRequest,
     PlayerIntentRequest request,
-    WorldAuthorityRepository repository,
-    IWorldPlayerIntentRegistry intents,
+    PlayerMotionIntentAdmissionService admission,
     CancellationToken cancellationToken) =>
 {
     if (!TryGetActorUserId(httpRequest, out var actorUserId)) return Results.Unauthorized();
-    if (!request.IsValid || !SemanticId.IsValid(request.ZoneKey))
-    {
-        return Results.BadRequest(new { rejectionCode = "invalid_player_intent" });
-    }
-    if (!await repository.AvatarBelongsToUser(worldId, actorUserId, request.AvatarEntityId, cancellationToken))
-    {
-        return Results.StatusCode(StatusCodes.Status403Forbidden);
-    }
-    if (!await repository.ZoneExists(worldId, actorUserId, request.ZoneKey, cancellationToken))
-    {
-        return Results.NotFound(new { rejectionCode = "zone_not_found" });
-    }
-
-    var locomotionPreview = await repository.PreviewAction(
-        worldId,
-        actorUserId,
-        new ExecuteActionPayload(
+    var result = await admission.Submit(
+        new PlayerMotionIntentCandidate(
+            worldId,
+            actorUserId,
             request.AvatarEntityId,
-            request.AvatarEntityId,
-            null,
-            request.PackageId,
-            request.PackageVersion,
-            request.ActionId,
-            request.DefinitionVersion),
+            request.ZoneKey,
+            request.RuntimeSessionId,
+            request.Sequence,
+            request.MoveX,
+            request.MoveZ,
+            request.MoveSpeed,
+            request.HasDestination,
+            request.DestinationX,
+            request.DestinationZ,
+            request.DestinationStopDistance,
+            PlayerMotionIntentTransport.Http,
+            new PlayerMotionActionContract(
+                request.PackageId,
+                request.PackageVersion,
+                request.ActionId,
+                request.DefinitionVersion),
+            WriterEpoch: request.WriterEpoch),
         cancellationToken);
-    if (!locomotionPreview.Accepted)
+    if (result.Accepted)
     {
-        return Results.Conflict(new
-        {
-            rejectionCode =
-                locomotionPreview.RejectionCode ??
-                "locomotion_rule_rejected"
-        });
+        return Results.Accepted(
+            $"/v1/worlds/{worldId}/runtime/intents/{request.AvatarEntityId}",
+            new { accepted = true });
     }
-    if (locomotionPreview.MutationCount != 0)
+    return result.RejectionCode switch
     {
-        return Results.Conflict(new
-        {
-            rejectionCode =
-                "locomotion_rule_must_be_ephemeral"
-        });
-    }
-    var intent = new WorldPlayerIntent(
-        worldId, actorUserId, request.AvatarEntityId, request.ZoneKey,
-        request.Sequence, request.MoveX, request.MoveZ, request.MoveSpeed,
-        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-    var accepted = await intents.Submit(intent, cancellationToken);
-    return accepted
-        ? Results.Accepted($"/v1/worlds/{worldId}/runtime/intents/{request.AvatarEntityId}", new { accepted = true })
-        : Results.Conflict(new { rejectionCode = "stale_player_intent" });
+        "invalid_player_intent" =>
+            Results.BadRequest(new { rejectionCode = result.RejectionCode }),
+        "avatar_not_owned" => Results.StatusCode(
+            StatusCodes.Status403Forbidden),
+        "zone_not_found" =>
+            Results.NotFound(new { rejectionCode = result.RejectionCode }),
+        _ => Results.Conflict(new { rejectionCode = result.RejectionCode })
+    };
 });
 
 // Unity reports its newest collision-resolved presentation pose as an
@@ -676,6 +904,7 @@ app.MapPost(
             avatarEntityId,
             cancellationToken);
         if (current is null ||
+            current.RuntimeSessionId != request.RuntimeSessionId ||
             !string.Equals(
                 current.ZoneKey,
                 request.ZoneKey,
@@ -696,7 +925,8 @@ app.MapPost(
                 request.PositionY,
                 request.PositionZ,
                 request.MotionStatus,
-                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                request.RuntimeSessionId),
             cancellationToken);
         if (!accepted)
         {
@@ -709,6 +939,229 @@ app.MapPost(
             new { accepted = true, authoritativeState = current });
     });
 
+// HTTPS issues only a one-time bootstrap credential for the replaceable UDP
+// motion path. The ticket is bound to the already active Authority runtime
+// session and does not grant gameplay permission. Bearer/JWT credentials are
+// never copied into a datagram.
+app.MapPost(
+    "/v1/worlds/{worldId:guid}/runtime/avatars/{avatarEntityId:guid}/transport/udp-ticket",
+    async (
+        Guid worldId,
+        Guid avatarEntityId,
+        HttpRequest httpRequest,
+        IssueUdpTransportTicketRequest request,
+        WorldAuthorityRepository repository,
+        IWorldPlayerMotionRuntimeRegistry motion,
+        IWorldPlayerIntentRegistry intents,
+        IUdpTransportTicketStore tickets,
+        UdpTransportOptions udpTransport,
+        CancellationToken cancellationToken) =>
+    {
+        httpRequest.HttpContext.Response.Headers.CacheControl = "no-store";
+        httpRequest.HttpContext.Response.Headers.Pragma = "no-cache";
+        if (!udpTransport.Enabled) return Results.NotFound();
+        if (udpTransport.RequireHttps && !httpRequest.IsHttps)
+        {
+            return Results.Json(new
+            {
+                accepted = false,
+                rejectionCode = "udp_transport_ticket_requires_https"
+            }, statusCode: StatusCodes.Status426UpgradeRequired);
+        }
+        if (!tickets.SupportsMultipleAuthorityInstances &&
+            !udpTransport.AllowSingleInstanceDevelopment)
+        {
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+        if (!TryGetActorUserId(httpRequest, out var actorUserId))
+            return Results.Unauthorized();
+        if (worldId == Guid.Empty || avatarEntityId == Guid.Empty ||
+            !request.IsValid)
+        {
+            return Results.BadRequest(new
+            {
+                accepted = false,
+                rejectionCode = "invalid_udp_transport_ticket_request"
+            });
+        }
+        if (!await repository.AvatarBelongsToUser(
+                worldId,
+                actorUserId,
+                avatarEntityId,
+                cancellationToken))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var activeMotion = await motion.Get(
+            worldId,
+            avatarEntityId,
+            cancellationToken);
+        if (activeMotion is null ||
+            activeMotion.RuntimeSessionId != request.RuntimeSessionId ||
+            !SemanticId.IsValid(activeMotion.ZoneKey))
+        {
+            return Results.Conflict(new
+            {
+                accepted = false,
+                rejectionCode = "player_runtime_session_mismatch"
+            });
+        }
+
+        var writer = await intents.GetWriter(
+            worldId, avatarEntityId, cancellationToken);
+        if (writer is null || writer.UserId != actorUserId ||
+            writer.RuntimeSessionId != request.RuntimeSessionId ||
+            writer.Mode is not ("http" or "udp"))
+        {
+            return Results.Conflict(new
+            {
+                accepted = false,
+                rejectionCode = "transport_writer_not_initialized"
+            });
+        }
+        if (writer.Mode == "udp")
+        {
+            return Results.Conflict(new
+            {
+                accepted = false,
+                rejectionCode = "udp_rekey_requires_fallback",
+                writerMode = writer.Mode,
+                writerEpoch = writer.WriterEpoch,
+                worldRevision = writer.WorldRevision,
+                runtimeSessionId = writer.RuntimeSessionId,
+                authenticatedTransportSessionId =
+                    writer.AuthenticatedTransportSessionId,
+                transportGeneration = writer.TransportGeneration
+            });
+        }
+
+        var issue = await tickets.Issue(
+            new UdpTransportTicketIssueContext(
+                worldId,
+                actorUserId,
+                avatarEntityId,
+                activeMotion.ZoneKey,
+                request.RuntimeSessionId,
+                request.ProtocolVersion),
+            cancellationToken);
+        if (issue.Status != UdpTransportTicketIssueStatus.Issued ||
+            issue.Grant is null)
+        {
+            if (issue.Status == UdpTransportTicketIssueStatus
+                    .ActiveUdpWriterRequiresFallback)
+            {
+                return Results.Conflict(new
+                {
+                    accepted = false,
+                    rejectionCode = "udp_rekey_requires_fallback"
+                });
+            }
+            return Results.BadRequest(new
+            {
+                accepted = false,
+                rejectionCode = "invalid_udp_transport_ticket_binding"
+            });
+        }
+
+        var grant = issue.Grant;
+        return Results.Ok(new IssueUdpTransportTicketResponse(
+            Accepted: true,
+            Ticket: grant.Ticket,
+            DatagramAuthenticationKey: grant.DatagramAuthenticationKey,
+            ExpiresAtUnixMilliseconds: grant.ExpiresAtUnixMilliseconds,
+            AuthenticatedTransportSessionId:
+                grant.Binding.AuthenticatedTransportSessionId,
+            RuntimeSessionId: grant.Binding.RuntimeSessionId,
+            TransportGeneration: grant.Binding.TransportGeneration,
+            ProtocolVersion: grant.Binding.ProtocolVersion,
+            WriterMode: writer.Mode,
+            WriterEpoch: writer.WriterEpoch,
+            WorldRevision: writer.WorldRevision));
+    });
+
+app.MapPost(
+    "/v1/worlds/{worldId:guid}/runtime/avatars/{avatarEntityId:guid}/transport/udp/promote",
+    async (
+        Guid worldId,
+        Guid avatarEntityId,
+        HttpRequest httpRequest,
+        PlayerMotionTransportTransitionRequest request,
+        WorldAuthorityRepository repository,
+        IWorldPlayerMotionRuntimeRegistry motion,
+        IWorldPlayerIntentRegistry intents,
+        CancellationToken cancellationToken) =>
+    {
+        if (!TryGetActorUserId(httpRequest, out var actorUserId))
+            return Results.Unauthorized();
+        if (!request.IsValid || avatarEntityId == Guid.Empty)
+            return Results.BadRequest(new
+            {
+                accepted = false,
+                rejectionCode = "invalid_transport_writer_transition"
+            });
+        if (!await repository.AvatarBelongsToUser(
+                worldId, actorUserId, avatarEntityId, cancellationToken))
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        var active = await motion.Get(worldId, avatarEntityId, cancellationToken);
+        if (active is null ||
+            active.RuntimeSessionId != request.RuntimeSessionId ||
+            !SemanticId.IsValid(active.ZoneKey))
+            return Results.Conflict(new
+            {
+                accepted = false,
+                rejectionCode = "player_runtime_session_mismatch"
+            });
+        var result = await intents.PromoteUdpWriter(
+            request.ToBinding(
+                worldId, actorUserId, avatarEntityId, active.ZoneKey),
+            request.ExpectedWriterEpoch,
+            request.ExpectedWorldRevision,
+            cancellationToken);
+        return TransportTransitionHttpResult(result);
+    });
+
+app.MapPost(
+    "/v1/worlds/{worldId:guid}/runtime/avatars/{avatarEntityId:guid}/transport/http/fallback",
+    async (
+        Guid worldId,
+        Guid avatarEntityId,
+        HttpRequest httpRequest,
+        PlayerMotionTransportTransitionRequest request,
+        WorldAuthorityRepository repository,
+        IWorldPlayerMotionRuntimeRegistry motion,
+        IWorldPlayerIntentRegistry intents,
+        CancellationToken cancellationToken) =>
+    {
+        if (!TryGetActorUserId(httpRequest, out var actorUserId))
+            return Results.Unauthorized();
+        if (!request.IsValid || avatarEntityId == Guid.Empty)
+            return Results.BadRequest(new
+            {
+                accepted = false,
+                rejectionCode = "invalid_transport_writer_transition"
+            });
+        if (!await repository.AvatarBelongsToUser(
+                worldId, actorUserId, avatarEntityId, cancellationToken))
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        var active = await motion.Get(worldId, avatarEntityId, cancellationToken);
+        if (active is null ||
+            active.RuntimeSessionId != request.RuntimeSessionId ||
+            !SemanticId.IsValid(active.ZoneKey))
+            return Results.Conflict(new
+            {
+                accepted = false,
+                rejectionCode = "player_runtime_session_mismatch"
+            });
+        var result = await intents.FallbackToHttpWriter(
+            request.ToBinding(
+                worldId, actorUserId, avatarEntityId, active.ZoneKey),
+            request.ExpectedWriterEpoch,
+            request.ExpectedWorldRevision,
+            cancellationToken);
+        return TransportTransitionHttpResult(result);
+    });
+
 app.MapPost("/v1/worlds/{worldId:guid}/runtime/avatars/{avatarEntityId:guid}/activate", async (
     Guid worldId,
     Guid avatarEntityId,
@@ -718,6 +1171,8 @@ app.MapPost("/v1/worlds/{worldId:guid}/runtime/avatars/{avatarEntityId:guid}/act
     IWorldPlayerIntentRegistry intents,
     IWorldPlayerRuntimeActionIntentRegistry runtimeActions,
     IWorldPlayerPoseObservationRegistry observations,
+    IWorldPlayerMotionRuntimeRegistry motion,
+    IWorldRevisionRuntimeRegistry revisions,
     CancellationToken cancellationToken) =>
 {
     if (!TryGetActorUserId(httpRequest, out var actorUserId)) return Results.Unauthorized();
@@ -741,14 +1196,113 @@ app.MapPost("/v1/worlds/{worldId:guid}/runtime/avatars/{avatarEntityId:guid}/act
         worldId,
         avatarEntityId,
         cancellationToken);
+    var runtimeSessionId = Guid.NewGuid();
     var state = await repository.ResetPlayerMotionFromDurableState(
         worldId,
         avatarEntityId,
         request.ZoneKey,
+        runtimeSessionId,
         cancellationToken);
-    return state is null
-        ? Results.NotFound(new { rejectionCode = "avatar_runtime_foundation_not_found" })
-        : Results.Ok(new { accepted = true, state });
+    if (state is null)
+        return Results.NotFound(new
+        {
+            rejectionCode = "avatar_runtime_foundation_not_found"
+        });
+    var revision = await revisions.GetOrLoad(
+        worldId,
+        token => repository.GetCurrentRevision(worldId, token),
+        cancellationToken);
+    if (!revision.HasValue)
+    {
+        await motion.Deactivate(
+            worldId, avatarEntityId, runtimeSessionId, cancellationToken);
+        return Results.Conflict(new
+        {
+            rejectionCode = "transport_writer_revision_unavailable"
+        });
+    }
+    var writer = await intents.InitializeHttpWriter(
+        new PlayerMotionTransportWriterState(
+            worldId, actorUserId, avatarEntityId, request.ZoneKey,
+            runtimeSessionId, "http", 1, revision.Value),
+        cancellationToken);
+    if (!writer.Accepted)
+    {
+        await motion.Deactivate(
+            worldId, avatarEntityId, runtimeSessionId, cancellationToken);
+        return Results.Conflict(new
+        {
+            rejectionCode = writer.RejectionCode
+        });
+    }
+    return Results.Ok(new
+    {
+        accepted = true,
+        runtimeSessionId,
+        state,
+        writerMode = writer.Writer!.Mode,
+        writerEpoch = writer.Writer.WriterEpoch,
+        worldRevision = writer.Writer.WorldRevision,
+        transportWriter = writer.Writer
+    });
+});
+
+app.MapPost("/v1/worlds/{worldId:guid}/runtime/avatars/{avatarEntityId:guid}/deactivate", async (
+    Guid worldId,
+    Guid avatarEntityId,
+    HttpRequest httpRequest,
+    DeactivatePlayerRuntimeRequest request,
+    WorldAuthorityRepository repository,
+    IWorldPlayerIntentRegistry intents,
+    IWorldPlayerRuntimeActionIntentRegistry runtimeActions,
+    IWorldPlayerPoseObservationRegistry observations,
+    IWorldPlayerMotionRuntimeRegistry motion,
+    IUdpTransportTicketStore udpTickets,
+    CancellationToken cancellationToken) =>
+{
+    if (!TryGetActorUserId(httpRequest, out var actorUserId))
+        return Results.Unauthorized();
+    if (avatarEntityId == Guid.Empty || request.RuntimeSessionId == Guid.Empty)
+        return Results.BadRequest(new
+        {
+            accepted = false,
+            rejectionCode = "invalid_player_runtime_deactivation"
+        });
+    if (!await repository.OwnsRegisteredAvatar(
+            worldId, actorUserId, avatarEntityId, cancellationToken))
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+
+    var deactivation = await motion.Deactivate(
+        worldId, avatarEntityId, request.RuntimeSessionId,
+        cancellationToken);
+    if (deactivation == RuntimeSessionDeactivationResult.SessionMismatch)
+        return Results.Conflict(new
+        {
+            accepted = false,
+            rejectionCode = "player_runtime_session_mismatch"
+        });
+
+    // A new activation may race this cleanup. Each registry therefore removes
+    // only the exact session accepted above and cannot erase newer samples.
+    await intents.ClearIfSessionMatches(
+        worldId, avatarEntityId, request.RuntimeSessionId, cancellationToken);
+    await runtimeActions.ClearIfSessionMatches(
+        worldId, avatarEntityId, request.RuntimeSessionId, cancellationToken);
+    await observations.ClearIfSessionMatches(
+        worldId, avatarEntityId, request.RuntimeSessionId, cancellationToken);
+    await udpTickets.RevokeRuntimeSession(
+        worldId,
+        actorUserId,
+        avatarEntityId,
+        request.RuntimeSessionId,
+        cancellationToken);
+    return Results.Ok(new
+    {
+        accepted = true,
+        unchanged = deactivation ==
+                    RuntimeSessionDeactivationResult.AlreadyInactive,
+        runtimeSessionId = request.RuntimeSessionId
+    });
 });
 
 app.MapGet("/v1/worlds/{worldId:guid}/runtime/avatars/{avatarEntityId:guid}", async (
@@ -855,10 +1409,26 @@ app.MapPost("/v1/worlds/{worldId:guid}/runtime/actions", async (
     ExecuteActionPayload request,
     WorldAuthorityRepository repository,
     IWorldPlayerRuntimeActionIntentRegistry runtimeActions,
+    IWorldPlayerMotionRuntimeRegistry motion,
     CancellationToken cancellationToken) =>
 {
     if (!TryGetActorUserId(httpRequest, out var actorUserId))
         return Results.Unauthorized();
+    if (!request.RuntimeSessionId.HasValue)
+    {
+        return Results.Conflict(
+            new { rejectionCode = "player_runtime_session_required" });
+    }
+    var activeMotion = await motion.Get(
+        worldId,
+        request.ActorEntityId,
+        cancellationToken);
+    if (activeMotion is null ||
+        activeMotion.RuntimeSessionId != request.RuntimeSessionId.Value)
+    {
+        return Results.Conflict(
+            new { rejectionCode = "player_runtime_session_mismatch" });
+    }
     var result = await repository.EvaluateRuntimeAction(
         worldId,
         actorUserId,
@@ -868,13 +1438,24 @@ app.MapPost("/v1/worlds/{worldId:guid}/runtime/actions", async (
         result.ActorEntityId is Guid actorEntityId &&
         !string.IsNullOrWhiteSpace(result.ActionId))
     {
+        activeMotion = await motion.Get(
+            worldId,
+            actorEntityId,
+            cancellationToken);
+        if (activeMotion is null ||
+            activeMotion.RuntimeSessionId != request.RuntimeSessionId.Value)
+        {
+            return Results.Conflict(
+                new { rejectionCode = "player_runtime_session_mismatch" });
+        }
         await runtimeActions.Submit(
             new WorldPlayerRuntimeActionIntent(
                 worldId,
                 actorEntityId,
                 Guid.NewGuid(),
                 result.ActionId,
-                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                request.RuntimeSessionId.Value),
             cancellationToken);
     }
     return result.RejectionCode switch
@@ -916,6 +1497,139 @@ app.MapPost("/v1/worlds/{worldId:guid}/actions/preview", async (
     };
 });
 
+// Player input starts an ephemeral Authority occurrence. No damage is applied
+// until a later contact observation is independently revalidated against the
+// current Rule Block, lifecycle projection, runtime poses, and authored
+// collision proxies.
+app.MapPost("/v1/worlds/{worldId:guid}/runtime/attacks", async (
+    Guid worldId,
+    HttpRequest httpRequest,
+    ExecuteActionPayload request,
+    WorldAuthorityRepository repository,
+    IWorldPlayerAttackOccurrenceRegistry occurrences,
+    CancellationToken cancellationToken) =>
+{
+    if (!TryGetActorUserId(httpRequest, out var actorUserId))
+        return Results.Unauthorized();
+    var contract = await repository.PreparePlayerAttackOccurrence(
+        worldId, actorUserId, request, cancellationToken);
+    if (!contract.Accepted)
+        return Results.Ok(BeginPlayerAttackOccurrenceResult.Rejected(
+            contract.RejectionCode ?? "attack_occurrence_rejected"));
+
+    var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    var occurrence = new WorldPlayerAttackOccurrence(
+        Guid.NewGuid(), worldId, actorUserId, request.ActorEntityId,
+        request.TargetEntityId, request.ToolEntityId!.Value,
+        request.PackageId.Trim(), request.PackageVersion.Trim(),
+        request.ActionId.Trim(), request.DefinitionVersion,
+        now + (long)Math.Ceiling(contract.ContactOpensAfterSeconds * 1000d),
+        now + (long)Math.Ceiling(contract.ContactClosesAfterSeconds * 1000d));
+    await occurrences.Set(occurrence, cancellationToken);
+    return Results.Ok(new BeginPlayerAttackOccurrenceResult(
+        true, null, occurrence.OccurrenceId,
+        occurrence.ContactOpensAtUnixMilliseconds,
+        occurrence.ContactClosesAtUnixMilliseconds));
+});
+
+app.MapPost("/v1/worlds/{worldId:guid}/runtime/attacks/contact", async (
+    Guid worldId,
+    HttpRequest httpRequest,
+    PlayerAttackContactPayload request,
+    WorldAuthorityRepository repository,
+    IWorldPlayerAttackOccurrenceRegistry occurrences,
+    IHubContext<WorldZoneHub> realtimeHub,
+    CancellationToken cancellationToken) =>
+{
+    if (!TryGetActorUserId(httpRequest, out var actorUserId))
+        return Results.Unauthorized();
+    var occurrence = await occurrences.Get(
+        worldId, request.OccurrenceId, cancellationToken);
+    if (occurrence is null || occurrence.ActorUserId != actorUserId)
+        return Results.Ok(ResolvePlayerAttackOccurrenceResult.Rejected(
+            "attack_occurrence_not_found"));
+    var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    if (now < occurrence.ContactOpensAtUnixMilliseconds ||
+        now > occurrence.ContactClosesAtUnixMilliseconds)
+    {
+        await occurrences.Remove(worldId, request.OccurrenceId, cancellationToken);
+        return Results.Ok(ResolvePlayerAttackOccurrenceResult.Rejected(
+            "attack_contact_outside_authored_window"));
+    }
+
+    var action = new ExecuteActionPayload(
+        occurrence.ActorEntityId, occurrence.TargetEntityId,
+        occurrence.ToolEntityId, occurrence.PackageId,
+        occurrence.PackageVersion, occurrence.ActionId,
+        occurrence.DefinitionVersion,
+        AttackOccurrenceId: occurrence.OccurrenceId);
+    var contact = await repository.ValidatePlayerAttackContact(
+        worldId, actorUserId, action, cancellationToken);
+    if (!contact.Accepted)
+        return Results.Ok(ResolvePlayerAttackOccurrenceResult.Rejected(
+            contact.RejectionCode ?? "attack_contact_rejected"));
+    if (!await occurrences.TryResolve(
+            worldId, request.OccurrenceId, cancellationToken))
+        return Results.Ok(ResolvePlayerAttackOccurrenceResult.Rejected(
+            "attack_contact_already_resolved"));
+
+    CommandResult result;
+    for (var attempt = 0; ; attempt++)
+    {
+        var revision = await repository.GetCurrentRevision(
+            worldId, cancellationToken);
+        if (!revision.HasValue)
+            return Results.NotFound();
+        var payload = JsonSerializer.SerializeToElement(action);
+        var command = new WorldCommandRequest(
+            1, request.OccurrenceId, revision.Value,
+            WorldCommandTypes.ExecuteAction, payload);
+        result = await repository.ApplyCommand(
+            worldId, actorUserId, command, cancellationToken);
+        if (result.RejectionCode != "stale_revision" || attempt >= 1)
+            break;
+    }
+    if (!result.Accepted)
+        return Results.Ok(ResolvePlayerAttackOccurrenceResult.Rejected(
+            result.RejectionCode ?? "attack_damage_rejected"));
+
+    if (!result.IsReplay && result.Revision.HasValue)
+    {
+        var notification = new WorldRevisionNotification(
+            worldId, result.Revision.Value, result.EventId,
+            "player_attack_contact", contact.ZoneKey,
+            occurrence.TargetEntityId);
+        await realtimeHub.Clients
+            .Groups(WorldZoneHub.GetNotificationGroups(
+                worldId, contact.ZoneKey))
+            .SendAsync(WorldZoneHub.RevisionEventName, notification,
+                cancellationToken);
+    }
+    return Results.Ok(new ResolvePlayerAttackOccurrenceResult(
+        true, null, result.Revision, result.EventId?.ToString(), true,
+        contact.TargetDefeated));
+});
+
+app.MapPost("/v1/worlds/{worldId:guid}/semantic-contracts/preflight", async (
+    Guid worldId,
+    HttpRequest httpRequest,
+    PrepareSemanticContractPayload request,
+    WorldAuthorityRepository repository,
+    CancellationToken cancellationToken) =>
+{
+    if (!TryGetActorUserId(httpRequest, out var actorUserId))
+        return Results.Unauthorized();
+    var result = await repository.PreflightSemanticContract(
+        worldId, actorUserId, request, cancellationToken);
+    return result.RejectionCode switch
+    {
+        "world_not_found" => Results.NotFound(result),
+        "forbidden" => Results.StatusCode(StatusCodes.Status403Forbidden),
+        "invalid_semantic_contract_payload" => Results.BadRequest(result),
+        _ => Results.Ok(result)
+    };
+});
+
 app.MapPost("/v1/worlds/{worldId:guid}/commands", async (
     Guid worldId,
     HttpRequest httpRequest,
@@ -947,7 +1661,8 @@ app.MapPost("/v1/worlds/{worldId:guid}/commands", async (
                 result.Revision.Value,
                 result.EventId,
                 request.CommandType,
-                zoneKey);
+                zoneKey,
+                TryReadNotificationTargetEntityId(request.Payload));
             // A zone subscriber receives only its own revision hints. The unassigned
             // group is the deliberate whole-world fallback used by development tools
             // and by clients outside every authored zone.
@@ -971,6 +1686,32 @@ app.MapHub<WorldZoneHub>("/hubs/world-zone");
 
 app.Run();
 
+static IResult TransportTransitionHttpResult(
+    PlayerMotionTransportTransitionResult result) =>
+    result.Accepted && result.Writer is not null
+        ? Results.Ok(new PlayerMotionTransportTransitionResponse(
+            true,
+            null,
+            result.Writer.Mode,
+            result.Writer.WriterEpoch,
+            result.Writer.WorldRevision,
+            result.Writer.RuntimeSessionId,
+            result.Writer.AuthenticatedTransportSessionId,
+            result.Writer.TransportGeneration,
+            result.Writer.PreviousUdpTransportSessionId,
+            result.Writer.PreviousUdpTransportGeneration))
+        : Results.Conflict(new PlayerMotionTransportTransitionResponse(
+            false,
+            result.RejectionCode,
+            result.Writer?.Mode ?? string.Empty,
+            result.Writer?.WriterEpoch ?? 0,
+            result.Writer?.WorldRevision ?? 0,
+            result.Writer?.RuntimeSessionId ?? Guid.Empty,
+            result.Writer?.AuthenticatedTransportSessionId ?? Guid.Empty,
+            result.Writer?.TransportGeneration ?? 0,
+            result.Writer?.PreviousUdpTransportSessionId ?? Guid.Empty,
+            result.Writer?.PreviousUdpTransportGeneration ?? 0));
+
 static string HttpRuntimeSessionConnectionId(Guid sessionId) =>
     "http:" + sessionId.ToString("N");
 
@@ -978,6 +1719,20 @@ static bool TryGetActorUserId(HttpRequest request, out Guid actorUserId)
 {
     if (request.HttpContext.Items.TryGetValue("Tormia.ActorUserId", out var value) && value is Guid id) { actorUserId = id; return true; }
     actorUserId = Guid.Empty; return false;
+}
+
+static Guid? TryReadNotificationTargetEntityId(JsonElement payload)
+{
+    if (payload.ValueKind != JsonValueKind.Object ||
+        !payload.TryGetProperty("targetEntityId", out var target) ||
+        target.ValueKind != JsonValueKind.String)
+    {
+        return null;
+    }
+
+    return Guid.TryParse(target.GetString(), out var targetEntityId)
+        ? targetEntityId
+        : null;
 }
 
 internal sealed class WorldAuthorityRepository
@@ -993,17 +1748,29 @@ internal sealed class WorldAuthorityRepository
     private readonly IWorldAutonomousActorRuntimeRegistry
         autonomousMotionRuntime;
     private readonly IWorldActionCooldownRuntimeRegistry actionCooldownRuntime;
+    private readonly IWorldPlayerAttackOccurrenceRegistry attackOccurrences;
+    private readonly AuthorityActionEvaluationMetrics actionEvaluationMetrics;
+    private readonly AuthorityCompiledContractCache compiledContractCache;
+    private readonly IWorldRevisionRuntimeRegistry revisionRuntime;
 
     public WorldAuthorityRepository(
         NpgsqlDataSource dataSource,
         IWorldPlayerMotionRuntimeRegistry motionRuntime,
         IWorldAutonomousActorRuntimeRegistry autonomousMotionRuntime,
-        IWorldActionCooldownRuntimeRegistry actionCooldownRuntime)
+        IWorldActionCooldownRuntimeRegistry actionCooldownRuntime,
+        IWorldPlayerAttackOccurrenceRegistry attackOccurrences,
+        AuthorityActionEvaluationMetrics actionEvaluationMetrics,
+        AuthorityCompiledContractCache compiledContractCache,
+        IWorldRevisionRuntimeRegistry revisionRuntime)
     {
         this.dataSource = dataSource;
         this.motionRuntime = motionRuntime;
         this.autonomousMotionRuntime = autonomousMotionRuntime;
         this.actionCooldownRuntime = actionCooldownRuntime;
+        this.attackOccurrences = attackOccurrences;
+        this.actionEvaluationMetrics = actionEvaluationMetrics;
+        this.compiledContractCache = compiledContractCache;
+        this.revisionRuntime = revisionRuntime;
     }
 
     public async Task<bool> CanConnect(CancellationToken cancellationToken)
@@ -1011,6 +1778,85 @@ internal sealed class WorldAuthorityRepository
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = new NpgsqlCommand("SELECT 1;", connection);
         return (int)(await command.ExecuteScalarAsync(cancellationToken) ?? 0) == 1;
+    }
+
+    public async Task<SemanticContractPreflightResult>
+        PreflightSemanticContract(
+        Guid worldId,
+        Guid actorUserId,
+        PrepareSemanticContractPayload request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null || !request.IsValid(out _))
+            return new(false, "invalid_semantic_contract_payload", string.Empty,
+                null, null, 0, 0);
+        var checksum = SemanticContractPolicy.ComputeManifestChecksum(request);
+
+        await using var connection =
+            await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction =
+            await connection.BeginTransactionAsync(cancellationToken);
+        const string accessSql = """
+            SELECT
+                EXISTS (SELECT 1 FROM worlds WHERE world_id = @worldId),
+                EXISTS (SELECT 1 FROM world_members
+                    WHERE world_id = @worldId AND user_id = @actorUserId);
+            """;
+        await using var access = new NpgsqlCommand(
+            accessSql, connection, transaction);
+        access.Parameters.AddWithValue("worldId", worldId);
+        access.Parameters.AddWithValue("actorUserId", actorUserId);
+        await using var reader =
+            await access.ExecuteReaderAsync(cancellationToken);
+        await reader.ReadAsync(cancellationToken);
+        var worldExists = reader.GetBoolean(0);
+        var canRead = reader.GetBoolean(1);
+        await reader.DisposeAsync();
+        if (!worldExists)
+            return new(false, "world_not_found", checksum, null, null, 0, 0);
+        if (!canRead)
+            return new(false, "forbidden", checksum, null, null, 0, 0);
+        if (!await EntityExists(connection, transaction, worldId,
+                request.TargetEntityId, cancellationToken))
+            return new(false, "entity_not_found", checksum, null, null, 0, 0);
+        if (!await ActiveContentPackageExists(
+                connection, transaction, worldId, request.PackageId,
+                request.PackageVersion, cancellationToken))
+            return new(false, "content_package_not_active", checksum,
+                null, null, 0, 0);
+        foreach (var binding in request.RuleBlocks ?? [])
+        {
+            if (!await PublishedRuleExists(
+                    connection, transaction, binding.RuleId,
+                    binding.RuleVersion, cancellationToken))
+                return new(false, "rule_definition_not_published", checksum,
+                    null, null, 0, 1);
+        }
+
+        var markers = new[]
+        {
+            new InitialAuthoredFactPayload(
+                request.VersionPredicateId, "number", null, null,
+                request.ContractVersion.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture)),
+            new InitialAuthoredFactPayload(
+                request.ChecksumPredicateId, "text", null, null,
+                JsonSerializer.Serialize(checksum, JsonOptions))
+        };
+        var ready = await SemanticContractIsReady(
+            connection, transaction, worldId, request, markers,
+            cancellationToken);
+        var current = await ReadSemanticContractMarkers(
+            connection, transaction, worldId, request, cancellationToken);
+        await transaction.RollbackAsync(cancellationToken);
+        return new(
+            ready,
+            ready ? null : "semantic_contract_not_ready",
+            checksum,
+            current.Version,
+            current.Checksum,
+            ready ? 0 : 1,
+            ready ? 0 : 1);
     }
 
     /// <summary>
@@ -1031,9 +1877,15 @@ internal sealed class WorldAuthorityRepository
 
         var characters = await GetPlayerCharacters(connection, userId, cancellationToken);
         const string worldsSql = """
-            SELECT w.world_id, w.title, w.slug, m.role, w.current_revision
+            SELECT w.world_id, w.title, w.slug, m.role, w.current_revision,
+                   avatar.entity_id,
+                   w.entry_content_package_id,
+                   w.entry_content_package_version
             FROM world_members m
             INNER JOIN worlds w ON w.world_id = m.world_id
+            LEFT JOIN world_player_avatars avatar
+              ON avatar.world_id = w.world_id
+             AND avatar.user_id = m.user_id
             WHERE m.user_id = @userId
             ORDER BY w.updated_at DESC, w.world_id;
             """;
@@ -1048,7 +1900,16 @@ internal sealed class WorldAuthorityRepository
                 worldsReader.GetString(1),
                 worldsReader.GetString(2),
                 worldsReader.GetString(3),
-                worldsReader.GetInt64(4)));
+                worldsReader.GetInt64(4),
+                worldsReader.IsDBNull(5)
+                    ? null
+                    : worldsReader.GetGuid(5),
+                worldsReader.IsDBNull(6)
+                    ? null
+                    : worldsReader.GetString(6),
+                worldsReader.IsDBNull(7)
+                    ? null
+                    : worldsReader.GetString(7)));
         }
         return new AccountDashboard(account, characters, worlds);
     }
@@ -1427,7 +2288,8 @@ internal sealed class WorldAuthorityRepository
         await worldReader.DisposeAsync();
 
         const string actionsSql = """
-            SELECT p.package_id, p.package_version, d.definition_id, d.definition_version,
+            SELECT DISTINCT ON (p.package_id, d.definition_id)
+                   p.package_id, p.package_version, d.definition_id, d.definition_version,
                    COALESCE(d.payload #>> '{presentation,actorAnimationIntent}', '')
             FROM world_content_packages p
             INNER JOIN content_definitions d
@@ -1436,7 +2298,7 @@ internal sealed class WorldAuthorityRepository
                AND d.definition_kind = 'action_effect'
                AND d.is_published
             WHERE p.world_id = @worldId AND p.enabled
-            ORDER BY p.package_id, d.definition_id, d.definition_version;
+            ORDER BY p.package_id, d.definition_id, d.definition_version DESC;
             """;
         await using (var actionsCommand = new NpgsqlCommand(actionsSql, connection))
         {
@@ -1484,10 +2346,26 @@ internal sealed class WorldAuthorityRepository
         await entitiesReader.DisposeAsync();
 
         var factsSql = """
-            SELECT fact_id, subject_entity_id, predicate_id, object_kind, object_entity_id,
-                   object_canonical_id, object_value::text
+            SELECT f.fact_id, f.subject_entity_id, f.predicate_id, f.object_kind,
+                   f.object_entity_id, f.object_canonical_id, f.object_value::text,
+                   f.source_type, f.source_rule_binding_id,
+                   f.rule_result_lifetime, owner.application_id,
+                   owner.package_id, owner.slot_id, f.created_revision
             FROM world_facts f
             INNER JOIN world_entities e ON e.entity_id = f.subject_entity_id
+            LEFT JOIN LATERAL (
+                SELECT p.application_id, p.package_id, p.slot_id
+                FROM world_meaning_package_fact_ownership ownership
+                INNER JOIN world_meaning_package_applications p
+                    ON p.application_id = ownership.application_id
+                WHERE ownership.fact_id = f.fact_id
+                  AND ownership.released_revision IS NULL
+                  AND p.world_id = f.world_id
+                  AND p.target_entity_id = f.subject_entity_id
+                  AND p.removed_revision IS NULL
+                ORDER BY p.applied_revision DESC
+                LIMIT 1
+            ) owner ON TRUE
             WHERE f.world_id = @worldId AND f.retracted_revision IS NULL
               AND e.deleted_revision IS NULL
             """ + (string.IsNullOrWhiteSpace(zoneKey) ? string.Empty : " AND e.zone_key = @zoneKey") +
@@ -1505,14 +2383,36 @@ internal sealed class WorldAuthorityRepository
                 factsReader.GetString(3),
                 factsReader.IsDBNull(4) ? null : factsReader.GetGuid(4),
                 factsReader.IsDBNull(5) ? null : factsReader.GetString(5),
-                factsReader.IsDBNull(6) ? null : factsReader.GetString(6)));
+                factsReader.IsDBNull(6) ? null : factsReader.GetString(6),
+                factsReader.GetString(7),
+                factsReader.IsDBNull(8) ? null : factsReader.GetGuid(8),
+                factsReader.IsDBNull(9) ? null : factsReader.GetString(9),
+                factsReader.IsDBNull(10) ? null : factsReader.GetGuid(10),
+                factsReader.IsDBNull(11) ? null : factsReader.GetString(11),
+                factsReader.IsDBNull(12) ? null : factsReader.GetString(12),
+                factsReader.GetInt64(13)));
         }
         await factsReader.DisposeAsync();
 
         var rulesSql = """
-            SELECT binding_id, target_entity_id, rule_id, rule_version, enabled, parameter_values::text
+            SELECT b.binding_id, b.target_entity_id, b.rule_id, b.rule_version,
+                   b.enabled, b.parameter_values::text, owner.application_id,
+                   owner.package_id, owner.slot_id, b.created_revision
             FROM world_rule_bindings b
             INNER JOIN world_entities e ON e.entity_id = b.target_entity_id
+            LEFT JOIN LATERAL (
+                SELECT p.application_id, p.package_id, p.slot_id
+                FROM world_meaning_package_binding_ownership ownership
+                INNER JOIN world_meaning_package_applications p
+                    ON p.application_id = ownership.application_id
+                WHERE ownership.binding_id = b.binding_id
+                  AND ownership.released_revision IS NULL
+                  AND p.world_id = b.world_id
+                  AND p.target_entity_id = b.target_entity_id
+                  AND p.removed_revision IS NULL
+                ORDER BY p.applied_revision DESC
+                LIMIT 1
+            ) owner ON TRUE
             WHERE b.world_id = @worldId AND b.retracted_revision IS NULL
               AND e.deleted_revision IS NULL
             """ + (string.IsNullOrWhiteSpace(zoneKey) ? string.Empty : " AND e.zone_key = @zoneKey") +
@@ -1529,7 +2429,11 @@ internal sealed class WorldAuthorityRepository
                 rulesReader.GetString(2),
                 rulesReader.GetInt32(3),
                 rulesReader.GetBoolean(4),
-                rulesReader.GetString(5)));
+                rulesReader.GetString(5),
+                rulesReader.IsDBNull(6) ? null : rulesReader.GetGuid(6),
+                rulesReader.IsDBNull(7) ? null : rulesReader.GetString(7),
+                rulesReader.IsDBNull(8) ? null : rulesReader.GetString(8),
+                rulesReader.GetInt64(9)));
         }
 
         return projection;
@@ -1615,7 +2519,11 @@ internal sealed class WorldAuthorityRepository
                    jump_takeoff_fact.object_value::text,
                    ground_stick_fact.object_value::text,
                    maximum_step_fact.object_value::text,
-                   ground_clearance_fact.object_value::text
+                   ground_clearance_fact.object_value::text,
+                   package.package_id,
+                   package.package_version,
+                   action.object_canonical_id,
+                   definition.definition_version
             FROM world_player_avatars a
             INNER JOIN world_entities e ON e.entity_id = a.entity_id
             INNER JOIN world_facts actor_concept
@@ -1665,15 +2573,19 @@ internal sealed class WorldAuthorityRepository
             INNER JOIN world_content_packages package
                 ON package.world_id = a.world_id
                AND package.enabled = true
-            INNER JOIN content_definitions definition
-                ON definition.package_id = package.package_id
-               AND definition.package_version = package.package_version
-               AND definition.definition_kind = 'action_effect'
-               AND definition.definition_id =
-                   action.object_canonical_id
-               AND definition.payload #>>
-                   '{ruleInvocation,ruleId}' = binding.rule_id
-               AND definition.is_published = true
+            INNER JOIN LATERAL (
+                SELECT d.definition_version, d.payload
+                FROM content_definitions d
+                WHERE d.package_id = package.package_id
+                  AND d.package_version = package.package_version
+                  AND d.definition_kind = 'action_effect'
+                  AND d.definition_id = action.object_canonical_id
+                  AND d.payload #>> '{ruleInvocation,ruleId}' =
+                      binding.rule_id
+                  AND d.is_published = true
+                ORDER BY d.definition_version DESC
+                LIMIT 1
+            ) definition ON true
             INNER JOIN LATERAL (
                 SELECT f.object_value
                 FROM world_facts f
@@ -1787,10 +2699,17 @@ internal sealed class WorldAuthorityRepository
                 ReadNullableNumber(reader, 8),
                 ReadNullableNumber(reader, 9),
                 ReadNullableNumber(reader, 10),
-                ReadNullableNumber(reader, 11)));
+                ReadNullableNumber(reader, 11),
+                reader.GetString(12),
+                reader.GetString(13),
+                reader.GetString(14),
+                reader.GetInt32(15)));
         }
         return avatars
             .GroupBy(value => value.AvatarEntityId)
+            // More than one enabled package remains ambiguous, but immutable
+            // historical versions inside one package were reduced to the
+            // newest published definition by the lateral join above.
             .Where(group => group.Count() == 1)
             .Select(group => group.Single())
             .ToArray();
@@ -1937,6 +2856,19 @@ internal sealed class WorldAuthorityRepository
             WHERE e.world_id = @worldId
               AND e.zone_key = @zoneKey
               AND e.deleted_revision IS NULL
+              AND (
+                  role_fact.object_canonical_id <> 'ActorBody'
+                  OR EXISTS (
+                      SELECT 1
+                      FROM world_facts alive
+                      WHERE alive.world_id = e.world_id
+                        AND alive.subject_entity_id = e.entity_id
+                        AND alive.predicate_id = 'is_alive'
+                        AND alive.object_kind = 'boolean'
+                        AND alive.object_value::text = 'true'
+                        AND alive.retracted_revision IS NULL
+                  )
+              )
             ORDER BY e.entity_id;
             """;
         await using var command = new NpgsqlCommand(sql, connection);
@@ -1990,6 +2922,11 @@ internal sealed class WorldAuthorityRepository
                    detection.object_value::text,
                    leash.object_value::text,
                    attack_range.object_value::text,
+                   attack_windup.object_value::text,
+                   attack_recovery.object_value::text,
+                   collision_radius.object_value::text,
+                   collision_height.object_value::text,
+                   contact_reach.object_value::text,
                    target_action.object_canonical_id,
                    chase_action.object_canonical_id,
                    action.object_canonical_id,
@@ -2096,6 +3033,61 @@ internal sealed class WorldAuthorityRepository
                 LIMIT 1
             ) attack_range ON true
             INNER JOIN LATERAL (
+                SELECT f.object_value
+                FROM world_facts f
+                WHERE f.world_id = e.world_id
+                  AND f.subject_entity_id = e.entity_id
+                  AND f.predicate_id = 'attack_windup_seconds'
+                  AND f.object_kind = 'number'
+                  AND f.retracted_revision IS NULL
+                ORDER BY f.created_revision DESC, f.fact_id DESC
+                LIMIT 1
+            ) attack_windup ON true
+            INNER JOIN LATERAL (
+                SELECT f.object_value
+                FROM world_facts f
+                WHERE f.world_id = e.world_id
+                  AND f.subject_entity_id = e.entity_id
+                  AND f.predicate_id = 'attack_recovery_seconds'
+                  AND f.object_kind = 'number'
+                  AND f.retracted_revision IS NULL
+                ORDER BY f.created_revision DESC, f.fact_id DESC
+                LIMIT 1
+            ) attack_recovery ON true
+            INNER JOIN LATERAL (
+                SELECT f.object_value
+                FROM world_facts f
+                WHERE f.world_id = e.world_id
+                  AND f.subject_entity_id = e.entity_id
+                  AND f.predicate_id = 'collision_radius'
+                  AND f.object_kind = 'number'
+                  AND f.retracted_revision IS NULL
+                ORDER BY f.created_revision DESC, f.fact_id DESC
+                LIMIT 1
+            ) collision_radius ON true
+            INNER JOIN LATERAL (
+                SELECT f.object_value
+                FROM world_facts f
+                WHERE f.world_id = e.world_id
+                  AND f.subject_entity_id = e.entity_id
+                  AND f.predicate_id = 'collision_height'
+                  AND f.object_kind = 'number'
+                  AND f.retracted_revision IS NULL
+                ORDER BY f.created_revision DESC, f.fact_id DESC
+                LIMIT 1
+            ) collision_height ON true
+            INNER JOIN LATERAL (
+                SELECT f.object_value
+                FROM world_facts f
+                WHERE f.world_id = e.world_id
+                  AND f.subject_entity_id = e.entity_id
+                  AND f.predicate_id = 'attack_contact_reach'
+                  AND f.object_kind = 'number'
+                  AND f.retracted_revision IS NULL
+                ORDER BY f.created_revision DESC, f.fact_id DESC
+                LIMIT 1
+            ) contact_reach ON true
+            INNER JOIN LATERAL (
                 SELECT f.object_canonical_id
                 FROM world_facts f
                 WHERE f.world_id = e.world_id
@@ -2153,29 +3145,39 @@ internal sealed class WorldAuthorityRepository
             INNER JOIN world_content_packages package
                 ON package.world_id = e.world_id
                AND package.enabled = true
-            INNER JOIN content_definitions definition
-                ON definition.package_id = package.package_id
-               AND definition.package_version = package.package_version
-               AND definition.definition_kind = 'action_effect'
-               AND definition.definition_id =
-                   action.object_canonical_id
-               AND definition.is_published = true
-            INNER JOIN content_definitions target_definition
-                ON target_definition.package_id = package.package_id
-               AND target_definition.package_version =
-                   package.package_version
-               AND target_definition.definition_kind = 'action_effect'
-               AND target_definition.definition_id =
-                   target_action.object_canonical_id
-               AND target_definition.is_published = true
-            INNER JOIN content_definitions chase_definition
-                ON chase_definition.package_id = package.package_id
-               AND chase_definition.package_version =
-                   package.package_version
-               AND chase_definition.definition_kind = 'action_effect'
-               AND chase_definition.definition_id =
-                   chase_action.object_canonical_id
-               AND chase_definition.is_published = true
+            INNER JOIN LATERAL (
+                SELECT d.definition_version, d.payload
+                FROM content_definitions d
+                WHERE d.package_id = package.package_id
+                  AND d.package_version = package.package_version
+                  AND d.definition_kind = 'action_effect'
+                  AND d.definition_id = action.object_canonical_id
+                  AND d.is_published = true
+                ORDER BY d.definition_version DESC
+                LIMIT 1
+            ) definition ON true
+            INNER JOIN LATERAL (
+                SELECT d.definition_version, d.payload
+                FROM content_definitions d
+                WHERE d.package_id = package.package_id
+                  AND d.package_version = package.package_version
+                  AND d.definition_kind = 'action_effect'
+                  AND d.definition_id = target_action.object_canonical_id
+                  AND d.is_published = true
+                ORDER BY d.definition_version DESC
+                LIMIT 1
+            ) target_definition ON true
+            INNER JOIN LATERAL (
+                SELECT d.definition_version, d.payload
+                FROM content_definitions d
+                WHERE d.package_id = package.package_id
+                  AND d.package_version = package.package_version
+                  AND d.definition_kind = 'action_effect'
+                  AND d.definition_id = chase_action.object_canonical_id
+                  AND d.is_published = true
+                ORDER BY d.definition_version DESC
+                LIMIT 1
+            ) chase_definition ON true
             INNER JOIN world_rule_bindings attack_binding
                 ON attack_binding.world_id = e.world_id
                AND attack_binding.target_entity_id = e.entity_id
@@ -2219,10 +3221,20 @@ internal sealed class WorldAuthorityRepository
             var detection = TryReadJsonNumber(reader.GetString(5));
             var leash = TryReadJsonNumber(reader.GetString(6));
             var range = TryReadJsonNumber(reader.GetString(7));
+            var windup = TryReadJsonNumber(reader.GetString(8));
+            var recovery = TryReadJsonNumber(reader.GetString(9));
+            var collisionRadius = TryReadJsonNumber(reader.GetString(10));
+            var collisionHeight = TryReadJsonNumber(reader.GetString(11));
+            var contactReach = TryReadJsonNumber(reader.GetString(12));
             if (speed is not > 0d ||
                 detection is not > 0d ||
                 leash is not > 0d ||
-                range is not > 0d)
+                range is not > 0d ||
+                windup is not >= 0d ||
+                recovery is not >= 0d ||
+                collisionRadius is not > 0d ||
+                collisionHeight is not > 0d ||
+                contactReach is not >= 0d)
             {
                 continue;
             }
@@ -2237,20 +3249,27 @@ internal sealed class WorldAuthorityRepository
                 detection.Value,
                 leash.Value,
                 range.Value,
-                reader.GetString(8),
-                reader.GetInt32(15),
-                reader.GetString(9),
-                reader.GetInt32(16),
-                reader.GetString(10),
-                reader.GetString(11),
-                reader.GetString(12),
+                windup.Value,
+                recovery.Value,
+                collisionRadius.Value,
+                collisionHeight.Value,
+                contactReach.Value,
                 reader.GetString(13),
+                reader.GetInt32(20),
                 reader.GetString(14),
-                reader.GetInt32(17)));
+                reader.GetInt32(21),
+                reader.GetString(15),
+                reader.GetString(16),
+                reader.GetString(17),
+                reader.GetString(18),
+                reader.GetString(19),
+                reader.GetInt32(22)));
         }
 
-        // An action ID enabled from more than one package is ambiguous. The
-        // scheduler refuses to guess, matching the Unity action resolver.
+        // More than one enabled package providing a complete contract for the
+        // same actor remains ambiguous. Historical immutable definition
+        // versions inside one package were already reduced to the newest
+        // published version by the lateral joins above.
         return candidates
             .GroupBy(value => value.ActorEntityId)
             .Where(group => group.Count() == 1)
@@ -2273,6 +3292,8 @@ internal sealed class WorldAuthorityRepository
                     entity.position_x,
                     entity.position_y,
                     entity.position_z,
+                    radius.object_value::text,
+                    height.object_value::text,
                     avatar.user_id IS NOT NULL OR EXISTS (
                         SELECT 1
                         FROM world_facts runtime_owner
@@ -2287,6 +3308,28 @@ internal sealed class WorldAuthorityRepository
             LEFT JOIN world_player_avatars avatar
                 ON avatar.world_id = entity.world_id
                AND avatar.entity_id = entity.entity_id
+            INNER JOIN LATERAL (
+                SELECT f.object_value
+                FROM world_facts f
+                WHERE f.world_id = entity.world_id
+                  AND f.subject_entity_id = entity.entity_id
+                  AND f.predicate_id = 'collision_radius'
+                  AND f.object_kind = 'number'
+                  AND f.retracted_revision IS NULL
+                ORDER BY f.created_revision DESC, f.fact_id DESC
+                LIMIT 1
+            ) radius ON true
+            INNER JOIN LATERAL (
+                SELECT f.object_value
+                FROM world_facts f
+                WHERE f.world_id = entity.world_id
+                  AND f.subject_entity_id = entity.entity_id
+                  AND f.predicate_id = 'collision_height'
+                  AND f.object_kind = 'number'
+                  AND f.retracted_revision IS NULL
+                ORDER BY f.created_revision DESC, f.fact_id DESC
+                LIMIT 1
+            ) height ON true
              WHERE entity.world_id = @worldId
                AND entity.zone_key = @zoneKey
                AND entity.deleted_revision IS NULL
@@ -2309,6 +3352,12 @@ internal sealed class WorldAuthorityRepository
         var result = new List<WorldAutonomousTargetConfiguration>();
         while (await reader.ReadAsync(cancellationToken))
         {
+            var collisionRadius = TryReadJsonNumber(reader.GetString(6));
+            var collisionHeight = TryReadJsonNumber(reader.GetString(7));
+            if (collisionRadius is not > 0d || collisionHeight is not > 0d)
+            {
+                continue;
+            }
             result.Add(new WorldAutonomousTargetConfiguration(
                 reader.GetGuid(0),
                 reader.IsDBNull(1) ? null : reader.GetGuid(1),
@@ -2316,7 +3365,9 @@ internal sealed class WorldAuthorityRepository
                  reader.GetDouble(3),
                  reader.GetDouble(4),
                  reader.GetDouble(5),
-                 reader.GetBoolean(6)));
+                 collisionRadius.Value,
+                 collisionHeight.Value,
+                 reader.GetBoolean(8)));
         }
         return result;
     }
@@ -2330,6 +3381,7 @@ internal sealed class WorldAuthorityRepository
         Guid worldId,
         Guid avatarEntityId,
         string expectedZoneKey,
+        Guid? runtimeSessionId,
         CancellationToken cancellationToken)
     {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
@@ -2351,6 +3403,9 @@ internal sealed class WorldAuthorityRepository
         if (!string.Equals(zoneKey, expectedZoneKey, StringComparison.Ordinal))
             return null;
         var current = await motionRuntime.Get(worldId, avatarEntityId, cancellationToken);
+        var activeRuntimeSessionId =
+            runtimeSessionId ?? current?.RuntimeSessionId ?? Guid.Empty;
+        var beginsNewSession = runtimeSessionId.HasValue;
         var state = new WorldPlayerMotionState(
             worldId,
             avatarEntityId,
@@ -2358,7 +3413,9 @@ internal sealed class WorldAuthorityRepository
             reader.GetDouble(1),
             reader.GetDouble(2),
             reader.GetDouble(3),
-            current?.LastProcessedIntentSequence ?? 0,
+            beginsNewSession
+                ? 0
+                : current?.LastProcessedIntentSequence ?? 0,
             "idle",
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             0d,
@@ -2367,8 +3424,10 @@ internal sealed class WorldAuthorityRepository
             reader.GetDouble(2),
             true,
             0,
-            null);
-        await motionRuntime.Set(state, cancellationToken);
+            null,
+            null,
+            activeRuntimeSessionId);
+        await motionRuntime.Activate(state, cancellationToken);
         return state;
     }
 
@@ -2410,13 +3469,34 @@ internal sealed class WorldAuthorityRepository
         CancellationToken cancellationToken)
     {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction =
+            await connection.BeginTransactionAsync(
+                IsolationLevel.RepeatableRead,
+                cancellationToken);
+
+        await using var revisionCommand = new NpgsqlCommand(
+            "SELECT current_revision FROM worlds WHERE world_id = @worldId;",
+            connection,
+            transaction);
+        revisionCommand.Parameters.AddWithValue("worldId", worldId);
+        var revisionValue =
+            await revisionCommand.ExecuteScalarAsync(cancellationToken);
+        if (revisionValue is not long worldRevision)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return HeadlessZoneRuntimeInput.Unavailable;
+        }
+
         var entities = new List<string>();
         const string entitiesSql = """
             SELECT entity_id::text
             FROM world_entities
             WHERE world_id = @worldId AND zone_key = @zoneKey AND deleted_revision IS NULL;
             """;
-        await using (var command = new NpgsqlCommand(entitiesSql, connection))
+        await using (var command = new NpgsqlCommand(
+                         entitiesSql,
+                         connection,
+                         transaction))
         {
             command.Parameters.AddWithValue("worldId", worldId);
             command.Parameters.AddWithValue("zoneKey", zoneKey);
@@ -2434,7 +3514,10 @@ internal sealed class WorldAuthorityRepository
               AND e.deleted_revision IS NULL AND e.zone_key = @zoneKey
             ORDER BY f.created_revision, f.fact_id;
             """;
-        await using (var command = new NpgsqlCommand(factsSql, connection))
+        await using (var command = new NpgsqlCommand(
+                         factsSql,
+                         connection,
+                         transaction))
         {
             command.Parameters.AddWithValue("worldId", worldId);
             command.Parameters.AddWithValue("zoneKey", zoneKey);
@@ -2453,7 +3536,9 @@ internal sealed class WorldAuthorityRepository
 
         var bindings = new List<HeadlessRuleBinding>();
         const string bindingsSql = """
-            SELECT b.target_entity_id::text, b.rule_id, b.parameter_values::text, d.payload::text
+            SELECT b.binding_id, b.target_entity_id::text, b.rule_id,
+                   b.rule_version, b.created_revision,
+                   b.parameter_values::text, d.checksum, d.payload::text
             FROM world_rule_bindings b
             INNER JOIN world_entities e ON e.entity_id = b.target_entity_id
             LEFT JOIN content_definitions d
@@ -2465,7 +3550,10 @@ internal sealed class WorldAuthorityRepository
               AND e.deleted_revision IS NULL AND e.zone_key = @zoneKey
             ORDER BY b.created_revision, b.binding_id;
             """;
-        await using (var command = new NpgsqlCommand(bindingsSql, connection))
+        await using (var command = new NpgsqlCommand(
+                         bindingsSql,
+                         connection,
+                         transaction))
         {
             command.Parameters.AddWithValue("worldId", worldId);
             command.Parameters.AddWithValue("zoneKey", zoneKey);
@@ -2473,14 +3561,23 @@ internal sealed class WorldAuthorityRepository
             while (await reader.ReadAsync(cancellationToken))
             {
                 bindings.Add(new HeadlessRuleBinding(
-                    reader.GetString(0),
+                    reader.GetGuid(0),
                     reader.GetString(1),
-                    reader.IsDBNull(2) ? null : reader.GetString(2),
-                    reader.IsDBNull(3) ? null : reader.GetString(3)));
+                    reader.GetString(2),
+                    reader.GetInt32(3),
+                    reader.GetInt64(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetString(7)));
             }
         }
 
-        return new HeadlessZoneRuntimeInput(entities, facts, bindings);
+        await transaction.CommitAsync(cancellationToken);
+        return new HeadlessZoneRuntimeInput(
+            worldRevision,
+            entities,
+            facts,
+            bindings);
     }
 
     public async Task<WorldZoneProjection?> GetWorldZone(
@@ -2616,6 +3713,11 @@ internal sealed class WorldAuthorityRepository
         {
             return request.Payload.Deserialize<PlaceEntityPayload>(JsonOptions)?.ZoneKey;
         }
+        if (request.CommandType == WorldCommandTypes.PreparePlayerAvatar)
+        {
+            return request.Payload.Deserialize<PreparePlayerAvatarPayload>(JsonOptions)
+                ?.Entity.ZoneKey;
+        }
 
         var entityId = request.CommandType switch
         {
@@ -2624,6 +3726,7 @@ internal sealed class WorldAuthorityRepository
             WorldCommandTypes.SetAuthoredFact => request.Payload.Deserialize<SetAuthoredFactPayload>(JsonOptions)?.SubjectEntityId,
             WorldCommandTypes.AddRuleBlock => request.Payload.Deserialize<AddRuleBlockPayload>(JsonOptions)?.TargetEntityId,
             WorldCommandTypes.ApplyMeaningPackage => request.Payload.Deserialize<ApplyMeaningPackagePayload>(JsonOptions)?.TargetEntityId,
+            WorldCommandTypes.PrepareSemanticContract => request.Payload.Deserialize<PrepareSemanticContractPayload>(JsonOptions)?.TargetEntityId,
             WorldCommandTypes.RegisterPlayerAvatar => request.Payload.Deserialize<RegisterPlayerAvatarPayload>(JsonOptions)?.EntityId,
             WorldCommandTypes.SetAvatarProfileRelations => request.Payload.Deserialize<SetAvatarProfileRelationsPayload>(JsonOptions)?.AvatarEntityId,
             WorldCommandTypes.ExecuteAction => request.Payload.Deserialize<ExecuteActionPayload>(JsonOptions)?.ActorEntityId,
@@ -2684,7 +3787,8 @@ internal sealed class WorldAuthorityRepository
         var isGameplayAction = request.CommandType is
             WorldCommandTypes.ExecuteAction or
             WorldCommandTypes.RegisterPlayerAvatar or
-            WorldCommandTypes.SaveAvatarCheckpoint;
+            WorldCommandTypes.SaveAvatarCheckpoint or
+            WorldCommandTypes.PreparePlayerAvatar;
         if (!access.CanEdit && !isGameplayAction)
         {
             await RecordRejectedCommand(connection, transaction, worldId, actorUserId, request, "forbidden", cancellationToken);
@@ -2740,32 +3844,42 @@ internal sealed class WorldAuthorityRepository
             await releaseSavepoint.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        await SetWorldRevision(connection, transaction, worldId, nextRevision, cancellationToken);
-        await RecordAcceptedCommand(connection, transaction, worldId, actorUserId, request, nextRevision, cancellationToken);
-        var eventId = await RecordWorldEvent(
-            connection,
-            transaction,
-            worldId,
-            actorUserId,
-            request,
-            nextRevision,
-            apply.EventPayloadJson ?? request.Payload.GetRawText(),
-            cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-
-        if (request.CommandType == WorldCommandTypes.SaveAvatarCheckpoint)
+        var acceptedRevision = apply.HasChanges
+            ? nextRevision
+            : access.CurrentRevision;
+        if (apply.HasChanges)
         {
-            var checkpoint = request.Payload.Deserialize<SaveAvatarCheckpointPayload>(JsonOptions);
-            if (checkpoint is not null && !string.IsNullOrWhiteSpace(checkpoint.ZoneKey))
-            {
-                await ResetPlayerMotionFromDurableState(
-                    worldId,
-                    checkpoint.AvatarEntityId,
-                    checkpoint.ZoneKey,
-                    cancellationToken);
-            }
+            await SetWorldRevision(
+                connection,
+                transaction,
+                worldId,
+                nextRevision,
+                cancellationToken);
         }
-        else if (request.CommandType == WorldCommandTypes.RetireEntity)
+        await RecordAcceptedCommand(connection, transaction, worldId, actorUserId, request, acceptedRevision, cancellationToken);
+        Guid? eventId = null;
+        if (apply.HasChanges)
+        {
+            eventId = await RecordWorldEvent(
+                connection,
+                transaction,
+                worldId,
+                actorUserId,
+                request,
+                nextRevision,
+                apply.EventPayloadJson ?? request.Payload.GetRawText(),
+                cancellationToken);
+        }
+        if (apply.HasChanges)
+            await revisionRuntime.MarkPending(
+                worldId, access.CurrentRevision, acceptedRevision,
+                cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        if (apply.HasChanges)
+            await revisionRuntime.ObserveCommitted(
+                worldId, acceptedRevision, CancellationToken.None);
+
+        if (request.CommandType == WorldCommandTypes.RetireEntity)
         {
             var retirement =
                 request.Payload.Deserialize<RetireEntityPayload>(JsonOptions);
@@ -2778,7 +3892,7 @@ internal sealed class WorldAuthorityRepository
             }
         }
 
-        return new CommandResult(true, null, nextRevision, eventId, false);
+        return new CommandResult(true, null, acceptedRevision, eventId, false);
     }
 
     private async Task<CommandApplyResult> ApplyAuthoringCommand(
@@ -2809,6 +3923,8 @@ internal sealed class WorldAuthorityRepository
             WorldCommandTypes.ExecuteAction => await ExecuteAction(connection, transaction, worldId, request.Payload, actorUserId, revision, cancellationToken),
             WorldCommandTypes.RemoveRuleBlock => await RemoveRuleBlock(connection, transaction, worldId, request.Payload, revision, cancellationToken),
             WorldCommandTypes.ApplyMeaningPackage => await ApplyMeaningPackage(connection, transaction, worldId, request.Payload, revision, cancellationToken),
+            WorldCommandTypes.PrepareSemanticContract => await PrepareSemanticContract(connection, transaction, worldId, request.Payload, revision, cancellationToken),
+            WorldCommandTypes.PreparePlayerAvatar => await PreparePlayerAvatar(connection, transaction, worldId, request.Payload, actorUserId, revision, cancellationToken),
             WorldCommandTypes.DefineZone => await DefineZone(connection, transaction, worldId, request.Payload, cancellationToken),
             _ => CommandApplyResult.Rejected("unsupported_command_type")
         };
@@ -3032,42 +4148,98 @@ internal sealed class WorldAuthorityRepository
                    EXISTS (
                 SELECT 1 FROM content_definitions d
                 WHERE d.package_id = @packageId AND d.package_version = @packageVersion
-                  AND d.is_published);
+                  AND d.is_published),
+                   EXISTS (
+                SELECT 1 FROM world_content_packages w
+                WHERE w.world_id = @worldId AND w.package_id = @packageId
+                  AND w.package_version = @packageVersion
+                  AND w.enabled = @enabled);
             """;
         await using (var access = new NpgsqlCommand(accessSql, connection, transaction))
         {
             access.Parameters.AddWithValue("packageId", request.PackageId.Trim());
             access.Parameters.AddWithValue("packageVersion", request.PackageVersion.Trim());
             access.Parameters.AddWithValue("userId", actorUserId);
+            access.Parameters.AddWithValue("worldId", worldId);
+            access.Parameters.AddWithValue("enabled", request.Enabled);
             await using var reader = await access.ExecuteReaderAsync(cancellationToken);
             if (!await reader.ReadAsync(cancellationToken) || !reader.GetBoolean(0))
                 return CommandApplyResult.Rejected("content_package_forbidden");
             if (request.Enabled && !reader.GetBoolean(1))
                 return CommandApplyResult.Rejected("content_package_version_not_published");
-        }
+            var unchanged = reader.GetBoolean(2);
+            await reader.DisposeAsync();
+            if (!unchanged)
+            {
+                const string upsertSql = """
+                    INSERT INTO world_content_packages(world_id, package_id, package_version, enabled, updated_revision)
+                    VALUES (@worldId, @packageId, @packageVersion, @enabled, @revision)
+                    ON CONFLICT (world_id, package_id) DO UPDATE SET
+                        package_version = EXCLUDED.package_version,
+                        enabled = EXCLUDED.enabled,
+                        updated_revision = EXCLUDED.updated_revision,
+                        updated_at = now();
+                    """;
+                await using var command = new NpgsqlCommand(
+                    upsertSql,
+                    connection,
+                    transaction);
+                command.Parameters.AddWithValue("worldId", worldId);
+                command.Parameters.AddWithValue(
+                    "packageId",
+                    request.PackageId.Trim());
+                command.Parameters.AddWithValue(
+                    "packageVersion",
+                    request.PackageVersion.Trim());
+                command.Parameters.AddWithValue("enabled", request.Enabled);
+                command.Parameters.AddWithValue("revision", revision);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
 
-        const string upsertSql = """
-            INSERT INTO world_content_packages(world_id, package_id, package_version, enabled, updated_revision)
-            VALUES (@worldId, @packageId, @packageVersion, @enabled, @revision)
-            ON CONFLICT (world_id, package_id) DO UPDATE SET
-                package_version = EXCLUDED.package_version,
-                enabled = EXCLUDED.enabled,
-                updated_revision = EXCLUDED.updated_revision,
-                updated_at = now();
-            """;
-        await using var command = new NpgsqlCommand(upsertSql, connection, transaction);
-        command.Parameters.AddWithValue("worldId", worldId);
-        command.Parameters.AddWithValue("packageId", request.PackageId.Trim());
-        command.Parameters.AddWithValue("packageVersion", request.PackageVersion.Trim());
-        command.Parameters.AddWithValue("enabled", request.Enabled);
-        command.Parameters.AddWithValue("revision", revision);
-        await command.ExecuteNonQueryAsync(cancellationToken);
-        return CommandApplyResult.Succeeded(JsonSerializer.Serialize(new
-        {
-            request.PackageId,
-            request.PackageVersion,
-            request.Enabled
-        }, JsonOptions));
+            const string entryPackageSql = """
+                UPDATE worlds
+                SET entry_content_package_id = CASE
+                        WHEN @enabled THEN @packageId
+                        WHEN entry_content_package_id = @packageId
+                         AND entry_content_package_version = @packageVersion
+                        THEN NULL ELSE entry_content_package_id END,
+                    entry_content_package_version = CASE
+                        WHEN @enabled THEN @packageVersion
+                        WHEN entry_content_package_id = @packageId
+                         AND entry_content_package_version = @packageVersion
+                        THEN NULL ELSE entry_content_package_version END
+                WHERE world_id = @worldId;
+                """;
+            await using var entryPackage = new NpgsqlCommand(
+                entryPackageSql,
+                connection,
+                transaction);
+            entryPackage.Parameters.AddWithValue("worldId", worldId);
+            entryPackage.Parameters.AddWithValue(
+                "packageId",
+                request.PackageId.Trim());
+            entryPackage.Parameters.AddWithValue(
+                "packageVersion",
+                request.PackageVersion.Trim());
+            entryPackage.Parameters.AddWithValue("enabled", request.Enabled);
+            await entryPackage.ExecuteNonQueryAsync(cancellationToken);
+
+            return unchanged
+                ? CommandApplyResult.SucceededNoChange(
+                    JsonSerializer.Serialize(new
+                    {
+                        request.PackageId,
+                        request.PackageVersion,
+                        request.Enabled,
+                        unchanged = true
+                    }, JsonOptions))
+                : CommandApplyResult.Succeeded(JsonSerializer.Serialize(new
+                {
+                    request.PackageId,
+                    request.PackageVersion,
+                    request.Enabled
+                }, JsonOptions));
+        }
     }
 
     // The immutable action definition supplies conditions and effects. The command
@@ -3084,25 +4256,39 @@ internal sealed class WorldAuthorityRepository
     {
         var request = payload.Deserialize<ExecuteActionPayload>(JsonOptions);
         if (request is null || !request.IsValid()) return CommandApplyResult.Rejected("invalid_execute_action_payload");
+        using var actionObservation = actionEvaluationMetrics.Begin(
+            "execute_command", request.ActionId);
         var prepared = await PrepareActionEvaluation(
             connection,
             transaction,
             worldId,
             actorUserId,
             request,
-            cancellationToken);
+            cancellationToken,
+            observation: actionObservation);
         if (!prepared.Accepted)
             return CommandApplyResult.Rejected(prepared.RejectionCode!);
 
-        if (!await actionCooldownRuntime.TryAcquire(
-                worldId,
-                request.ActorEntityId,
-                request.ToolEntityId,
-                request.ActionId.Trim(),
-                prepared.Cooldown,
-                cancellationToken))
+        if (prepared.Definition?.runtimeConstraints
+                ?.requiresAuthorityAttackOccurrence == true)
         {
-            return CommandApplyResult.Rejected("action_cooldown_active");
+            if (!request.AttackOccurrenceId.HasValue)
+                return CommandApplyResult.Rejected(
+                    "authority_attack_occurrence_required");
+            var occurrence = await attackOccurrences.Get(
+                worldId, request.AttackOccurrenceId.Value,
+                cancellationToken);
+            if (occurrence is null || !occurrence.ContactResolved ||
+                occurrence.ActorUserId != actorUserId ||
+                occurrence.ActorEntityId != request.ActorEntityId ||
+                occurrence.TargetEntityId != request.TargetEntityId ||
+                occurrence.ToolEntityId != request.ToolEntityId ||
+                !string.Equals(occurrence.ActionId, request.ActionId,
+                    StringComparison.Ordinal))
+            {
+                return CommandApplyResult.Rejected(
+                    "authority_attack_occurrence_invalid");
+            }
         }
 
         foreach (var mutation in prepared.Evaluation!.Mutations)
@@ -3117,6 +4303,13 @@ internal sealed class WorldAuthorityRepository
                 cancellationToken);
             if (mutationResult is not null)
                 return CommandApplyResult.Rejected(mutationResult);
+            if (!prepared.Snapshot!.TryApplyCommittedMutation(
+                    mutation,
+                    prepared.BoundRule?.BindingId,
+                    out var overlayRejection))
+            {
+                return CommandApplyResult.Rejected(overlayRejection);
+            }
         }
         var postRules = await ApplyPostRuleInvocations(
             connection,
@@ -3124,10 +4317,25 @@ internal sealed class WorldAuthorityRepository
             worldId,
             request,
             prepared.Definition!,
+            prepared.Snapshot!,
             revision,
-            cancellationToken);
+            cancellationToken,
+            actionObservation);
         if (!postRules.Accepted)
             return CommandApplyResult.Rejected(postRules.RejectionCode!);
+        // The cooldown is an external ephemeral reservation and cannot join the
+        // PostgreSQL rollback. Acquire it only after every required post-Rule
+        // has succeeded, while the durable transaction is still uncommitted.
+        if (!await actionCooldownRuntime.TryAcquire(
+                worldId,
+                request.ActorEntityId,
+                request.ToolEntityId,
+                request.ActionId.Trim(),
+                prepared.Cooldown,
+                cancellationToken))
+        {
+            return CommandApplyResult.Rejected("action_cooldown_active");
+        }
 
         return CommandApplyResult.Succeeded(JsonSerializer.Serialize(new
         {
@@ -3195,6 +4403,8 @@ internal sealed class WorldAuthorityRepository
             currentRevision = reader.GetInt64(1);
         }
 
+        using var actionObservation = actionEvaluationMetrics.Begin(
+            "execute_autonomous", request.ActionId);
         var prepared = await PrepareActionEvaluation(
             connection,
             transaction,
@@ -3202,25 +4412,13 @@ internal sealed class WorldAuthorityRepository
             ownerUserId,
             request,
             cancellationToken,
-            requirePlayerActorOwnership: false);
+            requirePlayerActorOwnership: false,
+            observation: actionObservation);
         if (!prepared.Accepted)
         {
             await transaction.RollbackAsync(cancellationToken);
             return AutonomousActionExecutionResult.Rejected(
                 prepared.RejectionCode!);
-        }
-
-        if (!await actionCooldownRuntime.TryAcquire(
-                worldId,
-                request.ActorEntityId,
-                request.ToolEntityId,
-                request.ActionId.Trim(),
-                prepared.Cooldown,
-                cancellationToken))
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            return AutonomousActionExecutionResult.Rejected(
-                "action_cooldown_active");
         }
 
         var nextRevision = currentRevision + 1;
@@ -3239,6 +4437,15 @@ internal sealed class WorldAuthorityRepository
                 await transaction.RollbackAsync(cancellationToken);
                 return AutonomousActionExecutionResult.Rejected(rejection);
             }
+            if (!prepared.Snapshot!.TryApplyCommittedMutation(
+                    mutation,
+                    prepared.BoundRule?.BindingId,
+                    out var overlayRejection))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return AutonomousActionExecutionResult.Rejected(
+                    overlayRejection);
+            }
         }
         var postRules = await ApplyPostRuleInvocations(
             connection,
@@ -3246,14 +4453,40 @@ internal sealed class WorldAuthorityRepository
             worldId,
             request,
             prepared.Definition!,
+            prepared.Snapshot!,
             nextRevision,
-            cancellationToken);
+            cancellationToken,
+            actionObservation);
         if (!postRules.Accepted)
         {
             await transaction.RollbackAsync(cancellationToken);
             return AutonomousActionExecutionResult.Rejected(
                 postRules.RejectionCode!);
         }
+        if (!await actionCooldownRuntime.TryAcquire(
+                worldId,
+                request.ActorEntityId,
+                request.ToolEntityId,
+                request.ActionId.Trim(),
+                prepared.Cooldown,
+                cancellationToken))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return AutonomousActionExecutionResult.Rejected(
+                "action_cooldown_active");
+        }
+
+        // Lifecycle is resolved from the post-rule projection produced by
+        // this same transaction. The scheduler uses this signal only to evict
+        // ephemeral motion; the durable is_alive Fact remains Rule-owned.
+        var targetStillAlive = await HasActiveBooleanFact(
+            connection,
+            transaction,
+            worldId,
+            request.TargetEntityId,
+            "is_alive",
+            true,
+            cancellationToken);
 
         var commandId = Guid.NewGuid();
         var payload = JsonSerializer.SerializeToElement(request, JsonOptions);
@@ -3301,14 +4534,59 @@ internal sealed class WorldAuthorityRepository
             nextRevision,
             eventPayload,
             cancellationToken);
+        await revisionRuntime.MarkPending(
+            worldId, currentRevision, nextRevision, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        await revisionRuntime.ObserveCommitted(
+            worldId, nextRevision, CancellationToken.None);
 
         return AutonomousActionExecutionResult.Succeeded(
             prepared.Definition!.presentation
                 ?.actorAnimationIntent?.Trim(),
             prepared.BoundRule?.BindingId,
             nextRevision,
-            eventId);
+            eventId,
+            prepared.Evaluation.Mutations.Any(mutation =>
+                mutation.SubjectEntityId == request.TargetEntityId &&
+                string.Equals(
+                    mutation.PredicateId,
+                    "current_health",
+                    StringComparison.Ordinal) &&
+                (mutation.Kind == AuthorityMutationKind.AdjustNumber &&
+                 mutation.Delta < 0 ||
+                 mutation.Kind == AuthorityMutationKind.Set)),
+            !targetStillAlive);
+    }
+
+    private static async Task<bool> HasActiveBooleanFact(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        Guid entityId,
+        string predicateId,
+        bool expectedValue,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM world_facts
+                WHERE world_id = @worldId
+                  AND subject_entity_id = @entityId
+                  AND predicate_id = @predicateId
+                  AND object_kind = 'boolean'
+                  AND object_value::text = @expectedValue
+                  AND retracted_revision IS NULL);
+            """;
+        await using var command =
+            new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("worldId", worldId);
+        command.Parameters.AddWithValue("entityId", entityId);
+        command.Parameters.AddWithValue("predicateId", predicateId);
+        command.Parameters.AddWithValue(
+            "expectedValue",
+            expectedValue ? "true" : "false");
+        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
     }
 
     public async Task<RuntimeActionEvaluationResult> EvaluateRuntimeAction(
@@ -3326,13 +4604,16 @@ internal sealed class WorldAuthorityRepository
             await connection.BeginTransactionAsync(
                 IsolationLevel.RepeatableRead,
                 cancellationToken);
+        using var actionObservation = actionEvaluationMetrics.Begin(
+            "evaluate_runtime", request.ActionId);
         var prepared = await PrepareActionEvaluation(
             connection,
             transaction,
             worldId,
             actorUserId,
             request,
-            cancellationToken);
+            cancellationToken,
+            observation: actionObservation);
         if (!prepared.Accepted)
             return RuntimeActionEvaluationResult.Rejected(
                 prepared.RejectionCode!);
@@ -3360,7 +4641,172 @@ internal sealed class WorldAuthorityRepository
         return RuntimeActionEvaluationResult.Succeeded(
             request,
             animationIntent,
-            prepared.BoundRule?.BindingId);
+            prepared.BoundRule?.BindingId,
+            prepared.AnimationPlaybackSpeed);
+    }
+
+    public async Task<long?> GetCurrentRevision(
+        Guid worldId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(
+            "SELECT current_revision FROM worlds WHERE world_id = @worldId;",
+            connection);
+        command.Parameters.AddWithValue("worldId", worldId);
+        var value = await command.ExecuteScalarAsync(cancellationToken);
+        return value is long revision ? revision : null;
+    }
+
+    public async Task<PlayerAttackOccurrenceContractResult>
+        PreparePlayerAttackOccurrence(
+            Guid worldId,
+            Guid actorUserId,
+            ExecuteActionPayload request,
+            CancellationToken cancellationToken)
+    {
+        if (!request.ToolEntityId.HasValue)
+            return PlayerAttackOccurrenceContractResult.Rejected(
+                "attack_tool_required");
+        var preview = await PreviewAction(
+            worldId, actorUserId, request, cancellationToken);
+        if (!preview.Accepted)
+            return PlayerAttackOccurrenceContractResult.Rejected(
+                preview.RejectionCode ?? "attack_preview_rejected");
+
+        await using var connection =
+            await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction =
+            await connection.BeginTransactionAsync(
+                IsolationLevel.RepeatableRead, cancellationToken);
+        var facts = await LoadAuthorityFactSnapshot(
+            connection, transaction, worldId, cancellationToken);
+        if (!TryGetSinglePositiveNumber(
+                facts, request.ToolEntityId.Value,
+                "attack_contact_open_seconds", out var opensAfter) ||
+            !TryGetSinglePositiveNumber(
+                facts, request.ToolEntityId.Value,
+                "attack_contact_window_seconds", out var windowSeconds))
+        {
+            return PlayerAttackOccurrenceContractResult.Rejected(
+                "attack_contact_timing_contract_missing");
+        }
+        await transaction.CommitAsync(cancellationToken);
+        return new PlayerAttackOccurrenceContractResult(
+            true, null, opensAfter, opensAfter + windowSeconds);
+    }
+
+    public async Task<PlayerAttackContactValidationResult>
+        ValidatePlayerAttackContact(
+            Guid worldId,
+            Guid actorUserId,
+            ExecuteActionPayload request,
+            CancellationToken cancellationToken)
+    {
+        var preview = await PreviewAction(
+            worldId, actorUserId, request, cancellationToken);
+        if (!preview.Accepted)
+            return PlayerAttackContactValidationResult.Rejected(
+                preview.RejectionCode ?? "attack_preview_rejected");
+
+        await using var connection =
+            await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction =
+            await connection.BeginTransactionAsync(
+                IsolationLevel.RepeatableRead, cancellationToken);
+        var facts = await LoadAuthorityFactSnapshot(
+            connection, transaction, worldId, cancellationToken);
+        if (!request.ToolEntityId.HasValue ||
+            !TryGetSinglePositiveNumber(
+                facts, request.ActorEntityId,
+                "collision_radius", out var actorRadius) ||
+            !TryGetSinglePositiveNumber(
+                facts, request.ActorEntityId,
+                "collision_height", out var actorHeight) ||
+            !TryGetSinglePositiveNumber(
+                facts, request.TargetEntityId,
+                "collision_radius", out var targetRadius) ||
+            !TryGetSinglePositiveNumber(
+                facts, request.TargetEntityId,
+                "collision_height", out var targetHeight) ||
+            !TryGetSingleNonNegativeNumber(
+                facts, request.ToolEntityId.Value,
+                "attack_contact_reach", out var contactReach))
+        {
+            return PlayerAttackContactValidationResult.Rejected(
+                "attack_collision_proxy_contract_missing");
+        }
+
+        var actorPosition = await LoadRuntimeActionPosition(
+            connection, transaction, worldId,
+            request.ActorEntityId, cancellationToken);
+        var targetPosition = await LoadRuntimeActionPosition(
+            connection, transaction, worldId,
+            request.TargetEntityId, cancellationToken);
+        if (actorPosition is null || targetPosition is null ||
+            !string.Equals(actorPosition.ZoneKey, targetPosition.ZoneKey,
+                StringComparison.Ordinal))
+        {
+            return PlayerAttackContactValidationResult.Rejected(
+                "attack_runtime_position_unavailable");
+        }
+        if (!WorldAutonomousMeleeContactPolicy.HasContact(
+                actorPosition.Position.X, actorPosition.Position.Y,
+                actorPosition.Position.Z, actorRadius, actorHeight,
+                targetPosition.Position.X, targetPosition.Position.Y,
+                targetPosition.Position.Z, targetRadius, targetHeight,
+                contactReach))
+        {
+            return PlayerAttackContactValidationResult.Rejected(
+                "attack_authority_contact_not_confirmed");
+        }
+        var targetDefeated = !facts.Any(fact =>
+            fact.SubjectEntityId == request.TargetEntityId &&
+            string.Equals(fact.PredicateId, "is_alive",
+                StringComparison.Ordinal) &&
+            string.Equals(fact.ObjectValue, "True",
+                StringComparison.OrdinalIgnoreCase));
+        await transaction.CommitAsync(cancellationToken);
+        return new PlayerAttackContactValidationResult(
+            true, null, actorPosition.ZoneKey, targetDefeated);
+    }
+
+    private static bool TryGetSinglePositiveNumber(
+        IReadOnlyList<AuthorityFactSnapshot> facts,
+        Guid entityId,
+        string predicateId,
+        out double value) =>
+        TryGetSingleNumber(facts, entityId, predicateId, false, out value);
+
+    private static bool TryGetSingleNonNegativeNumber(
+        IReadOnlyList<AuthorityFactSnapshot> facts,
+        Guid entityId,
+        string predicateId,
+        out double value) =>
+        TryGetSingleNumber(facts, entityId, predicateId, true, out value);
+
+    private static bool TryGetSingleNumber(
+        IReadOnlyList<AuthorityFactSnapshot> facts,
+        Guid entityId,
+        string predicateId,
+        bool allowZero,
+        out double value)
+    {
+        value = 0d;
+        var matches = facts.Where(fact =>
+                fact.SubjectEntityId == entityId &&
+                string.Equals(fact.PredicateId, predicateId,
+                    StringComparison.Ordinal))
+            .Select(fact => fact.ObjectValue)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return matches.Length == 1 &&
+               double.TryParse(matches[0],
+                   System.Globalization.NumberStyles.Float,
+                   System.Globalization.CultureInfo.InvariantCulture,
+                   out value) && double.IsFinite(value) &&
+               (allowZero ? value >= 0d : value > 0d);
     }
 
     public async Task<ActionPreviewEvaluationResult> PreviewAction(
@@ -3378,13 +4824,16 @@ internal sealed class WorldAuthorityRepository
             await connection.BeginTransactionAsync(
                 IsolationLevel.RepeatableRead,
                 cancellationToken);
+        using var actionObservation = actionEvaluationMetrics.Begin(
+            "preview", request.ActionId);
         var prepared = await PrepareActionEvaluation(
             connection,
             transaction,
             worldId,
             actorUserId,
             request,
-            cancellationToken);
+            cancellationToken,
+            observation: actionObservation);
         if (!prepared.Accepted)
             return ActionPreviewEvaluationResult.Rejected(
                 prepared.RejectionCode!);
@@ -3434,6 +4883,8 @@ internal sealed class WorldAuthorityRepository
                 "world_not_found");
         }
 
+        using var actionObservation = actionEvaluationMetrics.Begin(
+            "preview_autonomous", request.ActionId);
         var prepared = await PrepareActionEvaluation(
             connection,
             transaction,
@@ -3441,18 +4892,13 @@ internal sealed class WorldAuthorityRepository
             ownerUserId,
             request,
             cancellationToken,
-            requirePlayerActorOwnership: false);
+            requirePlayerActorOwnership: false,
+            observation: actionObservation);
         if (!prepared.Accepted)
         {
             return ActionPreviewEvaluationResult.Rejected(
                 prepared.RejectionCode!);
         }
-        if (prepared.Evaluation!.Mutations.Count != 0)
-        {
-            return ActionPreviewEvaluationResult.Rejected(
-                "autonomous_control_rule_must_be_ephemeral");
-        }
-
         await transaction.CommitAsync(cancellationToken);
         return ActionPreviewEvaluationResult.Succeeded(
             request,
@@ -3469,7 +4915,8 @@ internal sealed class WorldAuthorityRepository
         Guid actorUserId,
         ExecuteActionPayload request,
         CancellationToken cancellationToken,
-        bool requirePlayerActorOwnership = true)
+        bool requirePlayerActorOwnership = true,
+        AuthorityActionEvaluationObservation? observation = null)
     {
         if (requirePlayerActorOwnership &&
             !await AvatarBelongsToUser(
@@ -3521,6 +4968,7 @@ internal sealed class WorldAuthorityRepository
               AND w.package_version = @packageVersion AND w.enabled;
             """;
         string? definitionJson;
+        var definitionDbStartedAt = Stopwatch.GetTimestamp();
         await using (var command = new NpgsqlCommand(
                          definitionSql,
                          connection,
@@ -3542,11 +4990,14 @@ internal sealed class WorldAuthorityRepository
             definitionJson =
                 (string?)await command.ExecuteScalarAsync(cancellationToken);
         }
+        observation?.RecordActionDefinitionDb(
+            Stopwatch.GetElapsedTime(definitionDbStartedAt));
         if (definitionJson is null)
             return PreparedActionEvaluation.Rejected(
                 "action_definition_not_enabled");
 
         OntologyActionEffectDefinition? definition;
+        var definitionDeserializeStartedAt = Stopwatch.GetTimestamp();
         try
         {
             definition =
@@ -3556,9 +5007,13 @@ internal sealed class WorldAuthorityRepository
         }
         catch (JsonException)
         {
+            observation?.RecordActionDefinitionDeserialize(
+                Stopwatch.GetElapsedTime(definitionDeserializeStartedAt));
             return PreparedActionEvaluation.Rejected(
                 "invalid_published_action_definition");
         }
+        observation?.RecordActionDefinitionDeserialize(
+            Stopwatch.GetElapsedTime(definitionDeserializeStartedAt));
         if (definition is null ||
             !AuthoritativeActionEvaluator.IsSupportedDefinition(
                 definition,
@@ -3584,11 +5039,28 @@ internal sealed class WorldAuthorityRepository
                 observationRejection);
         }
 
-        var facts = await LoadAuthorityFactSnapshot(
-            connection,
-            transaction,
-            worldId,
-            cancellationToken);
+        AuthorityCompiledEvaluationContract compiledContract;
+        try
+        {
+            compiledContract = await LoadCompiledEvaluationContract(
+                connection, transaction, worldId, cancellationToken);
+        }
+        catch (AuthorityCompiledContractRevisionChangedException)
+        {
+            return PreparedActionEvaluation.Rejected(
+                "action_evaluation_revision_changed");
+        }
+        catch (AuthorityCompiledContractBackpressureException)
+        {
+            return PreparedActionEvaluation.Rejected(
+                "action_evaluation_backpressure");
+        }
+        catch (AuthorityCompiledContractBuildTimeoutException)
+        {
+            return PreparedActionEvaluation.Rejected(
+                "action_evaluation_timeout");
+        }
+        var facts = compiledContract.Facts;
         var cooldown = TimeSpan.Zero;
         if (definition.runtimeConstraints is not null &&
             (definition.runtimeConstraints.maxActorTargetDistance > 0d ||
@@ -3650,6 +5122,7 @@ internal sealed class WorldAuthorityRepository
                 return PreparedActionEvaluation.Rejected(
                     "action_rule_binding_entity_unavailable");
             }
+            var boundRuleDbStartedAt = Stopwatch.GetTimestamp();
             boundRule = await LoadBoundRuleInvocation(
                 connection,
                 transaction,
@@ -3657,9 +5130,12 @@ internal sealed class WorldAuthorityRepository
                 ruleBindingEntityId,
                 definition.ruleInvocation.ruleId,
                 cancellationToken);
+            observation?.RecordBoundRuleDb(
+                Stopwatch.GetElapsedTime(boundRuleDbStartedAt));
             if (boundRule is null)
                 return PreparedActionEvaluation.Rejected(
                     "action_rule_block_not_assigned");
+            var boundRuleDeserializeStartedAt = Stopwatch.GetTimestamp();
             try
             {
                 invokedRuleDefinition =
@@ -3669,13 +5145,22 @@ internal sealed class WorldAuthorityRepository
             }
             catch (JsonException)
             {
+                observation?.RecordBoundRuleDeserialize(
+                    Stopwatch.GetElapsedTime(
+                        boundRuleDeserializeStartedAt));
                 return PreparedActionEvaluation.Rejected(
                     "invalid_published_rule_definition");
             }
+            observation?.RecordBoundRuleDeserialize(
+                Stopwatch.GetElapsedTime(boundRuleDeserializeStartedAt));
+            var boundRuleValidationStartedAt = Stopwatch.GetTimestamp();
             if (invokedRuleDefinition is null ||
                 invokedRuleDefinition.catalogVersion !=
                 boundRule.RuleVersion)
             {
+                observation?.RecordBoundRuleValidation(
+                    Stopwatch.GetElapsedTime(
+                        boundRuleValidationStartedAt));
                 return PreparedActionEvaluation.Rejected(
                     "action_rule_definition_version_mismatch");
             }
@@ -3694,34 +5179,82 @@ internal sealed class WorldAuthorityRepository
                         ruleAnimationIntent,
                         StringComparison.Ordinal))
                 {
+                    observation?.RecordBoundRuleValidation(
+                        Stopwatch.GetElapsedTime(
+                            boundRuleValidationStartedAt));
                     return PreparedActionEvaluation.Rejected(
                         "action_rule_presentation_conflict");
                 }
                 definition.presentation.actorAnimationIntent =
                     ruleAnimationIntent;
+                definition.presentation.playbackSpeedFrom =
+                    invokedRuleDefinition.runtimePresentation
+                        ?.playbackSpeedFrom ?? new OntologyNumericFactSource();
             }
+            observation?.RecordBoundRuleValidation(
+                Stopwatch.GetElapsedTime(boundRuleValidationStartedAt));
         }
 
+        // Command-scoped only: no approval result or snapshot survives this
+        // PrepareActionEvaluation request or crosses an Authority revision.
+        var evaluationSnapshot = compiledContract.CreateCommandSnapshot();
+        var evaluationStartedAt = Stopwatch.GetTimestamp();
         var evaluation = boundRule is null
             ? AuthoritativeActionEvaluator.Evaluate(
                 definition,
                 request.ActorEntityId,
                 request.TargetEntityId,
                 request.ToolEntityId,
-                facts)
+                evaluationSnapshot)
             : AuthoritativeActionEvaluator.EvaluateInvokedRule(
                 definition,
                 invokedRuleDefinition!,
                 request.ActorEntityId,
                 request.TargetEntityId,
                 request.ToolEntityId,
-                facts);
+                evaluationSnapshot);
+        observation?.RecordEvaluation(
+            Stopwatch.GetElapsedTime(evaluationStartedAt));
+        var playbackSpeed = 1d;
+        if (evaluation.Accepted &&
+            AuthoritativeActionEvaluator.HasConfiguredNumericSource(
+                definition.presentation?.playbackSpeedFrom))
+        {
+            var source = definition.presentation!.playbackSpeedFrom;
+            var sourceEntityId = source.subject switch
+            {
+                "?actor" => request.ActorEntityId,
+                "?target" => request.TargetEntityId,
+                "?tool" when request.ToolEntityId.HasValue =>
+                    request.ToolEntityId.Value,
+                _ => Guid.Empty
+            };
+            if (sourceEntityId == Guid.Empty ||
+                !TryGetSinglePositiveNumber(
+                    facts,
+                    sourceEntityId,
+                    source.predicate,
+                    out playbackSpeed))
+            {
+                return PreparedActionEvaluation.Rejected(
+                    "animation_playback_speed_contract_missing");
+            }
+            playbackSpeed *= source.multiplier == 0 ? 1 : source.multiplier;
+            if (!double.IsFinite(playbackSpeed) || playbackSpeed <= 0d ||
+                playbackSpeed > 8d)
+            {
+                return PreparedActionEvaluation.Rejected(
+                    "animation_playback_speed_invalid");
+            }
+        }
         return evaluation.Accepted
             ? PreparedActionEvaluation.Succeeded(
                 definition,
                 evaluation,
                 boundRule,
-                cooldown)
+                evaluationSnapshot,
+                cooldown,
+                playbackSpeed)
             : PreparedActionEvaluation.Rejected(
                 evaluation.RejectionCode!);
     }
@@ -3739,8 +5272,10 @@ internal sealed class WorldAuthorityRepository
         Guid worldId,
         ExecuteActionPayload request,
         OntologyActionEffectDefinition actionDefinition,
+        AuthorityEvaluationSnapshot evaluationSnapshot,
         long revision,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AuthorityActionEvaluationObservation? observation = null)
     {
         var invocations =
             actionDefinition.postRuleInvocations ??
@@ -3763,6 +5298,7 @@ internal sealed class WorldAuthorityRepository
                     "post_rule_binding_entity_unavailable");
             }
 
+            var boundRuleDbStartedAt = Stopwatch.GetTimestamp();
             var boundRule = await LoadBoundRuleInvocation(
                 connection,
                 transaction,
@@ -3770,6 +5306,8 @@ internal sealed class WorldAuthorityRepository
                 bindingEntityId,
                 invocation.ruleId,
                 cancellationToken);
+            observation?.RecordBoundRuleDb(
+                Stopwatch.GetElapsedTime(boundRuleDbStartedAt));
             if (boundRule is null)
             {
                 if (invocation.required)
@@ -3779,6 +5317,7 @@ internal sealed class WorldAuthorityRepository
             }
 
             OntologyRuleDefinition? ruleDefinition;
+            var boundRuleDeserializeStartedAt = Stopwatch.GetTimestamp();
             try
             {
                 ruleDefinition =
@@ -3788,21 +5327,27 @@ internal sealed class WorldAuthorityRepository
             }
             catch (JsonException)
             {
+                observation?.RecordBoundRuleDeserialize(
+                    Stopwatch.GetElapsedTime(
+                        boundRuleDeserializeStartedAt));
                 return PostRuleApplicationResult.Rejected(
                     "invalid_published_post_rule_definition");
             }
+            observation?.RecordBoundRuleDeserialize(
+                Stopwatch.GetElapsedTime(boundRuleDeserializeStartedAt));
+            var boundRuleValidationStartedAt = Stopwatch.GetTimestamp();
             if (ruleDefinition is null ||
                 ruleDefinition.catalogVersion != boundRule.RuleVersion)
             {
+                observation?.RecordBoundRuleValidation(
+                    Stopwatch.GetElapsedTime(
+                        boundRuleValidationStartedAt));
                 return PostRuleApplicationResult.Rejected(
                     "post_rule_definition_version_mismatch");
             }
+            observation?.RecordBoundRuleValidation(
+                Stopwatch.GetElapsedTime(boundRuleValidationStartedAt));
 
-            var facts = await LoadAuthorityFactSnapshot(
-                connection,
-                transaction,
-                worldId,
-                cancellationToken);
             var transport = new OntologyActionEffectDefinition
             {
                 actionVerb = actionDefinition.actionVerb,
@@ -3810,6 +5355,7 @@ internal sealed class WorldAuthorityRepository
                 presentation = new OntologyActionPresentationDefinition(),
                 runtimeConstraints = new OntologyActionRuntimeConstraints()
             };
+            var evaluationStartedAt = Stopwatch.GetTimestamp();
             var evaluation =
                 AuthoritativeActionEvaluator.EvaluateInvokedRule(
                     transport,
@@ -3817,7 +5363,9 @@ internal sealed class WorldAuthorityRepository
                     request.ActorEntityId,
                     request.TargetEntityId,
                     request.ToolEntityId,
-                    facts);
+                    evaluationSnapshot);
+            observation?.RecordEvaluation(
+                Stopwatch.GetElapsedTime(evaluationStartedAt));
             if (!evaluation.Accepted)
             {
                 if (!invocation.required &&
@@ -3845,6 +5393,14 @@ internal sealed class WorldAuthorityRepository
                     cancellationToken);
                 if (rejection is not null)
                     return PostRuleApplicationResult.Rejected(rejection);
+                if (!evaluationSnapshot.TryApplyCommittedMutation(
+                        mutation,
+                        boundRule.BindingId,
+                        out var overlayRejection))
+                {
+                    return PostRuleApplicationResult.Rejected(
+                        overlayRejection);
+                }
             }
             mutationCount += evaluation.Mutations.Count;
             bindingIds.Add(boundRule.BindingId);
@@ -3972,15 +5528,131 @@ internal sealed class WorldAuthorityRepository
                 reader.GetDouble(3)));
     }
 
+    private async Task<AuthorityCompiledEvaluationContract>
+        LoadCompiledEvaluationContract(
+            NpgsqlConnection connection,
+            NpgsqlTransaction transaction,
+            Guid worldId,
+            CancellationToken cancellationToken)
+    {
+        var key = await LoadCompiledContractCacheKey(
+            connection, transaction, worldId, cancellationToken);
+
+        return await compiledContractCache.GetOrBuild(
+            key,
+            buildToken => BuildCompiledEvaluationContract(
+                key, buildToken),
+            cancellationToken);
+    }
+
+    private async Task<AuthorityCompiledEvaluationContract>
+        BuildCompiledEvaluationContract(
+            AuthorityCompiledContractCacheKey expectedKey,
+            CancellationToken buildToken)
+    {
+        // Shared work owns its connection, transaction and lifetime. A caller
+        // cancellation only stops that waiter; it cannot cancel this build.
+        await using var connection = await dataSource.OpenConnectionAsync(
+            buildToken);
+        await using var transaction = await connection.BeginTransactionAsync(
+            IsolationLevel.RepeatableRead, buildToken);
+        var actualKey = await LoadCompiledContractCacheKey(
+            connection, transaction, expectedKey.WorldId,
+            buildToken);
+        if (actualKey != expectedKey)
+        {
+            await transaction.RollbackAsync(buildToken);
+            throw new AuthorityCompiledContractRevisionChangedException(
+                expectedKey, actualKey);
+        }
+        var facts = await LoadAuthorityFactSnapshot(
+            connection, transaction, expectedKey.WorldId,
+            buildToken, null, "prepare");
+        await transaction.CommitAsync(buildToken);
+        return AuthorityCompiledEvaluationContract.Compile(facts, buildToken);
+    }
+
+    private static async Task<AuthorityCompiledContractCacheKey>
+        LoadCompiledContractCacheKey(
+            NpgsqlConnection connection,
+            NpgsqlTransaction transaction,
+            Guid worldId,
+            CancellationToken cancellationToken)
+    {
+        await using var revisionCommand = new NpgsqlCommand(
+            "SELECT current_revision FROM worlds WHERE world_id = @worldId;",
+            connection, transaction);
+        revisionCommand.Parameters.AddWithValue("worldId", worldId);
+        var revisionValue =
+            await revisionCommand.ExecuteScalarAsync(cancellationToken);
+        if (revisionValue is not long revision)
+            throw new InvalidOperationException(
+                "Authority world disappeared while preparing evaluation.");
+
+        const string manifestSql = """
+            SELECT p.package_id, p.package_version,
+                   d.definition_kind, d.definition_id,
+                   d.definition_version, d.checksum
+            FROM world_content_packages p
+            LEFT JOIN content_definitions d
+              ON d.package_id = p.package_id
+             AND d.package_version = p.package_version
+             AND d.is_published = true
+            WHERE p.world_id = @worldId AND p.enabled = true
+            ORDER BY p.package_id, p.package_version,
+                     d.definition_kind, d.definition_id,
+                     d.definition_version, d.checksum;
+            """;
+        await using var manifestCommand =
+            new NpgsqlCommand(manifestSql, connection, transaction);
+        manifestCommand.Parameters.AddWithValue("worldId", worldId);
+        await using var reader =
+            await manifestCommand.ExecuteReaderAsync(cancellationToken);
+        var canonical = new StringBuilder();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            AppendManifestField(canonical, reader.GetString(0));
+            AppendManifestField(canonical, reader.GetString(1));
+            AppendManifestField(
+                canonical, reader.IsDBNull(2) ? string.Empty : reader.GetString(2));
+            AppendManifestField(
+                canonical, reader.IsDBNull(3) ? string.Empty : reader.GetString(3));
+            AppendManifestField(
+                canonical, reader.IsDBNull(4)
+                    ? string.Empty
+                    : reader.GetInt32(4).ToString(
+                        System.Globalization.CultureInfo.InvariantCulture));
+            AppendManifestField(
+                canonical, reader.IsDBNull(5) ? string.Empty : reader.GetString(5));
+        }
+        var digest = Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes(canonical.ToString()))).ToLowerInvariant();
+        return new AuthorityCompiledContractCacheKey(worldId, revision, digest);
+    }
+
+    private static void AppendManifestField(
+        StringBuilder target, string value)
+    {
+        target.Append(value.Length)
+            .Append(':')
+            .Append(value)
+            .Append(';');
+    }
+
     private static async Task<IReadOnlyList<AuthorityFactSnapshot>> LoadAuthorityFactSnapshot(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         Guid worldId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AuthorityActionEvaluationObservation? observation = null,
+        string observationPhase = "unclassified")
     {
+        var snapshotStartedAt = Stopwatch.GetTimestamp();
         const string sql = """
             SELECT subject_entity_id, predicate_id, object_kind,
-                   object_entity_id::text, object_canonical_id, object_value::text
+                   object_entity_id::text, object_canonical_id,
+                   object_value::text, source_rule_binding_id,
+                   rule_result_lifetime
             FROM world_facts
             WHERE world_id = @worldId AND retracted_revision IS NULL
             ORDER BY created_revision, fact_id;
@@ -3999,8 +5671,19 @@ internal sealed class WorldAuthorityRepository
                 _ => NormalizeAuthorityJsonValue(reader.IsDBNull(5) ? null : reader.GetString(5))
             };
             facts.Add(new AuthorityFactSnapshot(
-                reader.GetGuid(0), reader.GetString(1), kind, value));
+                reader.GetGuid(0),
+                reader.GetString(1),
+                kind,
+                value,
+                reader.IsDBNull(6) ? null : reader.GetGuid(6),
+                string.Equals(
+                    reader.GetString(7),
+                    "durable_state",
+                    StringComparison.Ordinal)
+                    ? OntologyRuleResultLifetime.DurableState
+                    : OntologyRuleResultLifetime.RuleBound));
         }
+        var factRowCount = facts.Count;
         await reader.DisposeAsync();
 
         // Rule Blocks are durable semantic bindings, not duplicated authored
@@ -4026,8 +5709,14 @@ internal sealed class WorldAuthorityRepository
                 bindingsReader.GetGuid(0),
                 "has_rule_block",
                 "canonical",
-                bindingsReader.GetString(1)));
+                bindingsReader.GetString(1),
+                IsRuleBindingProjection: true));
         }
+        observation?.RecordSnapshotLoad(
+            observationPhase,
+            Stopwatch.GetElapsedTime(snapshotStartedAt),
+            factRowCount,
+            facts.Count - factRowCount);
         return facts;
     }
 
@@ -4830,7 +6519,8 @@ internal sealed class WorldAuthorityRepository
         {
             if (package.InsertedBindingIds.Count > 1)
             {
-                await RemoveMeaningPackageRuleBinding(
+                var retractedRuleBoundResultCount =
+                    await RemoveMeaningPackageRuleBinding(
                     connection, transaction, worldId, package,
                     request.BindingId, revision, cancellationToken);
                 return CommandApplyResult.Succeeded(JsonSerializer.Serialize(new
@@ -4839,18 +6529,26 @@ internal sealed class WorldAuthorityRepository
                     package.ApplicationId,
                     package.PackageId,
                     remainingRuleBlockCount =
-                        package.InsertedBindingIds.Count - 1
+                        package.InsertedBindingIds.Count - 1,
+                    retractedRuleBoundResultCount,
+                    removedMeaningPackageApplicationId = (Guid?)null
                 }, JsonOptions));
             }
 
-            await RemoveMeaningPackageApplication(
+            var removal = await RemoveMeaningPackageApplication(
                 connection, transaction, worldId, package, revision,
                 cancellationToken);
             return CommandApplyResult.Succeeded(JsonSerializer.Serialize(new
             {
                 request.BindingId,
                 removedMeaningPackageApplicationId = package.ApplicationId,
-                package.PackageId
+                package.PackageId,
+                remainingRuleBlockCount = 0,
+                removal.RetractedRuleBoundResultCount,
+                removal.RetractedOwnedFactCount,
+                removal.RetractedOwnedBindingCount,
+                removal.RestoredFactCount,
+                removal.RestoredBindingCount
             }, JsonOptions));
         }
 
@@ -4894,7 +6592,7 @@ internal sealed class WorldAuthorityRepository
             : CommandApplyResult.Rejected("rule_binding_not_found");
     }
 
-    private static async Task RemoveMeaningPackageRuleBinding(
+    private static async Task<int> RemoveMeaningPackageRuleBinding(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         Guid worldId,
@@ -4903,7 +6601,7 @@ internal sealed class WorldAuthorityRepository
         long revision,
         CancellationToken cancellationToken)
     {
-        await RetractRuleBindingResults(
+        var retractedRuleBoundResultCount = await RetractRuleBindingResults(
             connection,
             transaction,
             worldId,
@@ -4942,6 +6640,21 @@ internal sealed class WorldAuthorityRepository
             application.ApplicationId);
         updateApplication.Parameters.AddWithValue("worldId", worldId);
         await updateApplication.ExecuteNonQueryAsync(cancellationToken);
+        const string removeOwnershipSql = """
+            UPDATE world_meaning_package_binding_ownership
+            SET released_revision = @revision
+            WHERE application_id = @applicationId
+              AND binding_id = @bindingId
+              AND released_revision IS NULL;
+            """;
+        await using var removeOwnership = new NpgsqlCommand(
+            removeOwnershipSql, connection, transaction);
+        removeOwnership.Parameters.AddWithValue(
+            "applicationId", application.ApplicationId);
+        removeOwnership.Parameters.AddWithValue("bindingId", bindingId);
+        removeOwnership.Parameters.AddWithValue("revision", revision);
+        await removeOwnership.ExecuteNonQueryAsync(cancellationToken);
+        return retractedRuleBoundResultCount;
     }
 
     /// <summary>
@@ -5042,23 +6755,43 @@ internal sealed class WorldAuthorityRepository
                 cancellationToken);
         }
 
-        var displacedFacts = new List<MeaningFactSnapshot>();
-        foreach (var predicate in request.ReplacePredicateIds ?? [])
-        {
-            displacedFacts.AddRange(await RetractAuthoredFactsByPredicate(
-                connection, transaction, worldId, request.TargetEntityId,
-                predicate, revision, cancellationToken));
-        }
-
-        var insertedFactIds = new List<Guid>();
         var desiredFacts = new List<InitialAuthoredFactPayload>();
         desiredFacts.AddRange((request.RequiredConceptIds ?? [])
             .Select(concept => new InitialAuthoredFactPayload(
                 "has_concept", "canonical", null, concept, null)));
         desiredFacts.AddRange(request.AuthoredFacts ?? []);
-        foreach (var fact in desiredFacts
-                     .GroupBy(MeaningFactKey)
-                     .Select(group => group.First()))
+        desiredFacts = desiredFacts
+            .GroupBy(MeaningFactKey)
+            .Select(group => group.First())
+            .ToList();
+
+        // Adoption must happen before replace-predicate retraction. Otherwise an
+        // exact legacy/catalog contribution is first recorded as displaced and
+        // is incorrectly restored as independent data when the final Rule Block
+        // closes the package.
+        var adoptedFactIds = new HashSet<Guid>();
+        if (request.AdoptExistingContributions)
+        {
+            foreach (var fact in desiredFacts)
+            {
+                var adoptedFactId = await FindAdoptableMeaningFactId(
+                    connection, transaction, worldId, request.TargetEntityId,
+                    fact, cancellationToken);
+                if (adoptedFactId.HasValue)
+                    adoptedFactIds.Add(adoptedFactId.Value);
+            }
+        }
+
+        var displacedFacts = new List<MeaningFactSnapshot>();
+        foreach (var predicate in request.ReplacePredicateIds ?? [])
+        {
+            displacedFacts.AddRange(await RetractAuthoredFactsByPredicate(
+                connection, transaction, worldId, request.TargetEntityId,
+                predicate, adoptedFactIds, revision, cancellationToken));
+        }
+
+        var insertedFactIds = adoptedFactIds.ToList();
+        foreach (var fact in desiredFacts)
         {
             var factId = await InsertMeaningFactIfMissing(
                 connection, transaction, worldId, request.TargetEntityId,
@@ -5073,7 +6806,8 @@ internal sealed class WorldAuthorityRepository
             var adoptedFactId = await FindAdoptableMeaningFactId(
                 connection, transaction, worldId, request.TargetEntityId,
                 fact, cancellationToken);
-            if (adoptedFactId.HasValue)
+            if (adoptedFactId.HasValue &&
+                !insertedFactIds.Contains(adoptedFactId.Value))
                 insertedFactIds.Add(adoptedFactId.Value);
         }
 
@@ -5175,6 +6909,10 @@ internal sealed class WorldAuthorityRepository
             insertedBindingIds.Add(bindingId);
         }
 
+        if (request.RequiresOwnedBinding && insertedBindingIds.Count == 0)
+            return CommandApplyResult.Rejected(
+                "meaning_package_owned_binding_required");
+
         const string insertApplicationSql = """
             INSERT INTO world_meaning_package_applications
                 (application_id, world_id, target_entity_id, slot_id, package_id,
@@ -5211,6 +6949,9 @@ internal sealed class WorldAuthorityRepository
             application.Parameters.AddWithValue("revision", revision);
             await application.ExecuteNonQueryAsync(cancellationToken);
         }
+        await InsertMeaningPackageOwnership(
+            connection, transaction, request.ApplicationId,
+            insertedFactIds, insertedBindingIds, cancellationToken);
 
         return CommandApplyResult.Succeeded(JsonSerializer.Serialize(new
         {
@@ -5223,6 +6964,488 @@ internal sealed class WorldAuthorityRepository
             insertedRuleBlockCount = insertedBindingIds.Count,
             displacedFactCount = displacedFacts.Count
         }, JsonOptions));
+    }
+
+    private static async Task<CommandApplyResult> PrepareSemanticContract(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        JsonElement payload,
+        long revision,
+        CancellationToken cancellationToken)
+    {
+        PrepareSemanticContractPayload? request;
+        try
+        {
+            request = payload.Deserialize<PrepareSemanticContractPayload>(
+                JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return CommandApplyResult.Rejected(
+                "invalid_semantic_contract_payload");
+        }
+        var rejectionCode = "invalid_semantic_contract_payload";
+        if (request is null || !request.IsValid(out rejectionCode))
+            return CommandApplyResult.Rejected(rejectionCode);
+        if (!await EntityExists(connection, transaction, worldId,
+                request.TargetEntityId, cancellationToken))
+            return CommandApplyResult.Rejected("entity_not_found");
+        if (!await ActiveContentPackageExists(
+                connection, transaction, worldId, request.PackageId,
+                request.PackageVersion, cancellationToken))
+            return CommandApplyResult.Rejected("content_package_not_active");
+        foreach (var binding in request.RuleBlocks ?? [])
+        {
+            if (!await PublishedRuleExists(
+                    connection, transaction, binding.RuleId,
+                    binding.RuleVersion, cancellationToken))
+                return CommandApplyResult.Rejected(
+                    "rule_definition_not_published");
+        }
+
+        var checksum = SemanticContractPolicy.ComputeManifestChecksum(request);
+        var markers = new[]
+        {
+            new InitialAuthoredFactPayload(
+                request.VersionPredicateId, "number", null, null,
+                request.ContractVersion.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture)),
+            new InitialAuthoredFactPayload(
+                request.ChecksumPredicateId, "text", null, null,
+                JsonSerializer.Serialize(checksum, JsonOptions))
+        };
+        if (await SemanticContractIsReady(
+                connection, transaction, worldId, request, markers,
+                cancellationToken))
+        {
+            return CommandApplyResult.SucceededNoChange(
+                JsonSerializer.Serialize(new
+                {
+                    operation = "unchanged",
+                    request.TargetEntityId,
+                    request.ContractId,
+                    request.ContractVersion,
+                    manifestChecksum = checksum
+                }, JsonOptions));
+        }
+
+        var effectiveRequest = request;
+        if (await ActiveMeaningPackageIdentityExists(
+                connection, transaction, worldId, request.TargetEntityId,
+                request.SlotId, request.ApplicationId, request.ContractId,
+                cancellationToken))
+        {
+            // The marker/fact/binding check above proved this application is
+            // incomplete. Replace it under a fresh immutable application row;
+            // the command envelope remains the idempotency identity.
+            effectiveRequest = request with { ApplicationId = Guid.NewGuid() };
+        }
+        return await ApplyMeaningPackage(
+            connection,
+            transaction,
+            worldId,
+            JsonSerializer.SerializeToElement(
+                effectiveRequest.ToMeaningPackage(markers), JsonOptions),
+            revision,
+            cancellationToken);
+    }
+
+    private static async Task<CommandApplyResult> PreparePlayerAvatar(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        JsonElement payload,
+        Guid actorUserId,
+        long revision,
+        CancellationToken cancellationToken)
+    {
+        PreparePlayerAvatarPayload? request;
+        try
+        {
+            request = payload.Deserialize<PreparePlayerAvatarPayload>(JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return CommandApplyResult.Rejected("invalid_prepare_player_avatar_payload");
+        }
+        var rejectionCode = "invalid_prepare_player_avatar_payload";
+        if (request is null || !request.IsValid(out rejectionCode))
+            return CommandApplyResult.Rejected(rejectionCode);
+
+        var entityId = request.Entity.EntityId;
+        var existing = await ReadAvatarPreparationEntity(
+            connection, transaction, worldId, entityId, cancellationToken);
+        if (existing.Exists)
+        {
+            if (!string.Equals(existing.TemplateId, request.Entity.TemplateId,
+                    StringComparison.Ordinal) ||
+                existing.TemplateVersion != request.Entity.TemplateVersion)
+                return CommandApplyResult.Rejected("avatar_entity_template_conflict");
+            if (existing.OwnerUserId != actorUserId)
+                return CommandApplyResult.Rejected(existing.OwnerUserId.HasValue
+                    ? "avatar_owned_by_another_user"
+                    : "existing_avatar_not_registered");
+
+            return await PrepareSemanticContract(
+                connection, transaction, worldId,
+                JsonSerializer.SerializeToElement(
+                    request.SemanticContract, JsonOptions),
+                revision, cancellationToken);
+        }
+
+        if (await UserHasDifferentRegisteredAvatar(
+                connection, transaction, worldId, actorUserId, entityId,
+                cancellationToken))
+            return CommandApplyResult.Rejected("user_avatar_already_registered");
+
+        var placed = await PlaceEntity(
+            connection, transaction, worldId,
+            JsonSerializer.SerializeToElement(request.Entity, JsonOptions),
+            revision, cancellationToken);
+        if (!placed.Accepted)
+            return placed;
+
+        var registered = await RegisterPlayerAvatar(
+            connection, transaction, worldId,
+            JsonSerializer.SerializeToElement(
+                new RegisterPlayerAvatarPayload(entityId), JsonOptions),
+            actorUserId, revision, cancellationToken);
+        if (!registered.Accepted)
+            return registered;
+
+        var prepared = await PrepareSemanticContract(
+            connection, transaction, worldId,
+            JsonSerializer.SerializeToElement(
+                request.SemanticContract, JsonOptions),
+            revision, cancellationToken);
+        if (!prepared.Accepted)
+            return prepared;
+
+        return CommandApplyResult.Succeeded(JsonSerializer.Serialize(new
+        {
+            operation = "provisioned",
+            entityId,
+            request.Entity.TemplateId,
+            request.Entity.TemplateVersion,
+            request.SemanticContract.ContractId,
+            request.SemanticContract.ContractVersion,
+            manifestChecksum = SemanticContractPolicy.ComputeManifestChecksum(
+                request.SemanticContract)
+        }, JsonOptions));
+    }
+
+    private static async Task<(bool Exists, string? TemplateId,
+        int TemplateVersion, Guid? OwnerUserId)> ReadAvatarPreparationEntity(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        Guid entityId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT entity.template_id, entity.template_version, avatar.user_id
+            FROM world_entities entity
+            LEFT JOIN world_player_avatars avatar
+              ON avatar.world_id = entity.world_id
+             AND avatar.entity_id = entity.entity_id
+            WHERE entity.world_id = @worldId
+              AND entity.entity_id = @entityId
+              AND entity.deleted_revision IS NULL;
+            """;
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("worldId", worldId);
+        command.Parameters.AddWithValue("entityId", entityId);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return (false, null, 0, null);
+        return (true, reader.GetString(0), reader.GetInt32(1),
+            reader.IsDBNull(2) ? null : reader.GetGuid(2));
+    }
+
+    private static async Task<bool> UserHasDifferentRegisteredAvatar(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        Guid actorUserId,
+        Guid entityId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1 FROM world_player_avatars
+                WHERE world_id = @worldId AND user_id = @userId
+                  AND entity_id <> @entityId);
+            """;
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("worldId", worldId);
+        command.Parameters.AddWithValue("userId", actorUserId);
+        command.Parameters.AddWithValue("entityId", entityId);
+        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
+    }
+
+    private static async Task<bool> ActiveMeaningPackageIdentityExists(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        Guid targetEntityId,
+        string slotId,
+        Guid applicationId,
+        string packageId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1 FROM world_meaning_package_applications
+                WHERE world_id = @worldId
+                  AND target_entity_id = @targetEntityId
+                  AND slot_id = @slotId
+                  AND application_id = @applicationId
+                  AND package_id = @packageId
+                  AND removed_revision IS NULL);
+            """;
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("worldId", worldId);
+        command.Parameters.AddWithValue("targetEntityId", targetEntityId);
+        command.Parameters.AddWithValue("slotId", slotId);
+        command.Parameters.AddWithValue("applicationId", applicationId);
+        command.Parameters.AddWithValue("packageId", packageId);
+        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
+    }
+
+    private static async Task<bool> ActiveContentPackageExists(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        string packageId,
+        string packageVersion,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1 FROM world_content_packages
+                WHERE world_id = @worldId AND package_id = @packageId
+                  AND package_version = @packageVersion AND enabled);
+            """;
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("worldId", worldId);
+        command.Parameters.AddWithValue("packageId", packageId.Trim());
+        command.Parameters.AddWithValue("packageVersion", packageVersion.Trim());
+        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
+    }
+
+    private static async Task<bool> SemanticContractIsReady(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        PrepareSemanticContractPayload request,
+        IReadOnlyList<InitialAuthoredFactPayload> markers,
+        CancellationToken cancellationToken)
+    {
+        if (!await ActiveMeaningPackageIdentityExists(
+                connection, transaction, worldId, request.TargetEntityId,
+                request.SlotId, request.ApplicationId, request.ContractId,
+                cancellationToken))
+            return false;
+
+        var desiredFacts = new List<InitialAuthoredFactPayload>(
+            request.AuthoredFacts ?? []);
+        desiredFacts.AddRange(markers);
+        desiredFacts.AddRange((request.RequiredConceptIds ?? []).Select(
+            concept => new InitialAuthoredFactPayload(
+                "has_concept", "canonical", null, concept, null)));
+        foreach (var fact in desiredFacts.GroupBy(MeaningFactKey)
+                     .Select(group => group.First()))
+        {
+            if (!await OwnedMeaningFactExists(
+                    connection, transaction, worldId,
+                    request.ApplicationId, request.TargetEntityId, fact,
+                    cancellationToken))
+                return false;
+        }
+        foreach (var binding in request.RuleBlocks ?? [])
+        {
+            if (!await OwnedMeaningRuleBindingExists(
+                    connection, transaction, worldId,
+                    request.ApplicationId, request.TargetEntityId, binding.RuleId,
+                    binding.RuleVersion, binding.NormalizedParametersJson(),
+                    cancellationToken))
+                return false;
+        }
+        if (request.RequiresOwnedBinding &&
+            (request.RuleBlocks?.Count ?? 0) == 0)
+            return false;
+        return true;
+    }
+
+    private static async Task<bool> OwnedMeaningFactExists(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        Guid applicationId,
+        Guid subjectEntityId,
+        InitialAuthoredFactPayload fact,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                SELECT owner.released_revision
+                FROM world_facts fact
+                INNER JOIN world_meaning_package_fact_ownership owner
+                 ON owner.fact_id = fact.fact_id
+                 AND owner.application_id = @applicationId
+                 AND owner.released_revision IS NULL
+                WHERE fact.world_id = @worldId
+                  AND fact.subject_entity_id = @subjectEntityId
+                  AND fact.predicate_id = @predicateId
+                  AND fact.object_kind = @objectKind
+                  AND fact.object_entity_id IS NOT DISTINCT FROM @objectEntityId
+                  AND fact.object_canonical_id IS NOT DISTINCT FROM @objectCanonicalId
+                  AND fact.object_value IS NOT DISTINCT FROM @objectValue
+                  AND fact.source_type = 'authored'
+                  AND fact.retracted_revision IS NULL
+                LIMIT 1;
+            """;
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("applicationId", applicationId);
+        command.Parameters.AddWithValue("worldId", worldId);
+        command.Parameters.AddWithValue("subjectEntityId", subjectEntityId);
+        command.Parameters.AddWithValue("predicateId", fact.PredicateId);
+        command.Parameters.AddWithValue("objectKind", fact.ObjectKind);
+        command.Parameters.AddWithValue("objectEntityId",
+            (object?)fact.ObjectEntityId ?? DBNull.Value);
+        command.Parameters.AddWithValue("objectCanonicalId",
+            (object?)fact.ObjectCanonicalId ?? DBNull.Value);
+        command.Parameters.AddWithValue("objectValue", NpgsqlDbType.Jsonb,
+            (object?)fact.ObjectValueJson ?? DBNull.Value);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return false;
+        return SemanticContractPolicy.OwnershipCanSatisfyReady(
+            reader.IsDBNull(0) ? null : reader.GetInt64(0));
+    }
+
+    private static async Task<bool> OwnedMeaningRuleBindingExists(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        Guid applicationId,
+        Guid targetEntityId,
+        string ruleId,
+        int ruleVersion,
+        string parametersJson,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                SELECT owner.released_revision
+                FROM world_rule_bindings binding
+                INNER JOIN world_meaning_package_binding_ownership owner
+                 ON owner.binding_id = binding.binding_id
+                 AND owner.application_id = @applicationId
+                 AND owner.released_revision IS NULL
+                WHERE binding.world_id = @worldId
+                  AND binding.target_entity_id = @targetEntityId
+                  AND binding.rule_id = @ruleId
+                  AND binding.rule_version = @ruleVersion
+                  AND binding.parameter_values = @parameters::jsonb
+                  AND binding.enabled
+                  AND binding.retracted_revision IS NULL
+                LIMIT 1;
+            """;
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("applicationId", applicationId);
+        command.Parameters.AddWithValue("worldId", worldId);
+        command.Parameters.AddWithValue("targetEntityId", targetEntityId);
+        command.Parameters.AddWithValue("ruleId", ruleId);
+        command.Parameters.AddWithValue("ruleVersion", ruleVersion);
+        command.Parameters.AddWithValue("parameters", NpgsqlDbType.Jsonb,
+            parametersJson);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return false;
+        return SemanticContractPolicy.OwnershipCanSatisfyReady(
+            reader.IsDBNull(0) ? null : reader.GetInt64(0));
+    }
+
+    private static async Task<(int? Version, string? Checksum)>
+        ReadSemanticContractMarkers(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        PrepareSemanticContractPayload request,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT predicate_id, object_value #>> '{}'
+            FROM world_facts
+            WHERE world_id = @worldId
+              AND subject_entity_id = @targetEntityId
+              AND predicate_id = ANY(@predicateIds)
+              AND source_type = 'authored'
+              AND retracted_revision IS NULL
+            ORDER BY created_revision DESC;
+            """;
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("worldId", worldId);
+        command.Parameters.AddWithValue("targetEntityId", request.TargetEntityId);
+        command.Parameters.AddWithValue("predicateIds", new[]
+        {
+            request.VersionPredicateId,
+            request.ChecksumPredicateId
+        });
+        int? version = null;
+        string? checksum = null;
+        await using var reader =
+            await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var predicate = reader.GetString(0);
+            var value = reader.IsDBNull(1) ? null : reader.GetString(1);
+            if (version is null && string.Equals(
+                    predicate, request.VersionPredicateId,
+                    StringComparison.Ordinal) &&
+                int.TryParse(value, out var parsed))
+                version = parsed;
+            if (checksum is null && string.Equals(
+                    predicate, request.ChecksumPredicateId,
+                    StringComparison.Ordinal))
+                checksum = value;
+        }
+        return (version, checksum);
+    }
+
+    private static async Task InsertMeaningPackageOwnership(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid applicationId,
+        IReadOnlyCollection<Guid> factIds,
+        IReadOnlyCollection<Guid> bindingIds,
+        CancellationToken cancellationToken)
+    {
+        if (factIds.Count > 0)
+        {
+            const string factsSql = """
+                INSERT INTO world_meaning_package_fact_ownership
+                    (application_id, fact_id)
+                SELECT @applicationId, unnest(@factIds::uuid[]);
+                """;
+            await using var facts = new NpgsqlCommand(
+                factsSql, connection, transaction);
+            facts.Parameters.AddWithValue("applicationId", applicationId);
+            facts.Parameters.AddWithValue("factIds", factIds.ToArray());
+            await facts.ExecuteNonQueryAsync(cancellationToken);
+        }
+        if (bindingIds.Count > 0)
+        {
+            const string bindingsSql = """
+                INSERT INTO world_meaning_package_binding_ownership
+                    (application_id, binding_id)
+                SELECT @applicationId, unnest(@bindingIds::uuid[]);
+                """;
+            await using var bindings = new NpgsqlCommand(
+                bindingsSql, connection, transaction);
+            bindings.Parameters.AddWithValue("applicationId", applicationId);
+            bindings.Parameters.AddWithValue(
+                "bindingIds", bindingIds.ToArray());
+            await bindings.ExecuteNonQueryAsync(cancellationToken);
+        }
     }
 
     private static async Task<ActiveMeaningPackage?> LoadActiveMeaningPackage(
@@ -5271,21 +7494,24 @@ internal sealed class WorldAuthorityRepository
             CancellationToken cancellationToken)
     {
         const string sql = """
-            SELECT application_id, package_id, inserted_fact_ids::text,
-                   inserted_binding_ids::text, displaced_facts::text,
-                   displaced_bindings::text
-            FROM world_meaning_package_applications
-            WHERE world_id = @worldId
-              AND inserted_binding_ids @> @bindingIds::jsonb
-              AND removed_revision IS NULL
+            SELECT package.application_id, package.package_id,
+                   package.inserted_fact_ids::text,
+                   package.inserted_binding_ids::text,
+                   package.displaced_facts::text,
+                   package.displaced_bindings::text
+            FROM world_meaning_package_binding_ownership ownership
+            INNER JOIN world_meaning_package_applications package
+                ON package.application_id = ownership.application_id
+            WHERE package.world_id = @worldId
+              AND ownership.binding_id = @bindingId
+              AND ownership.released_revision IS NULL
+              AND package.removed_revision IS NULL
             FOR UPDATE;
             """;
         await using var command =
             new NpgsqlCommand(sql, connection, transaction);
         command.Parameters.AddWithValue("worldId", worldId);
-        command.Parameters.AddWithValue(
-            "bindingIds",
-            JsonSerializer.Serialize(new[] { bindingId }, JsonOptions));
+        command.Parameters.AddWithValue("bindingId", bindingId);
         await using var reader =
             await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken)) return null;
@@ -5302,7 +7528,8 @@ internal sealed class WorldAuthorityRepository
                 reader.GetString(5), JsonOptions) ?? []);
     }
 
-    private static async Task RemoveMeaningPackageApplication(
+    private static async Task<MeaningPackageRemovalSummary>
+        RemoveMeaningPackageApplication(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         Guid worldId,
@@ -5310,6 +7537,11 @@ internal sealed class WorldAuthorityRepository
         long revision,
         CancellationToken cancellationToken)
     {
+        var retractedOwnedFactCount = 0;
+        var retractedOwnedBindingCount = 0;
+        var retractedRuleBoundResultCount = 0;
+        var restoredFactCount = 0;
+        var restoredBindingCount = 0;
         if (application.InsertedFactIds.Count > 0)
         {
             const string retractFactsSql = """
@@ -5324,11 +7556,12 @@ internal sealed class WorldAuthorityRepository
             command.Parameters.AddWithValue("worldId", worldId);
             command.Parameters.AddWithValue(
                 "factIds", application.InsertedFactIds.ToArray());
-            await command.ExecuteNonQueryAsync(cancellationToken);
+            retractedOwnedFactCount =
+                await command.ExecuteNonQueryAsync(cancellationToken);
         }
         if (application.InsertedBindingIds.Count > 0)
         {
-            await RetractRuleBindingResults(
+            retractedRuleBoundResultCount = await RetractRuleBindingResults(
                 connection,
                 transaction,
                 worldId,
@@ -5348,14 +7581,16 @@ internal sealed class WorldAuthorityRepository
             command.Parameters.AddWithValue("worldId", worldId);
             command.Parameters.AddWithValue(
                 "bindingIds", application.InsertedBindingIds.ToArray());
-            await command.ExecuteNonQueryAsync(cancellationToken);
+            retractedOwnedBindingCount =
+                await command.ExecuteNonQueryAsync(cancellationToken);
         }
 
         foreach (var fact in application.DisplacedFacts)
         {
-            await InsertMeaningFactIfMissing(
+            if ((await InsertMeaningFactIfMissing(
                 connection, transaction, worldId, fact.SubjectEntityId,
-                fact.ToInitialPayload(), revision, cancellationToken);
+                fact.ToInitialPayload(), revision, cancellationToken)).HasValue)
+                restoredFactCount++;
         }
         foreach (var binding in application.DisplacedBindings)
         {
@@ -5387,6 +7622,7 @@ internal sealed class WorldAuthorityRepository
                 binding.ParameterValuesJson);
             restore.Parameters.AddWithValue("revision", revision);
             await restore.ExecuteNonQueryAsync(cancellationToken);
+            restoredBindingCount++;
         }
 
         const string removeSql = """
@@ -5402,9 +7638,31 @@ internal sealed class WorldAuthorityRepository
         remove.Parameters.AddWithValue("worldId", worldId);
         remove.Parameters.AddWithValue("revision", revision);
         await remove.ExecuteNonQueryAsync(cancellationToken);
+        const string releaseOwnershipSql = """
+            UPDATE world_meaning_package_fact_ownership
+            SET released_revision = @revision
+            WHERE application_id = @applicationId
+              AND released_revision IS NULL;
+            UPDATE world_meaning_package_binding_ownership
+            SET released_revision = @revision
+            WHERE application_id = @applicationId
+              AND released_revision IS NULL;
+            """;
+        await using var releaseOwnership = new NpgsqlCommand(
+            releaseOwnershipSql, connection, transaction);
+        releaseOwnership.Parameters.AddWithValue(
+            "applicationId", application.ApplicationId);
+        releaseOwnership.Parameters.AddWithValue("revision", revision);
+        await releaseOwnership.ExecuteNonQueryAsync(cancellationToken);
+        return new MeaningPackageRemovalSummary(
+            retractedOwnedFactCount,
+            retractedOwnedBindingCount,
+            retractedRuleBoundResultCount,
+            restoredFactCount,
+            restoredBindingCount);
     }
 
-    private static async Task RetractRuleBindingResults(
+    private static async Task<int> RetractRuleBindingResults(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         Guid worldId,
@@ -5412,7 +7670,7 @@ internal sealed class WorldAuthorityRepository
         long revision,
         CancellationToken cancellationToken)
     {
-        if (bindingIds.Count == 0) return;
+        if (bindingIds.Count == 0) return 0;
         const string sql = """
             UPDATE world_facts
             SET retracted_revision = @revision
@@ -5428,7 +7686,7 @@ internal sealed class WorldAuthorityRepository
         command.Parameters.AddWithValue(
             "bindingIds",
             bindingIds.ToArray());
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        return await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static async Task<List<MeaningFactSnapshot>>
@@ -5436,9 +7694,10 @@ internal sealed class WorldAuthorityRepository
             NpgsqlConnection connection,
             NpgsqlTransaction transaction,
             Guid worldId,
-            Guid targetEntityId,
-            string predicateId,
-            long revision,
+        Guid targetEntityId,
+        string predicateId,
+        IReadOnlyCollection<Guid> preservedFactIds,
+        long revision,
             CancellationToken cancellationToken)
     {
         const string selectSql = """
@@ -5450,6 +7709,7 @@ internal sealed class WorldAuthorityRepository
               AND predicate_id = @predicateId
               AND source_type = 'authored'
               AND retracted_revision IS NULL
+              AND NOT (fact_id = ANY(@preservedFactIds))
             FOR UPDATE;
             """;
         var snapshots = new List<MeaningFactSnapshot>();
@@ -5459,6 +7719,8 @@ internal sealed class WorldAuthorityRepository
             select.Parameters.AddWithValue("worldId", worldId);
             select.Parameters.AddWithValue("targetEntityId", targetEntityId);
             select.Parameters.AddWithValue("predicateId", predicateId);
+            select.Parameters.AddWithValue(
+                "preservedFactIds", preservedFactIds.ToArray());
             await using var reader =
                 await select.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
@@ -5479,7 +7741,8 @@ internal sealed class WorldAuthorityRepository
               AND subject_entity_id = @targetEntityId
               AND predicate_id = @predicateId
               AND source_type = 'authored'
-              AND retracted_revision IS NULL;
+              AND retracted_revision IS NULL
+              AND NOT (fact_id = ANY(@preservedFactIds));
             """;
         await using var retract =
             new NpgsqlCommand(retractSql, connection, transaction);
@@ -5487,6 +7750,8 @@ internal sealed class WorldAuthorityRepository
         retract.Parameters.AddWithValue("worldId", worldId);
         retract.Parameters.AddWithValue("targetEntityId", targetEntityId);
         retract.Parameters.AddWithValue("predicateId", predicateId);
+        retract.Parameters.AddWithValue(
+            "preservedFactIds", preservedFactIds.ToArray());
         await retract.ExecuteNonQueryAsync(cancellationToken);
         return snapshots;
     }
@@ -5528,6 +7793,42 @@ internal sealed class WorldAuthorityRepository
         command.Parameters.AddWithValue("revision", revision);
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return result is Guid factId ? factId : null;
+    }
+
+    private static async Task<bool> MeaningFactExists(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid worldId,
+        Guid subjectEntityId,
+        InitialAuthoredFactPayload fact,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1 FROM world_facts
+                WHERE world_id = @worldId
+                  AND subject_entity_id = @subjectEntityId
+                  AND predicate_id = @predicateId
+                  AND object_kind = @objectKind
+                  AND object_entity_id IS NOT DISTINCT FROM @objectEntityId
+                  AND object_canonical_id IS NOT DISTINCT FROM @objectCanonicalId
+                  AND object_value IS NOT DISTINCT FROM @objectValue
+                  AND source_type = 'authored'
+                  AND retracted_revision IS NULL);
+            """;
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("worldId", worldId);
+        command.Parameters.AddWithValue("subjectEntityId", subjectEntityId);
+        command.Parameters.AddWithValue("predicateId", fact.PredicateId);
+        command.Parameters.AddWithValue("objectKind", fact.ObjectKind);
+        command.Parameters.AddWithValue(
+            "objectEntityId", (object?)fact.ObjectEntityId ?? DBNull.Value);
+        command.Parameters.AddWithValue(
+            "objectCanonicalId", (object?)fact.ObjectCanonicalId ?? DBNull.Value);
+        command.Parameters.AddWithValue(
+            "objectValue", NpgsqlDbType.Jsonb,
+            (object?)fact.ObjectValueJson ?? DBNull.Value);
+        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
     }
 
     /// <summary>
@@ -6105,6 +8406,8 @@ internal static class WorldCommandTypes
     public const string AddRuleBlock = "add_rule_block";
     public const string RemoveRuleBlock = "remove_rule_block";
     public const string ApplyMeaningPackage = "apply_meaning_package";
+    public const string PrepareSemanticContract = "prepare_semantic_contract";
+    public const string PreparePlayerAvatar = "prepare_player_avatar";
     public const string DefineZone = "define_zone";
     public const string RegisterPlayerAvatar = "register_player_avatar";
     public const string SaveAvatarCheckpoint = "save_avatar_checkpoint";
@@ -6227,7 +8530,15 @@ internal sealed record PlayerCharacterSummary(
     IReadOnlyList<string> EquippedPartIds,
     long ProfileRevision,
     IReadOnlyList<PlayerProfileRelation> ProfileRelations);
-internal sealed record AccountWorldSummary(Guid WorldId, string Title, string Slug, string Role, long Revision);
+internal sealed record AccountWorldSummary(
+    Guid WorldId,
+    string Title,
+    string Slug,
+    string Role,
+    long Revision,
+    Guid? AvatarEntityId,
+    string? ActiveContentPackageId,
+    string? ActiveContentPackageVersion);
 internal sealed record AccountDashboard(AccountSummary Account, IReadOnlyList<PlayerCharacterSummary> Characters, IReadOnlyList<AccountWorldSummary> Worlds);
 internal sealed record WorldEntryResult(bool Accepted, string? RejectionCode, Guid? CharacterId, Guid? AvatarEntityId)
 {
@@ -6299,6 +8610,50 @@ internal sealed record PublishedActionDefinitionSummary(
     int DefinitionVersion,
     string PackageVersion,
     string Checksum);
+internal sealed record ContentReleasePublishRequest(
+    string? PackageVersion,
+    string? ManifestChecksum,
+    List<ContentRuleDefinitionPublishRequest>? Rules,
+    List<ContentActionDefinitionPublishRequest>? Actions);
+internal sealed record ContentReleasePublishResult(
+    bool Accepted,
+    string? RejectionCode,
+    string? ManifestChecksum,
+    int PublishedRuleCount,
+    int UnchangedRuleCount,
+    int PublishedActionCount,
+    int UnchangedActionCount,
+    IReadOnlyList<string>? ValidationMessages)
+{
+    public static ContentReleasePublishResult Rejected(
+        string rejectionCode,
+        IReadOnlyList<string>? validationMessages = null) =>
+        new(false, rejectionCode, null, 0, 0, 0, 0, validationMessages);
+}
+internal sealed record ContentDefinitionPreflightIdentity(
+    string? DefinitionId,
+    int DefinitionVersion,
+    string? Checksum,
+    string? PayloadJson = null);
+internal sealed record ContentPackagePreflightRequest(
+    string? PackageId,
+    string? PackageVersion,
+    List<ContentDefinitionPreflightIdentity>? Rules,
+    List<ContentDefinitionPreflightIdentity>? Actions);
+internal sealed record ContentDefinitionPreflightFailure(
+    string DefinitionKind,
+    string DefinitionId,
+    int DefinitionVersion);
+internal sealed record ContentPackagePreflightResult(
+    bool Ready,
+    string? RejectionCode,
+    string PackageId,
+    string PackageVersion,
+    bool ActivePackageMatch,
+    IReadOnlyList<PublishedRuleDefinitionSummary> Rules,
+    IReadOnlyList<PublishedActionDefinitionSummary> Actions,
+    IReadOnlyList<ContentDefinitionPreflightFailure> MissingDefinitions,
+    IReadOnlyList<ContentDefinitionPreflightFailure> ChecksumMismatches);
 internal sealed record WorldCreatedResult(Guid WorldId, long Revision);
 internal sealed record WorldAccess(long CurrentRevision, bool CanEdit);
 internal sealed record CommandResult(bool Accepted, string? RejectionCode, long? Revision, Guid? EventId, bool IsReplay);
@@ -6308,32 +8663,67 @@ internal sealed record AutonomousActionExecutionResult(
     string? ActorAnimationIntent,
     Guid? RuleBindingId,
     long? Revision,
-    Guid? EventId)
+    Guid? EventId,
+    bool DamageResult,
+    bool TargetDefeated)
 {
     public static AutonomousActionExecutionResult Rejected(string code) =>
-        new(false, code, null, null, null, null);
+        new(false, code, null, null, null, null, false, false);
 
     public static AutonomousActionExecutionResult Succeeded(
         string? actorAnimationIntent,
         Guid? ruleBindingId,
         long revision,
-        Guid eventId) =>
+        Guid eventId,
+        bool damageResult,
+        bool targetDefeated) =>
         new(
             true,
             null,
             actorAnimationIntent,
             ruleBindingId,
             revision,
-            eventId);
+            eventId,
+            damageResult,
+            targetDefeated);
 }
-internal sealed record CommandApplyResult(bool Accepted, string? RejectionCode, string? EventPayloadJson)
+internal sealed record CommandApplyResult(
+    bool Accepted,
+    string? RejectionCode,
+    string? EventPayloadJson,
+    bool HasChanges)
 {
-    public static CommandApplyResult Succeeded(string? eventPayloadJson = null) => new(true, null, eventPayloadJson);
-    public static CommandApplyResult Rejected(string rejectionCode) => new(false, rejectionCode, null);
+    public static CommandApplyResult Succeeded(string? eventPayloadJson = null) =>
+        new(true, null, eventPayloadJson, true);
+    public static CommandApplyResult SucceededNoChange(
+        string? eventPayloadJson = null) =>
+        new(true, null, eventPayloadJson, false);
+    public static CommandApplyResult Rejected(string rejectionCode) =>
+        new(false, rejectionCode, null, false);
 }
 internal sealed record AuthorityActionTargetPosition(
     string ZoneKey,
     AuthoritySpatialPosition Position);
+
+internal sealed record PlayerAttackOccurrenceContractResult(
+    bool Accepted,
+    string? RejectionCode,
+    double ContactOpensAfterSeconds,
+    double ContactClosesAfterSeconds)
+{
+    public static PlayerAttackOccurrenceContractResult Rejected(string code) =>
+        new(false, code, 0d, 0d);
+}
+
+internal sealed record PlayerAttackContactValidationResult(
+    bool Accepted,
+    string? RejectionCode,
+    string? ZoneKey,
+    bool TargetDefeated)
+{
+    public static PlayerAttackContactValidationResult Rejected(string code) =>
+        new(false, code, null, false);
+}
 internal sealed record AuthorityBoundRuleInvocation(
     Guid BindingId,
     int RuleVersion,
@@ -6397,7 +8787,8 @@ internal sealed record ApplyMeaningPackagePayload(
     List<string>? ReplacePredicateIds,
     List<string>? RequiredConceptIds,
     List<InitialAuthoredFactPayload>? AuthoredFacts,
-    List<MeaningRuleBlockPayload>? RuleBlocks)
+    List<MeaningRuleBlockPayload>? RuleBlocks,
+    bool RequiresOwnedBinding = false)
 {
     public bool IsValid(out string rejectionCode)
     {
@@ -6482,6 +8873,12 @@ internal sealed record ActiveMeaningPackage(
     List<Guid> InsertedBindingIds,
     List<MeaningFactSnapshot> DisplacedFacts,
     List<MeaningRuleBindingSnapshot> DisplacedBindings);
+internal sealed record MeaningPackageRemovalSummary(
+    int RetractedOwnedFactCount,
+    int RetractedOwnedBindingCount,
+    int RetractedRuleBoundResultCount,
+    int RestoredFactCount,
+    int RestoredBindingCount);
 internal sealed record RegisterPlayerAvatarPayload(Guid EntityId);
 internal sealed record SaveAvatarCheckpointPayload(
     Guid AvatarEntityId,
@@ -6505,7 +8902,9 @@ internal sealed record ExecuteActionPayload(
     string PackageVersion,
     string ActionId,
     int DefinitionVersion,
-    bool? GroundedObservation = null)
+    bool? GroundedObservation = null,
+    Guid? AttackOccurrenceId = null,
+    Guid? RuntimeSessionId = null)
 {
     public bool IsValid() => ActorEntityId != Guid.Empty && TargetEntityId != Guid.Empty &&
                              SemanticId.IsValid(PackageId) && PackageVersion?.Trim().Length is > 0 and <= 64 &&
@@ -6517,18 +8916,112 @@ internal sealed record PreparedActionEvaluation(
     OntologyActionEffectDefinition? Definition,
     AuthoritativeActionEvaluation? Evaluation,
     AuthorityBoundRuleInvocation? BoundRule,
-    TimeSpan Cooldown)
+    AuthorityEvaluationSnapshot? Snapshot,
+    TimeSpan Cooldown,
+    double AnimationPlaybackSpeed)
 {
     public static PreparedActionEvaluation Rejected(string code) =>
-        new(false, code, null, null, null, TimeSpan.Zero);
+        new(false, code, null, null, null, null, TimeSpan.Zero, 1d);
 
     public static PreparedActionEvaluation Succeeded(
         OntologyActionEffectDefinition definition,
         AuthoritativeActionEvaluation evaluation,
         AuthorityBoundRuleInvocation? boundRule,
-        TimeSpan cooldown) =>
-        new(true, null, definition, evaluation, boundRule, cooldown);
+        AuthorityEvaluationSnapshot snapshot,
+        TimeSpan cooldown,
+        double animationPlaybackSpeed) =>
+        new(true, null, definition, evaluation, boundRule, snapshot, cooldown,
+            animationPlaybackSpeed);
 }
+internal sealed record PrepareSemanticContractPayload(
+    Guid ApplicationId,
+    Guid TargetEntityId,
+    string SlotId,
+    string ContractId,
+    int ContractVersion,
+    string PackageId,
+    string PackageVersion,
+    string VersionPredicateId,
+    string ChecksumPredicateId,
+    bool AdoptExistingContributions,
+    List<string>? ReplacePredicateIds,
+    List<string>? RequiredConceptIds,
+    List<InitialAuthoredFactPayload>? AuthoredFacts,
+    List<MeaningRuleBlockPayload>? RuleBlocks,
+    bool RequiresOwnedBinding = false)
+{
+    public bool IsValid(out string rejectionCode)
+    {
+        var meaning = ToMeaningPackage([]);
+        if (!meaning.IsValid(out rejectionCode) ||
+            !SemanticId.IsValid(ContractId) || ContractVersion < 1 ||
+            !SemanticId.IsValid(PackageId) ||
+            string.IsNullOrWhiteSpace(PackageVersion) ||
+            PackageVersion.Length > 64 ||
+            !SemanticId.IsValid(VersionPredicateId) ||
+            !SemanticId.IsValid(ChecksumPredicateId) ||
+            string.Equals(VersionPredicateId, ChecksumPredicateId,
+                StringComparison.Ordinal))
+        {
+            rejectionCode = "invalid_semantic_contract_payload";
+            return false;
+        }
+        return true;
+    }
+
+    public ApplyMeaningPackagePayload ToMeaningPackage(
+        IReadOnlyList<InitialAuthoredFactPayload> markerFacts)
+    {
+        var facts = new List<InitialAuthoredFactPayload>(AuthoredFacts ?? []);
+        facts.AddRange(markerFacts);
+        var replace = new HashSet<string>(
+            ReplacePredicateIds ?? [], StringComparer.Ordinal)
+        {
+            VersionPredicateId,
+            ChecksumPredicateId
+        };
+        return new ApplyMeaningPackagePayload(
+            "apply", ApplicationId, TargetEntityId, SlotId, ContractId,
+            AdoptExistingContributions, replace.ToList(),
+            RequiredConceptIds, facts, RuleBlocks, RequiresOwnedBinding);
+    }
+}
+
+internal sealed record PreparePlayerAvatarPayload(
+    PlaceEntityPayload Entity,
+    PrepareSemanticContractPayload SemanticContract)
+{
+    public bool IsValid(out string rejectionCode)
+    {
+        if (Entity is null || SemanticContract is null ||
+            Entity.EntityId == Guid.Empty ||
+            !SemanticId.IsValid(Entity.TemplateId) ||
+            Entity.TemplateVersion <= 0 ||
+            string.IsNullOrWhiteSpace(Entity.DisplayName) ||
+            Entity.DisplayName.Length > 256 ||
+            Entity.Transform is null || !Entity.Transform.IsValid ||
+            (Entity.InitialFacts?.Count ?? 0) > 128 ||
+            (Entity.InitialFacts?.Any(fact =>
+                fact is null || !SemanticId.IsValid(fact.PredicateId) ||
+                !fact.IsValidObject()) ?? false) ||
+            SemanticContract.TargetEntityId != Entity.EntityId ||
+            !SemanticContract.IsValid(out _))
+        {
+            rejectionCode = "invalid_prepare_player_avatar_payload";
+            return false;
+        }
+        rejectionCode = string.Empty;
+        return true;
+    }
+}
+internal sealed record SemanticContractPreflightResult(
+    bool Ready,
+    string? RejectionCode,
+    string ManifestChecksum,
+    int? CurrentContractVersion,
+    string? CurrentManifestChecksum,
+    int MissingFactCount,
+    int MissingBindingCount);
 internal sealed record RuntimeActionEvaluationResult(
     bool Accepted,
     string? RejectionCode,
@@ -6539,7 +9032,8 @@ internal sealed record RuntimeActionEvaluationResult(
     string? ActionId,
     int DefinitionVersion,
     string? ActorAnimationIntent,
-    Guid? RuleBindingId)
+    Guid? RuleBindingId,
+    double ActorAnimationPlaybackSpeed)
 {
     public static RuntimeActionEvaluationResult Rejected(string code) =>
         new(
@@ -6552,12 +9046,14 @@ internal sealed record RuntimeActionEvaluationResult(
             null,
             0,
             null,
-            null);
+            null,
+            1d);
 
     public static RuntimeActionEvaluationResult Succeeded(
         ExecuteActionPayload request,
         string actorAnimationIntent,
-        Guid? ruleBindingId) =>
+        Guid? ruleBindingId,
+        double actorAnimationPlaybackSpeed) =>
         new(
             true,
             null,
@@ -6568,7 +9064,8 @@ internal sealed record RuntimeActionEvaluationResult(
             request.ActionId,
             request.DefinitionVersion,
             actorAnimationIntent,
-            ruleBindingId);
+            ruleBindingId,
+            actorAnimationPlaybackSpeed);
 }
 
 internal sealed record ActionPreviewEvaluationResult(
@@ -6645,7 +9142,13 @@ internal sealed record PlayerIntentRequest(
     string PackageId,
     string PackageVersion,
     string ActionId,
-    int DefinitionVersion)
+    int DefinitionVersion,
+    Guid RuntimeSessionId,
+    long WriterEpoch,
+    bool HasDestination = false,
+    float DestinationX = 0f,
+    float DestinationZ = 0f,
+    float DestinationStopDistance = 0f)
 {
     public bool IsValid => AvatarEntityId != Guid.Empty
                            && Sequence > 0
@@ -6655,13 +9158,21 @@ internal sealed record PlayerIntentRequest(
                            && MathF.Abs(MoveX) <= 1f
                            && MathF.Abs(MoveZ) <= 1f
                            && MoveSpeed is >= 0f and <= 100f
+                           && (!HasDestination ||
+                               (float.IsFinite(DestinationX) &&
+                                float.IsFinite(DestinationZ) &&
+                                float.IsFinite(DestinationStopDistance) &&
+                                DestinationStopDistance is >= 0f and <= 100f))
                            && SemanticId.IsValid(PackageId)
                            && PackageVersion?.Trim().Length is > 0 and <= 64
                            && SemanticId.IsValid(ActionId)
-                           && DefinitionVersion > 0;
+                           && DefinitionVersion > 0
+                           && RuntimeSessionId != Guid.Empty
+                           && WriterEpoch > 0;
 }
 internal sealed record ResolvedPlayerPoseRequest(
     string ZoneKey,
+    Guid RuntimeSessionId,
     long IntentSequence,
     long PoseSequence,
     double PositionX,
@@ -6670,6 +9181,7 @@ internal sealed record ResolvedPlayerPoseRequest(
     string MotionStatus)
 {
     public bool IsValid =>
+        RuntimeSessionId != Guid.Empty &&
         IntentSequence > 0 &&
         PoseSequence > 0 &&
         double.IsFinite(PositionX) &&
@@ -6678,6 +9190,7 @@ internal sealed record ResolvedPlayerPoseRequest(
         MotionStatus is "idle" or "moving" or "swimming" or "airborne";
 }
 internal sealed record ActivatePlayerRuntimeRequest(string ZoneKey);
+internal sealed record DeactivatePlayerRuntimeRequest(Guid RuntimeSessionId);
 internal sealed record DefineZonePayload(
     string ZoneKey,
     double MinX,
@@ -6773,8 +9286,15 @@ internal sealed record WorldProjection(
     List<WorldRuleBindingProjection> RuleBindings,
     List<WorldActionDefinitionProjection> Actions);
 internal sealed record WorldEntityProjection(Guid EntityId, string TemplateId, int TemplateVersion, string DisplayName, string? ZoneKey, TransformPayload Transform);
-internal sealed record WorldFactProjection(Guid FactId, Guid SubjectEntityId, string PredicateId, string ObjectKind, Guid? ObjectEntityId, string? ObjectCanonicalId, string? ObjectValueJson);
-internal sealed record WorldRuleBindingProjection(Guid BindingId, Guid TargetEntityId, string RuleId, int RuleVersion, bool Enabled, string ParameterValuesJson);
+internal sealed record WorldFactProjection(
+    Guid FactId, Guid SubjectEntityId, string PredicateId, string ObjectKind,
+    Guid? ObjectEntityId, string? ObjectCanonicalId, string? ObjectValueJson,
+    string SourceType, Guid? SourceRuleBindingId, string? RuleResultLifetime,
+    Guid? ApplicationId, string? PackageId, string? SlotId, long CreatedRevision);
+internal sealed record WorldRuleBindingProjection(
+    Guid BindingId, Guid TargetEntityId, string RuleId, int RuleVersion,
+    bool Enabled, string ParameterValuesJson, Guid? ApplicationId,
+    string? PackageId, string? SlotId, long CreatedRevision);
 internal sealed record WorldActionDefinitionProjection(
     string PackageId,
     string PackageVersion,
@@ -6810,7 +9330,11 @@ internal sealed record WorldPlayerAvatarMotionConfiguration(
     double? JumpTakeoffSpeed,
     double? GroundStickVelocity,
     double? MaximumStepHeight,
-    double? GroundClearance);
+    double? GroundClearance,
+    string PackageId,
+    string PackageVersion,
+    string LocomotionActionId,
+    int LocomotionActionDefinitionVersion);
 internal sealed record WorldPlayerAvatarRegistration(Guid AvatarEntityId, Guid UserId);
 internal sealed record WorldAutonomousActorConfiguration(
     Guid WorldId,
@@ -6823,6 +9347,11 @@ internal sealed record WorldAutonomousActorConfiguration(
     double DetectionRange,
     double LeashRange,
     double AttackRange,
+    double AttackWindupSeconds,
+    double AttackRecoverySeconds,
+    double CollisionRadius,
+    double CollisionHeight,
+    double AttackContactReach,
     string TargetActionId,
     int TargetActionDefinitionVersion,
     string ChaseActionId,
@@ -6840,6 +9369,8 @@ internal sealed record WorldAutonomousTargetConfiguration(
     double SpawnPositionX,
     double SpawnPositionY,
     double SpawnPositionZ,
+    double CollisionRadius,
+    double CollisionHeight,
     bool RequiresRuntimePosition);
 
 internal sealed record WorldRevisionNotification(
@@ -6847,7 +9378,9 @@ internal sealed record WorldRevisionNotification(
     long Revision,
     Guid? EventId,
     string CommandType,
-    string? ZoneKey);
+    string? ZoneKey,
+    Guid? TargetEntityId,
+    bool DamageResult = false);
 
 internal sealed record WorldZoneRuntimeNotification(
     Guid WorldId,
@@ -6881,7 +9414,26 @@ internal sealed record WorldZoneRuntimeSnapshot(
     int EvaluatedRuleBindingCount,
     int SkippedRuleBindingCount,
     int MissingRuleDefinitionCount,
+    int InputEntityCount,
+    int InputFactCount,
+    int InputRuleBindingCount,
+    int RuleCompilationAttemptCount,
+    int CompiledRuleCount,
+    int SimulationIterationCount,
+    int CoreEvaluatedRuleCount,
+    int CoreSkippedRuleCount,
+    double CoreRuleEvaluationDurationMilliseconds,
+    double DatabaseLoadDurationMilliseconds,
+    double WorldBuildDurationMilliseconds,
+    double RulePreparationDurationMilliseconds,
+    double SimulationDurationMilliseconds,
+    double ResultMaterializationDurationMilliseconds,
+    double EvaluationDurationMilliseconds,
+    int ExecutionLeaseDurationMilliseconds,
+    string ScheduleStatus,
+    long EvaluatedWorldRevision,
     IReadOnlyList<HeadlessInferredFact> InferredFacts,
+    long EvaluationCompletedAtUnixMilliseconds,
     long ObservedAtUnixMilliseconds);
 
 internal static class WorldZoneRuntimePolicy
@@ -6908,7 +9460,7 @@ internal interface IWorldZoneSessionRegistry
 internal interface IWorldZoneRuntimeRegistry
 {
     string BackendName { get; }
-    Task Set(WorldZoneRuntimeSnapshot snapshot, CancellationToken cancellationToken);
+    Task<bool> TryPublish(WorldZoneRuntimeSnapshot snapshot, CancellationToken cancellationToken);
     Task<WorldZoneRuntimeSnapshot?> Get(Guid worldId, string zoneKey, CancellationToken cancellationToken);
 }
 
@@ -6924,15 +9476,62 @@ internal interface IWorldZoneExecutionLeaseRegistry
 internal sealed class RedisWorldZoneRuntimeRegistry(IConnectionMultiplexer redis) : IWorldZoneRuntimeRegistry
 {
     private static readonly TimeSpan RuntimeTtl = TimeSpan.FromSeconds(15);
+    private const string PublishScript = """
+        local incomingJson = ARGV[1]
+        local currentJson = redis.call('GET', KEYS[1])
+        if not currentJson then
+            redis.call('SET', KEYS[1], incomingJson, 'PX', ARGV[2])
+            return 1
+        end
+
+        local currentOk, current = pcall(cjson.decode, currentJson)
+        local incomingOk, incoming = pcall(cjson.decode, incomingJson)
+        if not currentOk or not incomingOk then
+            return 0
+        end
+
+        local currentRevision = tonumber(current.EvaluatedWorldRevision)
+        local incomingRevision = tonumber(incoming.EvaluatedWorldRevision)
+        local currentCompletedAt = tonumber(current.EvaluationCompletedAtUnixMilliseconds)
+        local incomingCompletedAt = tonumber(incoming.EvaluationCompletedAtUnixMilliseconds)
+        local currentObservedAt = tonumber(current.ObservedAtUnixMilliseconds)
+        local incomingObservedAt = tonumber(incoming.ObservedAtUnixMilliseconds)
+        if not currentRevision or not incomingRevision or
+           not currentCompletedAt or not incomingCompletedAt or
+           not currentObservedAt or not incomingObservedAt then
+            return 0
+        end
+
+        local replace = incomingRevision > currentRevision or
+            (incomingRevision == currentRevision and
+             incomingCompletedAt > currentCompletedAt) or
+            (incomingRevision == currentRevision and
+             incomingCompletedAt == currentCompletedAt and
+             incomingObservedAt > currentObservedAt)
+        if not replace then
+            return 0
+        end
+
+        redis.call('SET', KEYS[1], incomingJson, 'PX', ARGV[2])
+        return 1
+        """;
     private readonly IDatabase database = redis.GetDatabase();
     public string BackendName => "redis";
 
-    public async Task Set(WorldZoneRuntimeSnapshot snapshot, CancellationToken cancellationToken)
+    public async Task<bool> TryPublish(
+        WorldZoneRuntimeSnapshot snapshot,
+        CancellationToken cancellationToken)
     {
-        await database.StringSetAsync(
-            Key(snapshot.WorldId, snapshot.ZoneKey),
-            JsonSerializer.Serialize(snapshot),
-            RuntimeTtl);
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = await database.ScriptEvaluateAsync(
+            PublishScript,
+            new RedisKey[] { Key(snapshot.WorldId, snapshot.ZoneKey) },
+            new RedisValue[]
+            {
+                JsonSerializer.Serialize(snapshot),
+                (long)RuntimeTtl.TotalMilliseconds
+            });
+        return (int)result == 1;
     }
 
     public async Task<WorldZoneRuntimeSnapshot?> Get(Guid worldId, string zoneKey, CancellationToken cancellationToken)
@@ -6952,10 +9551,25 @@ internal sealed class InMemoryWorldZoneRuntimeRegistry : IWorldZoneRuntimeRegist
     private readonly ConcurrentDictionary<string, WorldZoneRuntimeSnapshot> snapshots = new();
     public string BackendName => "in_memory_development";
 
-    public Task Set(WorldZoneRuntimeSnapshot snapshot, CancellationToken cancellationToken)
+    public Task<bool> TryPublish(
+        WorldZoneRuntimeSnapshot snapshot,
+        CancellationToken cancellationToken)
     {
-        snapshots[Key(snapshot.WorldId, snapshot.ZoneKey)] = snapshot;
-        return Task.CompletedTask;
+        cancellationToken.ThrowIfCancellationRequested();
+        var key = Key(snapshot.WorldId, snapshot.ZoneKey);
+        while (true)
+        {
+            if (!snapshots.TryGetValue(key, out var current))
+            {
+                if (snapshots.TryAdd(key, snapshot)) return Task.FromResult(true);
+                continue;
+            }
+
+            if (!WorldZoneRuntimePublicationPolicy.CanReplace(current, snapshot))
+                return Task.FromResult(false);
+            if (snapshots.TryUpdate(key, snapshot, current))
+                return Task.FromResult(true);
+        }
     }
 
     public Task<WorldZoneRuntimeSnapshot?> Get(Guid worldId, string zoneKey, CancellationToken cancellationToken)
@@ -7022,6 +9636,152 @@ internal sealed class InMemoryWorldZoneExecutionLeaseRegistry : IWorldZoneExecut
 /// ontology core: it never executes Unity adapters and never writes inferred
 /// results back into authored world facts.
 /// </summary>
+internal static class WorldZoneSimulationSchedulePolicy
+{
+    internal static readonly TimeSpan ActiveInterval = TimeSpan.FromSeconds(1);
+    internal static readonly TimeSpan ReducedInterval = TimeSpan.FromSeconds(5);
+    internal static readonly TimeSpan MinimumExecutionLeaseDuration =
+        TimeSpan.FromSeconds(10);
+    internal static readonly TimeSpan ExecutionLeaseSafetyMargin =
+        TimeSpan.FromSeconds(2);
+
+    public static TimeSpan? ResolveInterval(string runState) => runState switch
+    {
+        "active" => ActiveInterval,
+        "reduced" => ReducedInterval,
+        _ => null
+    };
+
+    public static bool IsDue(
+        string runState,
+        DateTimeOffset now,
+        DateTimeOffset? lastCompletedAt)
+    {
+        var interval = ResolveInterval(runState);
+        return interval.HasValue &&
+               (!lastCompletedAt.HasValue ||
+                now - lastCompletedAt.Value >= interval.Value);
+    }
+
+    public static TimeSpan ResolveExecutionLeaseDuration(
+        TimeSpan? interval,
+        double previousEvaluationDurationMilliseconds)
+    {
+        var observedDuration =
+            double.IsFinite(previousEvaluationDurationMilliseconds) &&
+            previousEvaluationDurationMilliseconds > 0d
+                ? TimeSpan.FromMilliseconds(previousEvaluationDurationMilliseconds)
+                : TimeSpan.Zero;
+        var workloadWindow = interval.GetValueOrDefault() > observedDuration
+            ? interval.GetValueOrDefault()
+            : observedDuration;
+        var candidate = workloadWindow + ExecutionLeaseSafetyMargin;
+        return candidate > MinimumExecutionLeaseDuration
+            ? candidate
+            : MinimumExecutionLeaseDuration;
+    }
+}
+
+/// <summary>
+/// Orders cross-replica publications by their durable input revision. For the
+/// same revision, a later completed evaluation wins; a deferred observation may
+/// update only the exact completed evaluation lineage and must move observation
+/// time forward. This prevents an older scheduler read from replacing a newer
+/// runtime result while still allowing schedule metadata to advance.
+/// </summary>
+internal static class WorldZoneRuntimePublicationPolicy
+{
+    public static bool CanReplace(
+        WorldZoneRuntimeSnapshot current,
+        WorldZoneRuntimeSnapshot incoming)
+    {
+        if (current.WorldId != incoming.WorldId ||
+            !string.Equals(current.ZoneKey, incoming.ZoneKey, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (incoming.EvaluatedWorldRevision != current.EvaluatedWorldRevision)
+            return incoming.EvaluatedWorldRevision > current.EvaluatedWorldRevision;
+        if (incoming.EvaluationCompletedAtUnixMilliseconds !=
+            current.EvaluationCompletedAtUnixMilliseconds)
+        {
+            return incoming.EvaluationCompletedAtUnixMilliseconds >
+                   current.EvaluationCompletedAtUnixMilliseconds;
+        }
+
+        return incoming.ObservedAtUnixMilliseconds >
+               current.ObservedAtUnixMilliseconds;
+    }
+}
+
+internal static class WorldZoneRuntimeSnapshotPolicy
+{
+    public static WorldZoneRuntimeSnapshot CreateDeferredSnapshot(
+        WorldZoneRuntimeSnapshot? previous,
+        WorldZoneScheduleDefinition zone,
+        string runState,
+        ZoneSessionCounts session,
+        TimeSpan? interval,
+        TimeSpan executionLeaseDuration,
+        string scheduleStatus,
+        long observedAtUnixMilliseconds)
+    {
+        var baseline = previous ?? new WorldZoneRuntimeSnapshot(
+            zone.WorldId,
+            zone.ZoneKey,
+            zone.SimulationMode,
+            runState,
+            session.ConnectionCount,
+            session.UserCount,
+            false,
+            null,
+            0,
+            "not_evaluated",
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0d,
+            0d,
+            0d,
+            0d,
+            0d,
+            0d,
+            0d,
+            0,
+            scheduleStatus,
+            0,
+            Array.Empty<HeadlessInferredFact>(),
+            0,
+            observedAtUnixMilliseconds);
+
+        return baseline with
+        {
+            ConfiguredSimulationMode = zone.SimulationMode,
+            RunState = runState,
+            ConnectionCount = session.ConnectionCount,
+            UserCount = session.UserCount,
+            ExecutionLeaseHeld = false,
+            SchedulerOwner = null,
+            PlannedTickIntervalMilliseconds = interval.HasValue
+                ? (int)interval.Value.TotalMilliseconds
+                : 0,
+            ExecutionLeaseDurationMilliseconds =
+                (int)executionLeaseDuration.TotalMilliseconds,
+            ScheduleStatus = scheduleStatus,
+            ObservedAtUnixMilliseconds = observedAtUnixMilliseconds
+        };
+    }
+}
+
 internal sealed class WorldZoneSimulationScheduler(
     WorldAuthorityRepository repository,
     IWorldZoneSessionRegistry sessions,
@@ -7031,8 +9791,9 @@ internal sealed class WorldZoneSimulationScheduler(
     ILogger<WorldZoneSimulationScheduler> logger) : BackgroundService
 {
     private static readonly TimeSpan LoopInterval = TimeSpan.FromSeconds(1);
-    private static readonly TimeSpan ExecutionLeaseDuration = TimeSpan.FromSeconds(4);
     private readonly string ownerId = Environment.MachineName + ":" + Guid.NewGuid().ToString("N");
+    private readonly ConcurrentDictionary<string, DateTimeOffset>
+        lastEvaluationCompletedAt = new();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -7046,22 +9807,110 @@ internal sealed class WorldZoneSimulationScheduler(
                     var session = await sessions.GetSummary(zone.WorldId, zone.ZoneKey, stoppingToken);
                     var state = WorldZoneRuntimePolicy.ResolveRunState(
                         zone.SimulationMode, session.ConnectionCount);
-                    var interval = state switch
+                    var interval =
+                        WorldZoneSimulationSchedulePolicy.ResolveInterval(state);
+                    var scheduleKey =
+                        zone.WorldId.ToString("N") + ":" + zone.ZoneKey;
+                    var previousSnapshot = await runtime.Get(
+                        zone.WorldId,
+                        zone.ZoneKey,
+                        stoppingToken);
+                    lastEvaluationCompletedAt.TryGetValue(
+                        scheduleKey,
+                        out var lastCompletedAt);
+                    DateTimeOffset? effectiveLastCompletedAt =
+                        lastCompletedAt == default
+                            ? null
+                            : lastCompletedAt;
+                    if (!effectiveLastCompletedAt.HasValue &&
+                        previousSnapshot?.EvaluationCompletedAtUnixMilliseconds > 0)
                     {
-                        "active" => 1000,
-                        "reduced" => 5000,
-                        _ => 0
-                    };
-                    var leaseHeld = interval > 0 && await executionLeases.TryAcquire(
-                        zone.WorldId, zone.ZoneKey, "inference", ownerId, ExecutionLeaseDuration, stoppingToken);
-                    var evaluation = leaseHeld
-                        ? await evaluator.Evaluate(zone.WorldId, zone.ZoneKey, stoppingToken)
-                        : new HeadlessZoneEvaluationResult(
-                            0,
-                            0,
-                            0,
-                            Array.Empty<HeadlessInferredFact>(),
-                            "not_scheduled");
+                        effectiveLastCompletedAt =
+                            DateTimeOffset.FromUnixTimeMilliseconds(
+                                previousSnapshot.EvaluationCompletedAtUnixMilliseconds);
+                    }
+                    var observedAt = DateTimeOffset.UtcNow;
+                    var due = WorldZoneSimulationSchedulePolicy.IsDue(
+                        state,
+                        observedAt,
+                        effectiveLastCompletedAt);
+                    var executionLeaseDuration =
+                        WorldZoneSimulationSchedulePolicy.ResolveExecutionLeaseDuration(
+                            interval,
+                            previousSnapshot?.EvaluationDurationMilliseconds ?? 0d);
+                    var leaseHeld = due && await executionLeases.TryAcquire(
+                        zone.WorldId,
+                        zone.ZoneKey,
+                        "inference",
+                        ownerId,
+                        executionLeaseDuration,
+                        stoppingToken);
+                    if (!leaseHeld)
+                    {
+                        var deferredSnapshot =
+                            WorldZoneRuntimeSnapshotPolicy.CreateDeferredSnapshot(
+                                previousSnapshot,
+                                zone,
+                                state,
+                                session,
+                                interval,
+                                executionLeaseDuration,
+                                due ? "execution_lease_not_acquired" : "not_due",
+                                observedAt.ToUnixTimeMilliseconds());
+                        await runtime.TryPublish(deferredSnapshot, stoppingToken);
+                        continue;
+                    }
+
+                    var evaluation = await evaluator.Evaluate(
+                            zone.WorldId,
+                            zone.ZoneKey,
+                            stoppingToken);
+                    if (!evaluation.IsPublishable)
+                    {
+                        var staleSnapshot =
+                            WorldZoneRuntimeSnapshotPolicy.CreateDeferredSnapshot(
+                                previousSnapshot,
+                                zone,
+                                state,
+                                session,
+                                interval,
+                                executionLeaseDuration,
+                                evaluation.EngineStatus,
+                                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                        await runtime.TryPublish(staleSnapshot, stoppingToken);
+                        continue;
+                    }
+
+                    // The evaluator checks the revision after materializing its
+                    // result. Check PostgreSQL once more at the publication
+                    // boundary, then rely on the registry CAS to stop another
+                    // replica's newer snapshot from being overwritten between
+                    // our earlier runtime read and this publication attempt.
+                    var publicationWorldRevision =
+                        await repository.GetCurrentRevision(
+                            zone.WorldId,
+                            stoppingToken);
+                    if (!HeadlessZoneRevisionPolicy.IsPublishable(
+                            evaluation.InputWorldRevision,
+                            publicationWorldRevision))
+                    {
+                        var staleSnapshot =
+                            WorldZoneRuntimeSnapshotPolicy.CreateDeferredSnapshot(
+                                previousSnapshot,
+                                zone,
+                                state,
+                                session,
+                                interval,
+                                executionLeaseDuration,
+                                publicationWorldRevision.HasValue
+                                    ? "stale_world_revision"
+                                    : "world_revision_unavailable",
+                                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                        await runtime.TryPublish(staleSnapshot, stoppingToken);
+                        continue;
+                    }
+
+                    var completedAt = DateTimeOffset.UtcNow;
                     var snapshot = new WorldZoneRuntimeSnapshot(
                         zone.WorldId,
                         zone.ZoneKey,
@@ -7071,14 +9920,38 @@ internal sealed class WorldZoneSimulationScheduler(
                         session.UserCount,
                         leaseHeld,
                         leaseHeld ? ownerId : null,
-                        interval,
+                        interval.HasValue
+                            ? (int)interval.Value.TotalMilliseconds
+                            : 0,
                         evaluation.EngineStatus,
                         evaluation.EvaluatedRuleBindingCount,
                         evaluation.SkippedRuleBindingCount,
                         evaluation.MissingRuleDefinitionCount,
+                        evaluation.InputEntityCount,
+                        evaluation.InputFactCount,
+                        evaluation.InputRuleBindingCount,
+                        evaluation.RuleCompilationAttemptCount,
+                        evaluation.CompiledRuleCount,
+                        evaluation.SimulationIterationCount,
+                        evaluation.CoreEvaluatedRuleCount,
+                        evaluation.CoreSkippedRuleCount,
+                        evaluation.CoreRuleEvaluationDurationMilliseconds,
+                        evaluation.DatabaseLoadDurationMilliseconds,
+                        evaluation.WorldBuildDurationMilliseconds,
+                        evaluation.RulePreparationDurationMilliseconds,
+                        evaluation.SimulationDurationMilliseconds,
+                        evaluation.ResultMaterializationDurationMilliseconds,
+                        evaluation.EvaluationDurationMilliseconds,
+                        (int)executionLeaseDuration.TotalMilliseconds,
+                        "evaluated",
+                        evaluation.InputWorldRevision,
                         evaluation.InferredFacts,
-                        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-                    await runtime.Set(snapshot, stoppingToken);
+                        completedAt.ToUnixTimeMilliseconds(),
+                        completedAt.ToUnixTimeMilliseconds());
+                    if (await runtime.TryPublish(snapshot, stoppingToken))
+                    {
+                        lastEvaluationCompletedAt[scheduleKey] = completedAt;
+                    }
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

@@ -1,4 +1,5 @@
 # Large third-party and project assets migrated to Git LFS from this revision forward.
+*.sh text eol=lf
 "Assets/maanetorn/Farm Game UI - Simple 2D UI/Font/LilitaOne-(for 'greater than' symbol).asset" filter=lfs diff=lfs merge=lfs -text
 "Assets/maanetorn/Farm Game UI - Simple 2D UI/Font/LilitaOne-with outline.asset" filter=lfs diff=lfs merge=lfs -text
 "Assets/maanetorn/Farm Game UI - Simple 2D UI/Font/LilitaOne-RegularSDF.asset" filter=lfs diff=lfs merge=lfs -text

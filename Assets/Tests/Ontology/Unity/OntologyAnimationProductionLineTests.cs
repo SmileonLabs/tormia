@@ -31,6 +31,31 @@ namespace Tormia.Ontology.Core.Tests
         }
 
         [Test]
+        public void ResolverSkipsLandingWhenManifestHasNoLandingPresentation()
+        {
+            var resolver = new OntologyAnimationStateResolver(-2f);
+            resolver.Resolve(Snapshot(false, false, true, -1f));
+            resolver.Resolve(Snapshot(false, false, false, -3f));
+
+            var grounded = resolver.Resolve(
+                new OntologyAnimationStateSnapshot(
+                    false,
+                    false,
+                    true,
+                    -1f,
+                    string.Empty,
+                    string.Empty,
+                    hasLandingPresentation: false));
+
+            Assert.That(
+                grounded.Intent,
+                Is.EqualTo(OntologyAnimationIntentIds.Idle));
+            Assert.That(
+                grounded.Kind,
+                Is.EqualTo(OntologyAnimationStateKind.Idle));
+        }
+
+        [Test]
         public void EquipmentIntentsOverrideBaseIdleAndLocomotion()
         {
             var resolver = new OntologyAnimationStateResolver();
@@ -216,7 +241,7 @@ namespace Tormia.Ontology.Core.Tests
         }
 
         [Test]
-        public void PlayerManifestSeparatesApexFallAndLandingPresentation()
+        public void PlayerManifestUsesDedicatedFallWithoutLandingPresentation()
         {
             var manifest =
                 AssetDatabase.LoadAssetAtPath<
@@ -235,12 +260,6 @@ namespace Tormia.Ontology.Core.Tests
                 value.intents != null &&
                 value.intents.Contains(
                     OntologyAnimationIntentIds.Fall));
-            var landing = manifest.Entries.Single(value =>
-                value != null &&
-                value.intents != null &&
-                value.intents.Contains(
-                    OntologyAnimationIntentIds.Landing));
-
             Assert.That(
                 fall.animationId,
                 Is.Not.EqualTo(airborne.animationId),
@@ -249,10 +268,21 @@ namespace Tormia.Ontology.Core.Tests
             Assert.That(airborne.loop, Is.True);
             Assert.That(fall.loop, Is.True);
             Assert.That(
-                airborne.playbackEndNormalized,
-                Is.LessThanOrEqualTo(
-                    fall.playbackStartNormalized));
-            Assert.That(landing.canBlend, Is.True);
+                AssetDatabase.GetAssetPath(fall.clip),
+                Is.Not.EqualTo(AssetDatabase.GetAssetPath(airborne.clip)),
+                "Fall must use independently authored content instead of " +
+                "splitting the apex clip at runtime.");
+            Assert.That(fall.playbackStartNormalized, Is.EqualTo(0f));
+            Assert.That(fall.playbackEndNormalized, Is.EqualTo(1f));
+            Assert.That(
+                manifest.Entries.Any(value =>
+                    value != null &&
+                    value.intents != null &&
+                    value.intents.Contains(
+                        OntologyAnimationIntentIds.Landing)),
+                Is.False,
+                "Removing landing presentation must leave no hidden " +
+                "manifest playback path.");
             Assert.That(
                 airborne.presentationOwner,
                 Is.EqualTo(
@@ -260,11 +290,6 @@ namespace Tormia.Ontology.Core.Tests
                         .MotionStateResolver));
             Assert.That(
                 fall.presentationOwner,
-                Is.EqualTo(
-                    OntologyAnimationPresentationOwner
-                        .MotionStateResolver));
-            Assert.That(
-                landing.presentationOwner,
                 Is.EqualTo(
                     OntologyAnimationPresentationOwner
                         .MotionStateResolver));
@@ -396,7 +421,7 @@ namespace Tormia.Ontology.Core.Tests
         }
 
         [Test]
-        public void PlayerJumpLifecycleUsesInPlaceSegmentsWithoutLandingRise()
+        public void PlayerJumpLifecycleUsesInPlaceTakeoffAndDedicatedFall()
         {
             var manifest =
                 AssetDatabase.LoadAssetAtPath<
@@ -414,11 +439,6 @@ namespace Tormia.Ontology.Core.Tests
                     value != null &&
                     value.intents.Contains(
                         OntologyAnimationIntentIds.Airborne));
-            var landing = manifest.Entries.Single(
-                value =>
-                    value != null &&
-                    value.intents.Contains(
-                        OntologyAnimationIntentIds.Landing));
             var fall = manifest.Entries.Single(
                 value =>
                     value != null &&
@@ -438,20 +458,13 @@ namespace Tormia.Ontology.Core.Tests
                 Is.EqualTo(
                     OntologyAnimationRootMotionMode.Disabled));
             Assert.That(
-                landing.rootMotionMode,
-                Is.EqualTo(
-                    OntologyAnimationRootMotionMode.Disabled));
-            Assert.That(
                 jumpStart.playbackEndNormalized,
                 Is.LessThan(0.5f));
             Assert.That(
-                landing.playbackStartNormalized,
-                Is.GreaterThan(0.5f));
-            Assert.That(
                 fall.clip,
-                Is.SameAs(airborne.clip),
-                "Descending direct motion must continue the authored airborne " +
-                "pose instead of selecting a ground-collapse animation by name.");
+                Is.Not.SameAs(airborne.clip),
+                "Descending direct motion uses independently authored Fall " +
+                "content instead of a named collapse fallback.");
             Assert.That(
                 fall.intents,
                 Does.Not.Contain("CollapseReaction"));
@@ -466,7 +479,7 @@ namespace Tormia.Ontology.Core.Tests
                 "Existing durable animation ids remain readable during the " +
                 "canonical collapse-reaction migration.");
             Assert.That(
-                new[] { jumpStart, airborne, landing, fall }.All(
+                new[] { jumpStart, airborne, fall }.All(
                     value =>
                         value.presentationOwner ==
                         OntologyAnimationPresentationOwner
@@ -475,35 +488,6 @@ namespace Tormia.Ontology.Core.Tests
                 "Manifest metadata, not a hardcoded intent list, must select " +
                 "the collision-observed presentation lifecycle owner.");
 
-            var rootYBinding = AnimationUtility
-                .GetCurveBindings(landing.clip)
-                .Single(
-                    value =>
-                        value.path.Length == 0 &&
-                        value.propertyName == "RootT.y");
-            var rootY = AnimationUtility.GetEditorCurve(
-                landing.clip,
-                rootYBinding);
-            Assert.That(rootY, Is.Not.Null);
-
-            var previous = rootY.Evaluate(
-                landing.clip.length *
-                landing.playbackStartNormalized);
-            for (var index = 1; index <= 20; index++)
-            {
-                var normalized = Mathf.Lerp(
-                    landing.playbackStartNormalized,
-                    landing.playbackEndNormalized,
-                    index / 20f);
-                var current = rootY.Evaluate(
-                    landing.clip.length * normalized);
-                Assert.That(
-                    current,
-                    Is.LessThanOrEqualTo(previous + 0.002f),
-                    "The authored landing segment must settle downward; " +
-                    "an upward root curve recreates a second visual jump.");
-                previous = current;
-            }
         }
 
         [Test]
@@ -759,6 +743,13 @@ namespace Tormia.Ontology.Core.Tests
                         .Within(0.0001f),
                     entry.animationId);
                 Assert.That(
+                    definition.playbackSpeed > 0f
+                        ? definition.playbackSpeed
+                        : 1f,
+                    Is.EqualTo(entry.playbackSpeed > 0f ? entry.playbackSpeed : 1f)
+                        .Within(0.0001f),
+                    entry.animationId);
+                Assert.That(
                     definition.rootMotionMode,
                     Is.EqualTo(entry.rootMotionMode),
                     entry.animationId);
@@ -804,6 +795,13 @@ namespace Tormia.Ontology.Core.Tests
                     animationId);
             }
 
+            var lightAttack = manifest.Entries.Single(value =>
+                value.animationId == "Anim_Sword_LightAttack");
+            Assert.That(lightAttack.playbackSpeed, Is.EqualTo(1f));
+            Assert.That(
+                database.FindById(lightAttack.animationId).playbackSpeed,
+                Is.EqualTo(1f));
+
             var settings =
                 AssetDatabase.LoadAssetAtPath<OntologyWorldAuthoritySettings>(
                     "Assets/Data/Ontology/Networking/WorldAuthoritySettings.asset");
@@ -818,6 +816,79 @@ namespace Tormia.Ontology.Core.Tests
                     out var error),
                 Is.True,
                 error);
+        }
+
+        [Test]
+        public void PlayerHitReactionUsesProjectOwnedAuthorityIntentContent()
+        {
+            var manifest = AssetDatabase.LoadAssetAtPath<
+                OntologyAnimationContentManifest>(
+                OntologyAnimationContentPipeline.ManifestPath);
+            var player = AssetDatabase.LoadAssetAtPath<OntologyActorProfile>(
+                OntologyAnimationContentPipeline.PlayerProfilePath);
+            var entry = manifest.Entries.Single(value =>
+                value.animationId == "Anim_Player_HitReaction_Front");
+
+            Assert.That(
+                entry.sourceAssetPath,
+                Is.EqualTo(
+                    "Assets/Animations/Mixamo/Combat/Sword/Player/" +
+                    "Standing React Large From Front.fbx"));
+            Assert.That(entry.intents, Does.Contain(
+                OntologyAnimationIntentIds.HitReaction));
+            Assert.That(entry.actorTypes, Is.EqualTo(new[] { "Player" }));
+            Assert.That(entry.rigTypes, Is.EqualTo(new[] { "Humanoid" }));
+            Assert.That(entry.profiles, Does.Contain(player));
+            Assert.That(
+                entry.rootMotionMode,
+                Is.EqualTo(OntologyAnimationRootMotionMode.Disabled));
+            Assert.That(
+                entry.presentationOwner,
+                Is.EqualTo(
+                    OntologyAnimationPresentationOwner.AuthorityIntent));
+        }
+
+        [Test]
+        public void PlayerDeathUsesProjectOwnedAuthorityIntentContent()
+        {
+            var manifest = AssetDatabase.LoadAssetAtPath<
+                OntologyAnimationContentManifest>(
+                OntologyAnimationContentPipeline.ManifestPath);
+            var player = AssetDatabase.LoadAssetAtPath<OntologyActorProfile>(
+                OntologyAnimationContentPipeline.PlayerProfilePath);
+            var entry = manifest.Entries.Single(value =>
+                value.animationId == "Anim_Player_Death_Left");
+
+            Assert.That(
+                entry.sourceAssetPath,
+                Is.EqualTo(
+                    "Assets/Animations/Mixamo/Combat/Sword/Player/" +
+                    "Standing Death Left 01.fbx"));
+            Assert.That(entry.intents, Does.Contain(
+                OntologyAnimationIntentIds.Death));
+            Assert.That(entry.actorTypes, Is.EqualTo(new[] { "Player" }));
+            Assert.That(entry.rigTypes, Is.EqualTo(new[] { "Humanoid" }));
+            Assert.That(entry.profiles, Does.Contain(player));
+            Assert.That(entry.loop, Is.False);
+            Assert.That(entry.interruptible, Is.False);
+            Assert.That(
+                entry.rootMotionMode,
+                Is.EqualTo(OntologyAnimationRootMotionMode.Disabled));
+            Assert.That(
+                entry.presentationOwner,
+                Is.EqualTo(
+                    OntologyAnimationPresentationOwner.AuthorityIntent));
+            var importer = AssetImporter.GetAtPath(entry.sourceAssetPath) as
+                ModelImporter;
+            Assert.That(importer, Is.Not.Null);
+            var clipSettings = importer.clipAnimations.Single();
+            Assert.That(
+                clipSettings.lockRootHeightY,
+                Is.True,
+                "Death presentation must bake vertical root displacement into " +
+                "the pose so a CharacterController-owned actor cannot float.");
+            Assert.That(clipSettings.lockRootPositionXZ, Is.True);
+            Assert.That(clipSettings.heightFromFeet, Is.True);
         }
 
         [Test]

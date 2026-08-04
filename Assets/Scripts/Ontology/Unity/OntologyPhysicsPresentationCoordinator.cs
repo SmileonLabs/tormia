@@ -16,7 +16,28 @@ namespace Tormia.Ontology.Core
         private bool baselineBodyDetectCollisions;
         private bool hasBodyBaseline;
         private bool attachmentOverrideActive;
+        private bool attachmentDisablesPhysics;
+        private bool attachmentDisablesColliders;
         private bool worldEditOverrideActive;
+        private bool worldReleasePending;
+        public bool IsWorldReleasePending => worldReleasePending;
+
+        private void FixedUpdate()
+        {
+            if (!worldReleasePending || attachmentOverrideActive)
+            {
+                return;
+            }
+
+            // The previous rendered frame restored and synchronized the
+            // collider at its release pose. Dynamic physics can now resume
+            // from that pose without tunnelling through the support surface.
+            Physics.SyncTransforms();
+            worldReleasePending = false;
+            RestoreBaselineBody();
+            GetComponent<OntologyPhysicalBodyAdapter>()?
+                .RestoreProfileAfterTemporaryOverride();
+        }
 
         public void CaptureWorldBaseline()
         {
@@ -56,12 +77,15 @@ namespace Tormia.Ontology.Core
 
             if (active)
             {
+                CancelPendingWorldRelease(restorePhysicalProfile: true);
                 if (worldEditOverrideActive)
                 {
                     SetWorldEditOverride(false);
                 }
 
                 CaptureWorldBaseline();
+                attachmentDisablesPhysics = disablePhysics;
+                attachmentDisablesColliders = disableColliders;
                 if (targetBody != null && disablePhysics)
                 {
                     if (!targetBody.isKinematic)
@@ -88,7 +112,14 @@ namespace Tormia.Ontology.Core
                 return;
             }
 
-            if (targetBody != null && disablePhysics && hasBodyBaseline)
+            var deferDynamicBodyRestore =
+                worldReleasePending &&
+                targetBody != null &&
+                disablePhysics &&
+                hasBodyBaseline &&
+                !baselineBodyIsKinematic;
+            if (targetBody != null && disablePhysics && hasBodyBaseline &&
+                !deferDynamicBodyRestore)
             {
                 targetBody.isKinematic = baselineBodyIsKinematic;
                 targetBody.useGravity = baselineBodyUseGravity;
@@ -118,8 +149,68 @@ namespace Tormia.Ontology.Core
                 targetBody.angularVelocity = Vector3.zero;
             }
 
-            Physics.SyncTransforms();
             attachmentOverrideActive = false;
+            attachmentDisablesPhysics = false;
+            attachmentDisablesColliders = false;
+            if (deferDynamicBodyRestore)
+            {
+                worldReleasePending = true;
+            }
+            else
+            {
+                worldReleasePending = false;
+                GetComponent<OntologyPhysicalBodyAdapter>()?
+                    .RestoreProfileAfterTemporaryOverride();
+            }
+            Physics.SyncTransforms();
+        }
+
+        /// <summary>
+        /// Integrates Rigidbody or Collider presentation created after an
+        /// attachment override began. Semantic adapter synchronization order
+        /// must not leave newly generated colliders disabled after release.
+        /// </summary>
+        public void RefreshActiveAttachmentOverride()
+        {
+            if (!attachmentOverrideActive)
+            {
+                return;
+            }
+
+            var currentBody = GetComponent<Rigidbody>();
+            if (currentBody != null && currentBody != targetBody)
+            {
+                targetBody = currentBody;
+                hasBodyBaseline = true;
+                baselineBodyIsKinematic = currentBody.isKinematic;
+                baselineBodyUseGravity = currentBody.useGravity;
+                baselineBodyDetectCollisions = currentBody.detectCollisions;
+            }
+
+            foreach (var collider in GetComponentsInChildren<Collider>(true))
+            {
+                if (collider == null || colliderStates.ContainsKey(collider))
+                {
+                    continue;
+                }
+
+                colliderStates[collider] = collider.enabled;
+                if (attachmentDisablesColliders)
+                {
+                    collider.enabled = false;
+                }
+            }
+
+            if (targetBody != null && attachmentDisablesPhysics)
+            {
+                if (!targetBody.isKinematic)
+                {
+                    targetBody.linearVelocity = Vector3.zero;
+                    targetBody.angularVelocity = Vector3.zero;
+                }
+                targetBody.useGravity = false;
+                targetBody.isKinematic = true;
+            }
         }
 
         /// <summary>
@@ -139,7 +230,37 @@ namespace Tormia.Ontology.Core
                 targetBody.linearVelocity = Vector3.zero;
                 targetBody.angularVelocity = Vector3.zero;
             }
+            worldReleasePending = attachmentOverrideActive;
             Physics.SyncTransforms();
+        }
+
+        private void CancelPendingWorldRelease(bool restorePhysicalProfile)
+        {
+            var wasPending = worldReleasePending;
+            worldReleasePending = false;
+            if (wasPending && restorePhysicalProfile)
+            {
+                RestoreBaselineBody();
+                GetComponent<OntologyPhysicalBodyAdapter>()?
+                    .RestoreProfileAfterTemporaryOverride();
+            }
+        }
+
+        private void RestoreBaselineBody()
+        {
+            if (targetBody == null || !hasBodyBaseline)
+            {
+                return;
+            }
+
+            targetBody.isKinematic = baselineBodyIsKinematic;
+            targetBody.useGravity = baselineBodyUseGravity;
+            targetBody.detectCollisions = baselineBodyDetectCollisions;
+            if (!targetBody.isKinematic)
+            {
+                targetBody.linearVelocity = Vector3.zero;
+                targetBody.angularVelocity = Vector3.zero;
+            }
         }
 
         /// <summary>
